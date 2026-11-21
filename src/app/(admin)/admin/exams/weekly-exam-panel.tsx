@@ -32,6 +32,11 @@ export function WeeklyExamPanel({ courses, today }: { courses: Course[]; today: 
   const [duration, setDuration] = React.useState(90);
   const [questionCount, setQuestionCount] = React.useState(100);
   const [resultDelay, setResultDelay] = React.useState(30);
+  // Spec §5: the 60/20/10/10 split is the default, not the law. An admin who
+  // needs a different paper can change it here and the builder honours it.
+  const [mix, setMix] = React.useState({ previous: 60, hard: 20, easy: 10, medium: 10 });
+
+  const mixTotal = mix.previous + mix.hard + mix.easy + mix.medium;
 
   const [preview, setPreview] = React.useState<{ topics: PreviewTopic[]; routineRows: number } | null>(null);
   const [busy, setBusy] = React.useState<"preview" | "create" | "publish" | null>(null);
@@ -80,6 +85,7 @@ export function WeeklyExamPanel({ courses, today }: { courses: Course[]; today: 
           totalMarks: 100,
           negativeMarks: 0.5,
           resultDelayMinutes: resultDelay,
+          mix,
           publish,
         }),
       });
@@ -167,14 +173,62 @@ export function WeeklyExamPanel({ courses, today }: { courses: Course[]; today: 
         </label>
       </div>
 
+      {/* Difficulty mix — spec §5. The default reproduces the required
+          60/20/10/10 paper; the numbers are editable because the spec also
+          requires the distribution to be admin-configurable. */}
+      <div className="mt-3 rounded-lg border border-[var(--border)] bg-[var(--surface-muted)] p-2.5">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="text-[0.6875rem] font-semibold text-[var(--text)]">প্রশ্নের ধরন অনুপাত (%)</p>
+          <button
+            type="button"
+            onClick={() => setMix({ previous: 60, hard: 20, easy: 10, medium: 10 })}
+            className="text-[0.625rem] font-semibold text-brand-700 hover:underline dark:text-brand-400"
+          >
+            ডিফল্ট ৬০/২০/১০/১০
+          </button>
+        </div>
+        <div className="mt-1.5 grid grid-cols-2 gap-1.5 sm:grid-cols-4">
+          {([
+            ["previous", "বিগত বছরের"],
+            ["hard", "কঠিন"],
+            ["easy", "সহজ"],
+            ["medium", "মধ্যম"],
+          ] as const).map(([key, label]) => (
+            <label key={key} className="block">
+              <span className="mb-0.5 block text-[0.5625rem] text-[var(--text-subtle)]">{label}</span>
+              <input
+                type="number"
+                min={0}
+                max={100}
+                value={mix[key]}
+                onChange={(e) =>
+                  setMix((current) => ({ ...current, [key]: Math.max(0, Math.min(100, Number(e.target.value) || 0)) }))
+                }
+                className="jh-input h-8 text-[0.75rem]"
+              />
+            </label>
+          ))}
+        </div>
+        <p
+          className={`mt-1.5 flex items-start gap-1 text-[0.5625rem] leading-relaxed ${
+            mixTotal === 100 ? "text-[var(--text-subtle)]" : "font-semibold text-amber-700 dark:text-amber-400"
+          }`}
+        >
+          <CircleAlert className="mt-0.5 size-2.5 shrink-0" aria-hidden />
+          {mixTotal === 100
+            ? "মোট ১০০%। প্রশ্নব্যাংকে পর্যাপ্ত প্রশ্ন না থাকলে বাকিটা যাচাইকৃত পুল থেকে যোগ হবে — মেশানো যাবে না।"
+            : `মোট ${mixTotal}% — ১০০% হতে হবে, নইলে পরীক্ষা তৈরি হবে না।`}
+        </p>
+      </div>
+
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <Button size="sm" variant="secondary" loading={busy === "preview"} onClick={loadPreview} disabled={!courseId}>
           রুটিন দেখুন
         </Button>
-        <Button size="sm" variant="secondary" loading={busy === "create"} onClick={() => create(false)} disabled={!courseId}>
+        <Button size="sm" variant="secondary" loading={busy === "create"} onClick={() => create(false)} disabled={!courseId || mixTotal !== 100}>
           ড্রাফট তৈরি
         </Button>
-        <Button size="sm" loading={busy === "publish"} onClick={() => create(true)} disabled={!courseId}>
+        <Button size="sm" loading={busy === "publish"} onClick={() => create(true)} disabled={!courseId || mixTotal !== 100}>
           <Radio className="size-3.5" aria-hidden />
           তৈরি ও প্রকাশ
         </Button>
