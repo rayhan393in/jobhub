@@ -113,3 +113,54 @@ export async function PATCH(request: Request) {
   if (error) return fromDbError(error);
   return NextResponse.json({ routine: data }, { headers: { "Cache-Control": "no-store" } });
 }
+
+/**
+ * DELETE — remove a routine row outright.
+ *
+ * Archiving is the safe default and stays on PATCH; this exists because the
+ * spec explicitly asks for delete, and a wrongly imported CSV row (a typo in
+ * the date, a topic from the wrong subject) should not linger as an archived
+ * ghost in every future export. A row that a *published* exam was built from is
+ * refused: the exam's provenance would silently lose its source.
+ */
+export async function DELETE(request: Request) {
+  const user = await getCurrentUser();
+  if (!user) return NextResponse.json({ error: "লগইন প্রয়োজন।" }, { status: 401 });
+  if (!can(user.role, "routine.manage")) {
+    return NextResponse.json({ error: "রুটিন ব্যবস্থাপনার অনুমতি নেই।" }, { status: 403 });
+  }
+  if (!sameOrigin(request)) return NextResponse.json({ error: "অবৈধ অনুরোধ।" }, { status: 403 });
+
+  const parsed = idSchema.safeParse(await request.json().catch(() => null));
+  if (!parsed.success) return NextResponse.json({ error: "অবৈধ আইডি।" }, { status: 422 });
+
+  const supabase = await getServerClient();
+  if (!supabase) return NextResponse.json({ error: "সার্ভার কনফিগারেশন নেই।" }, { status: 500 });
+
+  const { data: linked } = await supabase
+    .from("exam_schedules")
+    .select("id, status")
+    .contains("routine_ids", [parsed.data.id])
+    .in("status", ["published", "completed"])
+    .limit(1);
+
+  if (linked && linked.length > 0) {
+    return NextResponse.json(
+      { error: "এই রুটিন থেকে একটি প্রকাশিত পরীক্ষা তৈরি হয়েছে — মুছলে পরীক্ষার উৎস হারাবে। আর্কাইভ করুন।" },
+      { status: 409 },
+    );
+  }
+
+  const { error } = await supabase.from("routines").delete().eq("id", parsed.data.id);
+  if (error) return fromDbError(error);
+
+  await supabase.from("audit_logs").insert({
+    actor_id: user.id,
+    action: "routine.delete",
+    entity_type: "routines",
+    entity_id: parsed.data.id,
+    details: {},
+  });
+
+  return NextResponse.json({ ok: true }, { headers: { "Cache-Control": "no-store" } });
+}

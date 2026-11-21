@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { Archive, CalendarPlus, Check, Pencil, TriangleAlert, X } from "lucide-react";
+import { Archive, CalendarPlus, Check, Pencil, Printer, Trash2, TriangleAlert, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input, Textarea } from "@/components/ui/field";
@@ -150,6 +150,39 @@ export function RoutineManager({
     } finally {
       setBusy(false);
     }
+  }
+
+  async function remove(routine: AdminRoutine) {
+    const ok = window.confirm(
+      `"${routine.title_bn}" স্থায়ীভাবে মুছে ফেলা হবে।\n\nমুছে ফেললে ফেরানো যাবে না। আর্কাইভ করলে শিক্ষার্থীরা দেখতে পাবে না, কিন্তু রেকর্ড থেকে যায়।\n\nতবুও মুছবেন?`,
+    );
+    if (!ok) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const response = await fetch("/api/admin/routines", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: routine.id }),
+      });
+      const payload = await response.json();
+      if (!response.ok) {
+        setError(payload.error ?? "মুছে ফেলা যায়নি।");
+        return;
+      }
+      if (editing === routine.id) reset();
+      setNotice(`"${routine.title_bn}" মুছে ফেলা হয়েছে।`);
+      router.refresh();
+    } catch {
+      setError("নেটওয়ার্ক সমস্যা — আবার চেষ্টা করুন।");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  /** Print the current list — the browser's own "Save as PDF" is the PDF path. */
+  function printRoutine() {
+    window.print();
   }
 
   const availableTopics = topics.filter((topic) => !form.subjectId || topic.subject_id === form.subjectId);
@@ -313,6 +346,17 @@ export function RoutineManager({
           </div>
         )}
 
+        {routines.length > 0 ? (
+          <button
+            type="button"
+            onClick={printRoutine}
+            className="no-print flex items-center gap-1 text-[0.6875rem] font-medium text-[var(--brand)] hover:underline"
+          >
+            <Printer className="size-3" aria-hidden />
+            রুটিন প্রিন্ট / PDF
+          </button>
+        ) : null}
+
         {notice ? (
           <p role="status" className="rounded-lg bg-mint-50 px-2.5 py-2 text-[0.6875rem] font-medium text-mint-800 dark:bg-mint-600/10 dark:text-mint-300">
             {notice}
@@ -357,10 +401,21 @@ export function RoutineManager({
                     onClick={() => archive(routine.id)}
                     className="rounded p-1 text-[var(--text-subtle)] hover:text-[var(--danger)]"
                     aria-label="Archive routine"
+                    title="আর্কাইভ (রেকর্ড থাকে)"
                   >
                     <Archive className="size-3" />
                   </button>
                 ) : null}
+                <button
+                  type="button"
+                  onClick={() => remove(routine)}
+                  disabled={busy}
+                  className="no-print rounded p-1 text-[var(--text-subtle)] hover:text-[var(--danger)] disabled:opacity-40"
+                  aria-label="Delete routine"
+                  title="স্থায়ীভাবে মুছুন"
+                >
+                  <Trash2 className="size-3" />
+                </button>
               </div>
             ))}
           </div>

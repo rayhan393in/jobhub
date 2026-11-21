@@ -20,9 +20,19 @@ export type ParsedRow = {
   correctOption: number;
   explanation: string;
   difficulty: "easy" | "medium" | "hard";
-  sourceType: "manual" | "csv_import" | "json_import" | "ai_assisted";
+  sourceType: "manual" | "csv_import" | "json_import" | "ai_assisted" | "previous";
   sourceRef: string;
   year: number | null;
+  /** Provenance the Drive CSV already carries; empty when the file omits it. */
+  examName: string;
+  sourceTitle: string;
+  sourceLocator: string;
+  sourceUrl: string;
+  sourceFileId: string;
+  bookChapter: string;
+  bookPage: number | null;
+  author: string;
+  edition: string;
   subjectSlug: string;
   topicSlug: string;
   subtopicSlug: string;
@@ -39,7 +49,19 @@ export type ParseResult = {
 };
 
 const DIFFICULTIES = new Set(["easy", "medium", "hard"]);
-const SOURCE_TYPES = new Set(["manual", "csv_import", "json_import", "ai_assisted"]);
+const SOURCE_TYPES = new Set(["manual", "csv_import", "json_import", "ai_assisted", "previous"]);
+
+/**
+ * The Drive CSVs tag difficulty as free text ("standard", "কঠিন", "Moderate").
+ * Silently defaulting all of it to 'medium' would flatten a real 60/20/10/10
+ * split into one bucket, so the aliases are explicit and anything genuinely
+ * unknown is reported rather than guessed.
+ */
+const DIFFICULTY_ALIASES: Record<string, "easy" | "medium" | "hard"> = {
+  easy: "easy", সহজ: "easy", লঘু: "easy", low: "easy", basic: "easy",
+  medium: "medium", standard: "medium", moderate: "medium", মাঝারি: "medium", normal: "medium",
+  hard: "hard", কঠিন: "hard", tough: "hard", high: "hard", advanced: "hard", কঠিন_স্তর: "hard",
+};
 
 /** Minimal RFC-4180 CSV reader (handles quotes, escaped quotes, CRLF). */
 export function parseCsv(text: string): RawRow[] {
@@ -182,6 +204,11 @@ export function sha256Hex(input: string): string {
   return result;
 }
 
+/** Bengali digits to ASCII, so "১২৫" and "125" mean the same page. */
+export function toLatinDigits(value: string): string {
+  return value.replace(/[০-৯]/g, (digit) => String("০১২৩৪৫৬৭৮৯".indexOf(digit)));
+}
+
 const OPTION_ALIASES = [
   ["option_a", "optiona", "a", "op_a", "ক"],
   ["option_b", "optionb", "b", "op_b", "খ"],
@@ -237,13 +264,25 @@ export function validateRows(
     const correctOption = parseCorrect(correctRaw);
     if (correctOption === null) issues.push({ row: rowNumber, field: "correct_option", message: "সঠিক উত্তর a-d বা 0-3 হতে হবে।" });
 
-    const difficultyRaw = (pick(row, ["difficulty", "level", "কঠিনতা"]) || "medium").toLowerCase();
-    const difficulty = DIFFICULTIES.has(difficultyRaw) ? (difficultyRaw as ParsedRow["difficulty"]) : "medium";
+    const difficultyRaw = (pick(row, ["difficulty", "level", "কঠিনতা"]) || "medium").toLowerCase().trim();
+    const difficulty = DIFFICULTIES.has(difficultyRaw)
+      ? (difficultyRaw as ParsedRow["difficulty"])
+      : DIFFICULTY_ALIASES[difficultyRaw] ?? null;
+    if (difficulty === null) {
+      issues.push({
+        row: rowNumber,
+        field: "difficulty",
+        message: `কঠিনতা বুঝা যায়নি: "${difficultyRaw}" — easy/medium/hard দিন।`,
+      });
+    }
 
-    const sourceTypeRaw = (pick(row, ["source_type", "sourcetype"]) || options.sourceType).toLowerCase();
-    const sourceType = SOURCE_TYPES.has(sourceTypeRaw) ? (sourceTypeRaw as ParsedRow["sourceType"]) : options.sourceType;
+    const sourceTypeRaw = (pick(row, ["source_type", "sourcetype"]) || options.sourceType).toLowerCase().trim();
+    const sourceType = SOURCE_TYPES.has(sourceTypeRaw)
+      ? (sourceTypeRaw as ParsedRow["sourceType"])
+      : options.sourceType;
 
-    const yearRaw = pick(row, ["year", "সাল"]);
+    // The Drive CSV calls it `exam_year`; older templates used `year`.
+    const yearRaw = pick(row, ["year", "exam_year", "examyear", "সাল"]);
     let year: number | null = null;
     if (yearRaw) {
       const parsedYear = Number(yearRaw);
@@ -252,6 +291,42 @@ export function validateRows(
       } else {
         year = parsedYear;
       }
+    }
+
+    // Provenance. Absent is allowed (a manual question has none), but the
+    // values that *are* present are carried through untouched so the review
+    // screen can show where the question really came from.
+    const examName = pick(row, ["exam_name", "exam", "examination", "পরীক্ষা", "পরীক্ষার_নাম"]).trim();
+    const sourceTitle = pick(row, ["source_title", "sourcetitle", "বই", "book_name", "book"]).trim();
+    const sourceLocator = pick(row, ["source_locator", "sourcelocator", "locator"]).trim();
+    const sourceUrl = pick(row, ["source_url", "sourceurl", "url", "link"]).trim();
+    const sourceFileId = pick(row, ["source_file_id", "sourcefileid", "drive_file_id"]).trim();
+    const bookChapter = pick(row, ["book_chapter", "chapter", "অধ্যায়"]).trim();
+    const author = pick(row, ["author", "লেখক"]).trim();
+    const edition = pick(row, ["edition", "সংস্করণ"]).trim();
+
+    const pageRaw = pick(row, ["book_page", "page", "পৃষ্ঠা", "page_number"]).trim();
+    let bookPage: number | null = null;
+    if (pageRaw) {
+      // "১২৫", "p. 125" and "125-126" all mean the question starts on a page.
+      const digits = toLatinDigits(pageRaw).match(/\d+/);
+      const parsedPage = digits ? Number(digits[0]) : null;
+      if (!parsedPage || parsedPage < 1 || parsedPage > 20000) {
+        issues.push({ row: rowNumber, field: "book_page", message: "পৃষ্ঠা নম্বর সঠিক নয়।" });
+      } else {
+        bookPage = parsedPage;
+      }
+    }
+
+    // A 'previous' question with no exam name is not attributable. That is the
+    // exact failure mode the spec forbids, so it is rejected at the door rather
+    // than imported as an anonymous "past question".
+    if (sourceType === "previous" && !examName && !sourceTitle) {
+      issues.push({
+        row: rowNumber,
+        field: "exam_name",
+        message: "আগের বছরের প্রশ্ন হিসেবে চিহ্নিত কিন্তু পরীক্ষার নাম/উৎস বই নেই।",
+      });
     }
 
     if (issues.length > 0) {
@@ -279,6 +354,15 @@ export function validateRows(
       sourceType: normalisedSource,
       sourceRef: pick(row, ["source", "source_ref", "উৎস", "reference"]).trim(),
       year,
+      examName,
+      sourceTitle,
+      sourceLocator,
+      sourceUrl,
+      sourceFileId,
+      bookChapter,
+      bookPage,
+      author,
+      edition,
       subjectSlug: pick(row, ["subject_slug", "subject", "বিষয়"]).trim(),
       topicSlug: pick(row, ["topic_slug", "topic", "টপিক"]).trim(),
       subtopicSlug: pick(row, ["subtopic_slug", "subtopic"]).trim(),

@@ -99,6 +99,9 @@ export async function POST(request: Request) {
           correctOption: row.correctOption,
           difficulty: row.difficulty,
           sourceType: row.sourceType,
+          examName: row.examName || null,
+          sourceTitle: row.sourceTitle || null,
+          bookPage: row.bookPage,
         })),
         errors: result.invalid.slice(0, 25).map((row) => ({ row: row.row, issues: row.issues })),
       },
@@ -148,8 +151,23 @@ export async function POST(request: Request) {
     difficulty: row.difficulty,
     // AI rows stay unverified; imports never arrive pre-approved.
     source: row.sourceRef || `${filename} (${format === "csv" ? "CSV" : "JSON"} import)`,
-    source_type: row.sourceType === "ai_assisted" ? "ai_assisted" : format === "csv" ? "csv_import" : "json_import",
+    // 'previous' is a real source type now, so a past-exam question keeps its
+    // provenance instead of being flattened into a generic CSV import.
+    source_type:
+      row.sourceType === "previous" || row.sourceType === "ai_assisted"
+        ? row.sourceType
+        : format === "csv" ? "csv_import" : "json_import",
     year: row.year,
+    // Spec §6 — every question carries where it came from.
+    exam_name: row.examName || null,
+    source_title: row.sourceTitle || null,
+    source_locator: row.sourceLocator || null,
+    source_url: row.sourceUrl || null,
+    source_file_id: row.sourceFileId || null,
+    book_chapter: row.bookChapter || null,
+    book_page: row.bookPage,
+    author: row.author || null,
+    edition: row.edition || null,
     status: "pending_review" as const,
     is_verified: false,
     fingerprint: row.fingerprint,

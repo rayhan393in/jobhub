@@ -327,3 +327,56 @@ input[type="number"] {
   -moz-appearance: textfield;
   appearance: textfield;
 }
+
+/* ---------------------------------------------------------------------------
+   Printing a routine / result sheet
+   ---------------------------------------------------------------------------
+   The routine page is also the browser's PDF path, so small things matter:
+   chrome (nav, forms, buttons) disappears, the surface goes white so a dark
+   theme does not print a black page, and rows avoid being split across pages.
+   --------------------------------------------------------------------------- */
+@media print {
+  .no-print,
+  nav,
+  aside,
+  header nav,
+  footer {
+    display: none !important;
+  }
+
+  :root {
+    --surface: #ffffff;
+    --surface-muted: #ffffff;
+    --text: #000000;
+    --text-muted: #333333;
+    --text-subtle: #555555;
+    --border: #cccccc;
+    --border-strong: #999999;
+    color-scheme: light;
+  }
+
+  html,
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+
+  .jh-card {
+    box-shadow: none !important;
+    border: 1px solid #dddddd !important;
+    break-inside: avoid;
+  }
+
+  tr,
+  li {
+    break-inside: avoid;
+  }
+
+  a[href]::after {
+    content: "";
+  }
+
+  @page {
+    margin: 12mm;
+  }
+}

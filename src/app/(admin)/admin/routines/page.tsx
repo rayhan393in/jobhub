@@ -7,6 +7,7 @@ import { requirePermission } from "@/lib/permissions";
 import { dhakaDateKey, formatDate, formatNumber } from "@/lib/format";
 import { AdminNote, AdminPageHeader } from "@/components/admin/admin-ui";
 import { RoutineManager } from "./routine-manager";
+import { RoutineCsvImport } from "@/components/admin/routine-csv-import";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "রুটিন ম্যানেজার" };
@@ -68,6 +69,13 @@ export default async function RoutinesAdminPage() {
         <strong>রুটিন সংরক্ষণ ≠ পরীক্ষা প্রকাশ।</strong> রুটিন ড্রাফট হিসেবে থাকলে শিক্ষার্থীরা দেখতে পায় না;
         প্রকাশ করলে শুধু পড়ার পরিকল্পনা দেখা যায়। লাইভ পরীক্ষা শুধু “পরীক্ষা প্রকাশ” মডিউল থেকে যায়।
       </AdminNote>
+
+      <div className="mt-4">
+        <RoutineCsvImport
+          courses={courses.map((c) => ({ id: c.id, title_bn: c.title_bn }))}
+          today={today}
+        />
+      </div>
 
       <div className="mt-4">
         <RoutineManager
