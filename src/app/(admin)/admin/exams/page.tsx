@@ -6,6 +6,7 @@ import { requirePermission } from "@/lib/permissions";
 import { getSystemSettings } from "@/lib/admin-queries";
 import { AdminNote, AdminPageHeader } from "@/components/admin/admin-ui";
 import { ExamPublisher } from "./exam-publisher";
+import { WeeklyExamPanel } from "./weekly-exam-panel";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "পরীক্ষা প্রকাশ" };
@@ -61,6 +62,13 @@ export default async function ExamsAdminPage() {
         পরীক্ষাই শিক্ষার্থীদের এন্ট্রি উইন্ডোতে দেখা যায়। ডিফল্ট নম্বরকরণ: +{marking.positive_marks ?? 1} / −
         {marking.negative_marks ?? 0.5} / ০ (প্রতি পরীক্ষায় পরিবর্তনযোগ্য)।
       </AdminNote>
+
+      <div className="mt-4">
+        <WeeklyExamPanel
+          courses={courses.map((course) => ({ id: course.id, title_bn: course.title_bn }))}
+          today={new Date(Date.now() + 6 * 3600_000).toISOString().slice(0, 10)}
+        />
+      </div>
 
       <div className="mt-4">
         <ExamPublisher
