@@ -308,8 +308,12 @@ export type Routine = {
   minutes: number;
   focus_note_bn: string | null;
   status: "draft" | "published" | "archived" | "cancelled";
+  slot_label?: string | null;
+  target_bn?: string | null;
+  task_kind?: "study" | "practice" | "revision" | "exam" | "rest" | null;
   subject_title_bn?: string | null;
   topic_title_bn?: string | null;
+  subtopic_title_bn?: string | null;
 };
 
 export type AuditLog = {
