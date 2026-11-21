@@ -27,6 +27,52 @@ const checkOnly = process.argv.includes("--check");
 const skip = process.argv.includes("--skip");
 const verbose = process.argv.includes("--verbose");
 
+
+/**
+ * Supabase's pooler hostname shards by project age (`aws-0-<region>`,
+ * `aws-1-<region>`, ...). Rather than making every operator hunt for the right
+ * one, try each shard that resolves until the tenant is recognised.
+ */
+async function resolvePooler(raw) {
+  let parsed;
+  try {
+    parsed = new URL(raw);
+  } catch {
+    return raw; // not a URL we understand — let pg report it
+  }
+  if (!parsed.hostname.includes(".pooler.supabase.com")) return raw;
+
+  const match = /^(aws-\d+)-(.*)\.pooler\.supabase\.com$/.exec(parsed.hostname);
+  if (!match) return raw;
+  const [, , region] = match;
+
+  for (let shard = 0; shard <= 3; shard += 1) {
+    const hostname = `aws-${shard}-${region}.pooler.supabase.com`;
+    const candidate = new URL(raw);
+    candidate.hostname = hostname;
+    const client = new (await import("pg")).default.Client({
+      connectionString: candidate.toString(),
+      ssl: { rejectUnauthorized: false },
+      connectionTimeoutMillis: 8_000,
+    });
+    try {
+      await client.connect();
+      await client.end();
+      if (hostname !== parsed.hostname) log(`using pooler shard ${hostname}`);
+      return candidate.toString();
+    } catch (error) {
+      try {
+        await client.end();
+      } catch {
+        /* already closed */
+      }
+      const transient = /ENOTFOUND|tenant|not found|could not translate/i.test(error.message);
+      if (!transient) return raw; // auth/other error: the real attempt will explain it
+    }
+  }
+  return raw;
+}
+
 function log(...args) {
   console.log("[migrate]", ...args);
 }
@@ -65,6 +111,7 @@ async function main() {
   }
 
   const { default: pg } = await import("pg");
+  const resolved = await resolvePooler(process.env.SUPABASE_DB_URL);
 
   const files = (await readdir(migrationsDir)).filter((f) => f.endsWith(".sql")).sort();
   if (files.length === 0) {
@@ -75,7 +122,7 @@ async function main() {
   // A direct connection keeps a single transaction/DDL session window, which DDL
   // needs; the pooler's session mode works the same way.
   const client = new pg.Client({
-    connectionString: url,
+    connectionString: resolved,
     ssl: { rejectUnauthorized: false },
     connectionTimeoutMillis: 20_000,
     statement_timeout: 120_000,
