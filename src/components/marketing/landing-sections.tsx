@@ -8,7 +8,7 @@ import {
 import type { LucideIcon } from "lucide-react";
 import { ButtonLink } from "@/components/ui/button";
 import { Badge, LiveDot } from "@/components/ui/badge";
-import { formatDate, formatNumber, formatPercent, formatTime } from "@/lib/format";
+import { formatDate, formatNumber, formatTime } from "@/lib/format";
 import type { Course, ExamSchedule, Routine } from "@/lib/types";
 
 export const COURSE_ICONS: Record<string, LucideIcon> = {
@@ -108,9 +108,9 @@ export function Hero({
 
               <div className="relative overflow-hidden rounded-[1.75rem] border border-[var(--border)] shadow-[0_24px_60px_-24px_rgba(79,66,228,0.35)]">
                 <Image
-                  src="/hero-students-bd.jpg"
-                  alt="তিনজন শিক্ষার্থী ল্যাপটপ ও নোটবুক নিয়ে একসাথে JobHub-এ প্রস্তুতি নিচ্ছেন"
-                  width={1408}
+                  src="/hero-books-bd.jpg"
+                  alt="একটি সাজানো পড়ার ডেস্কে বই, খোলা পাঠ্যবই ও কলম"
+                  width={1376}
                   height={768}
                   priority
                   sizes="(max-width: 1024px) 100vw, 34rem"
@@ -125,25 +125,29 @@ export function Hero({
                     <span className="absolute inline-flex size-full animate-ping rounded-full bg-red-500 opacity-75" />
                     <span className="relative inline-flex size-1.5 rounded-full bg-red-500" />
                   </span>
-                  লাইভ ক্লাস প্রস্তুতি
+                  প্রতিদিনের প্রস্তুতি
                 </div>
 
-                {/* score card, bottom-left */}
-                <div className="absolute bottom-3 left-3 w-[10.5rem] rounded-xl bg-[var(--surface)]/95 p-2.5 shadow-lg backdrop-blur">
-                  <p className="text-[0.5625rem] font-medium text-[var(--text-subtle)]">আজকের অনুশীলন</p>
+                {/* question bank, bottom-left — real counters, never invented
+                    scores: this platform has no users yet, so a "72% accuracy"
+                    card would be a claim it cannot back up. */}
+                <div className="absolute bottom-3 left-3 w-[11rem] rounded-xl bg-[var(--surface)]/95 p-2.5 shadow-lg backdrop-blur">
+                  <p className="text-[0.5625rem] font-medium text-[var(--text-subtle)]">প্রশ্নব্যাংক</p>
                   <p className="mt-0.5 flex items-baseline gap-1">
-                    <span className="text-[1.125rem] font-bold text-[var(--text)]">{formatNumber(72)}</span>
-                    <span className="text-[0.625rem] font-semibold text-mint-600 dark:text-mint-400">+12%</span>
+                    <span className="text-[1.125rem] font-bold text-[var(--text)]">
+                      {formatNumber(stats.questions)}
+                    </span>
+                    <span className="text-[0.625rem] font-semibold text-[var(--text-subtle)]">প্রশ্ন</span>
                   </p>
                   <div className="mt-1.5 h-1 w-full overflow-hidden rounded-full bg-[var(--surface-muted)]">
                     <div className="h-full w-[72%] rounded-full bg-[linear-gradient(90deg,var(--brand),var(--accent))]" />
                   </div>
                 </div>
 
-                {/* accuracy pill, bottom-right */}
+                {/* course coverage, bottom-right */}
                 <div className="absolute bottom-3 right-3 rounded-xl bg-[var(--surface)]/95 px-2.5 py-2 text-center shadow-lg backdrop-blur">
-                  <p className="text-[0.5625rem] font-medium text-[var(--text-subtle)]">নির্ভুলতা</p>
-                  <p className="text-[0.9375rem] font-bold text-[var(--brand)]">{formatPercent(87)}</p>
+                  <p className="text-[0.5625rem] font-medium text-[var(--text-subtle)]">বিষয়</p>
+                  <p className="text-[0.9375rem] font-bold text-[var(--brand)]">{formatNumber(stats.subjects)}</p>
                 </div>
               </div>
             </div>

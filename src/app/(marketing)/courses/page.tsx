@@ -3,9 +3,7 @@ import Link from "next/link";
 import { ArrowRight, BookOpen, Clock3, Layers } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { COURSE_ICONS } from "@/components/marketing/landing-sections";
-import { listCourses } from "@/lib/queries";
-import { getAdminClient } from "@/lib/supabase/admin";
-import { hasServiceRole } from "@/lib/supabase/env";
+import { getCourseCounts, listCourses } from "@/lib/queries";
 import { GraduationCap } from "lucide-react";
 import { formatNumber } from "@/lib/format";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -23,31 +21,6 @@ const LEVEL_LABEL: Record<string, string> = {
   intermediate: "মধ্যম",
   advanced: "উচ্চতর",
 };
-
-async function getCourseCounts(): Promise<
-  Record<string, { subjects: number; questions: number }>
-> {
-  const counts: Record<string, { subjects: number; questions: number }> = {};
-  if (!hasServiceRole) return counts;
-  try {
-    const admin = getAdminClient();
-    const [{ data: subjects }, { data: questions }] = await Promise.all([
-      admin.from("subjects").select("course_id").eq("is_active", true),
-      admin.from("questions").select("course_id").eq("status", "approved").eq("is_verified", true),
-    ]);
-    for (const row of subjects ?? []) {
-      const id = row.course_id as string;
-      counts[id] = { subjects: (counts[id]?.subjects ?? 0) + 1, questions: counts[id]?.questions ?? 0 };
-    }
-    for (const row of questions ?? []) {
-      const id = row.course_id as string;
-      counts[id] = { subjects: counts[id]?.subjects ?? 0, questions: (counts[id]?.questions ?? 0) + 1 };
-    }
-  } catch (error) {
-    console.error("[courses] count query failed:", (error as Error).message);
-  }
-  return counts;
-}
 
 export default async function CoursesPage() {
   const [courses, counts] = await Promise.all([listCourses(), getCourseCounts()]);

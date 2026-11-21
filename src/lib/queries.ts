@@ -1,5 +1,7 @@
 import "server-only";
 import { getServerClient } from "./supabase/server";
+import { getAdminClient } from "./supabase/admin";
+import { hasServiceRole } from "./supabase/env";
 import type {
   Course,
   ExamSchedule,
@@ -271,4 +273,34 @@ export async function isFirstAdminSeatOpen(): Promise<boolean> {
   const { data, error } = await supabase.rpc("jh_admin_seat_available");
   if (error) return false;
   return data === true;
+}
+
+/**
+ * Verified-question and subject counts per course. Uses the service-role client
+ * because `questions` is never readable by students directly; only aggregates
+ * leave this function. Returns `{}` when the service role is not configured.
+ */
+export async function getCourseCounts(): Promise<
+  Record<string, { subjects: number; questions: number }>
+> {
+  const counts: Record<string, { subjects: number; questions: number }> = {};
+  if (!hasServiceRole) return counts;
+  try {
+    const admin = getAdminClient();
+    const [{ data: subjects }, { data: questions }] = await Promise.all([
+      admin.from("subjects").select("course_id").eq("is_active", true),
+      admin.from("questions").select("course_id").eq("status", "approved").eq("is_verified", true),
+    ]);
+    for (const row of subjects ?? []) {
+      const id = row.course_id as string;
+      counts[id] = { subjects: (counts[id]?.subjects ?? 0) + 1, questions: counts[id]?.questions ?? 0 };
+    }
+    for (const row of questions ?? []) {
+      const id = row.course_id as string;
+      counts[id] = { subjects: counts[id]?.subjects ?? 0, questions: (counts[id]?.questions ?? 0) + 1 };
+    }
+  } catch (error) {
+    console.error("[courses] count query failed:", (error as Error).message);
+  }
+  return counts;
 }

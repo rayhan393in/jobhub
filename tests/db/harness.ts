@@ -34,9 +34,14 @@ export async function createDatabase() {
       created_at timestamptz default now()
     );
 
+    -- Mirrors Supabase's real auth.uid(): it falls back to the JSON claims when
+    -- the flat claim is blank. The first-admin claim depends on that detail.
     create or replace function auth.uid() returns uuid
     language sql stable as $$
-      select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid;
+      select coalesce(
+        nullif(current_setting('request.jwt.claim.sub', true), ''),
+        (nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'sub')
+      )::uuid;
     $$;
 
     create or replace function auth.role() returns text
@@ -72,11 +77,13 @@ export async function migrate(db: PGlite, files?: string[]) {
 /** Switch the session to a given user + role, mirroring a Supabase JWT. */
 export async function actAs(db: PGlite, userId: string | null, role: "authenticated" | "anon" = "authenticated") {
   await db.exec(`reset role;`);
-  if (userId) {
-    await db.query(`select set_config('request.jwt.claim.sub', $1, false)`, [userId]);
-  } else {
-    await db.query(`select set_config('request.jwt.claim.sub', '', false)`);
-  }
+  // PostgREST publishes the token twice — the flat claim and the JSON claims.
+  // Supabase's auth.uid() falls back to the JSON copy, so the harness must send
+  // both or tests would pass against a bug production still has.
+  await db.query(`select set_config('request.jwt.claim.sub', $1, false)`, [userId ?? ""]);
+  await db.query(`select set_config('request.jwt.claims', $1, false)`, [
+    userId ? JSON.stringify({ sub: userId, role }) : "",
+  ]);
   await db.query(`select set_config('request.jwt.claim.role', $1, false)`, [role]);
   await db.exec(`set role ${role};`);
 }
@@ -85,6 +92,7 @@ export async function actAs(db: PGlite, userId: string | null, role: "authentica
 export async function actAsService(db: PGlite) {
   await db.exec(`reset role;`);
   await db.query(`select set_config('request.jwt.claim.sub', '', false)`);
+  await db.query(`select set_config('request.jwt.claims', '', false)`);
   await db.query(`select set_config('request.jwt.claim.role', 'service_role', false)`);
   await db.exec(`set role service_role;`);
 }

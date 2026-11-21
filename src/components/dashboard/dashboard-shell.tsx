@@ -15,7 +15,7 @@ import { ROLE_LABELS } from "@/lib/types";
 
 const NAV = [
   { href: "/dashboard", label: "ড্যাশবোর্ড", icon: Home },
-  { href: "/courses", label: "কোর্স", icon: GraduationCap },
+  { href: "/my-courses", label: "কোর্স", icon: GraduationCap },
   { href: "/exams", label: "লাইভ পরীক্ষা", icon: Radio },
   { href: "/practice", label: "প্র্যাকটিস", icon: BookOpenCheck },
   { href: "/custom-exam", label: "কাস্টম পরীক্ষা", icon: Layers },
