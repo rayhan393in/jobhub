@@ -1,0 +1,118 @@
+// Editorial sample questions used to generate the *development* seed migration.
+// Every row is flagged source_type='manual' and status='pending_review' so it must
+// be explicitly approved by an administrator before it can appear in any exam.
+export const SAMPLE_QUESTIONS = [
+  // Bangla — ধ্বনি ও বর্ণ
+  { subj: "bangla", topic: 1, q: "বাংলা বর্ণমালায় মোট স্বরবর্ণ কতটি?", o: ["৭টি", "১১টি", "৩৯টি", "৫০টি"], a: 1,
+    e: "বাংলা বর্ণমালায় স্বরবর্ণ ১১টি (অ, আ, ই, ঈ, উ, ঊ, ঋ, এ, ঐ, ও, ঔ)।", src: "JobHub editorial — general Bengali grammar", diff: "easy" },
+  { subj: "bangla", topic: 1, q: "বাংলা বর্ণমালায় ব্যঞ্জনবর্ণের সংখ্যা কত?", o: ["২৫টি", "৩৯টি", "৪১টি", "৫০টি"], a: 1,
+    e: "বাংলা বর্ণমালায় ব্যঞ্জনবর্ণ ৩৯টি। মোট বর্ণ ৫০টি (১১ স্বর + ৩৯ ব্যঞ্জন)।", src: "JobHub editorial — general Bengali grammar", diff: "easy" },
+  { subj: "bangla", topic: 1, q: "‘হ্রস্ব’ শব্দের বিপরীতার্থক শব্দ কোনটি?", o: ["দীর্ঘ", "ক্ষুদ্র", "সংক্ষিপ্ত", "উচ্চ"], a: 0,
+    e: "হ্রস্ব >< দীর্ঘ। এটি একটি বিপরীতার্থক শব্দ জোড়া।", src: "JobHub editorial — general Bengali grammar", diff: "easy" },
+  { subj: "bangla", topic: 1, q: "নিচের কোনটি ঘোষ ধ্বনি?", o: ["ক", "খ", "গ", "চ"], a: 2,
+    e: "‘গ’ একটি ঘোষ ধ্বনি; ক, খ, চ অঘোষ ধ্বনি।", src: "JobHub editorial — general Bengali grammar", diff: "medium" },
+  { subj: "bangla", topic: 1, q: "‘অ’ ধ্বনিটি কোন ধরনের?", o: ["স্বরধ্বনি", "ব্যঞ্জনধ্বনি", "অনুনাসিক", "ধ্বন্যাত্মক"], a: 0,
+    e: "‘অ’ একটি স্বরধ্বনি।", src: "JobHub editorial — general Bengali grammar", diff: "easy" },
+  // Bangla — সন্ধি (topic 2)
+  { subj: "bangla", topic: 2, q: "‘নবী + ইমন’ = নবীন — এখানে কোন সন্ধি হয়েছে?", o: ["স্বরসন্ধি", "ব্যঞ্জনসন্ধি", "বিসর্গসন্ধি", "অনুনাসিক সন্ধি"], a: 0,
+    e: "স্বরবর্ণের সঙ্গে স্বরবর্ণের মিলন হলে স্বরসন্ধি হয়।", src: "JobHub editorial — general Bengali grammar", diff: "medium" },
+  { subj: "bangla", topic: 2, q: "‘বিদ্যা + আলয়’ = বিদ্যালয় — কোন সন্ধি?", o: ["স্বরসন্ধি", "বিসর্গসন্ধি", "ব্যঞ্জনসন্ধি", "নিপাতনে সিদ্ধ"], a: 0,
+    e: "আ + আ = আ, তাই এটি স্বরসন্ধি।", src: "JobHub editorial — general Bengali grammar", diff: "medium" },
+  { subj: "bangla", topic: 2, q: "‘মনঃ + কষ্ট’ = মনঃকষ্ট — সন্ধিটির নাম কী?", o: ["স্বরসন্ধি", "বিসর্গসন্ধি", "ব্যঞ্জনসন্ধি", "কোনোটিই নয়"], a: 1,
+    e: "বিসর্গের সঙ্গে ব্যঞ্জনের মিলনে বিসর্গসন্ধি হয়।", src: "JobHub editorial — general Bengali grammar", diff: "medium" },
+  // English — Articles (topic 1)
+  { subj: "english", topic: 1, q: "She is ___ honest woman.", o: ["a", "an", "the", "no article"], a: 1,
+    e: "‘honest’ begins with a vowel sound (/ɒ/), so ‘an’ is used.", src: "JobHub editorial — English grammar", diff: "easy" },
+  { subj: "english", topic: 1, q: "He is ___ university student.", o: ["a", "an", "the", "no article"], a: 0,
+    e: "‘university’ begins with the consonant sound /j/, so ‘a’ is used.", src: "JobHub editorial — English grammar", diff: "medium" },
+  { subj: "english", topic: 1, q: "___ Padma is the longest river in Bangladesh.", o: ["A", "An", "The", "No article"], a: 2,
+    e: "Rivers take the definite article ‘the’.", src: "JobHub editorial — English grammar", diff: "easy" },
+  { subj: "english", topic: 1, q: "I bought ___ umbrella yesterday.", o: ["a", "an", "the", "no article"], a: 1,
+    e: "‘umbrella’ begins with a vowel sound, so ‘an’ is used.", src: "JobHub editorial — English grammar", diff: "easy" },
+  // English — Subject-verb agreement (topic 2)
+  { subj: "english", topic: 2, q: "Neither the teacher nor the students ___ present.", o: ["was", "were", "is", "has been"], a: 1,
+    e: "With ‘neither … nor’, the verb agrees with the nearer subject ‘students’.", src: "JobHub editorial — English grammar", diff: "medium" },
+  { subj: "english", topic: 2, q: "Each of the boys ___ a pen.", o: ["have", "has", "are", "were"], a: 1,
+    e: "‘Each’ is singular and takes a singular verb.", src: "JobHub editorial — English grammar", diff: "easy" },
+  { subj: "english", topic: 2, q: "The number of students ___ increasing.", o: ["are", "is", "were", "have been"], a: 1,
+    e: "‘The number of’ takes a singular verb.", src: "JobHub editorial — English grammar", diff: "medium" },
+  // Bangladesh Affairs — মুক্তিযুদ্ধ (topic 3)
+  { subj: "bd", topic: 3, q: "মুক্তিযুদ্ধ শুরু হয় কত সালে?", o: ["১৯৪৭", "১৯৫২", "১৯৭১", "১৯৭৫"], a: 2,
+    e: "বাংলাদেশের মহান মুক্তিযুদ্ধ ১৯৭১ সালে সংঘটিত হয়।", src: "JobHub editorial — Bangladesh affairs", year: 2021, diff: "easy" },
+  { subj: "bd", topic: 3, q: "মুক্তিযুদ্ধকালীন বাংলাদেশকে কয়টি সেক্টরে ভাগ করা হয়েছিল?", o: ["৯টি", "১০টি", "১১টি", "১২টি"], a: 2,
+    e: "মুক্তিযুদ্ধকালে সমগ্র দেশকে ১১টি সেক্টরে ভাগ করা হয়।", src: "JobHub editorial — Bangladesh affairs", diff: "medium" },
+  { subj: "bd", topic: 3, q: "বাংলাদেশের স্বাধীনতা ঘোষণা করা হয় কোন তারিখে?", o: ["২৬ মার্চ ১৯৭১", "১৬ ডিসেম্বর ১৯৭১", "৭ মার্চ ১৯৭১", "২১ ফেব্রুয়ারি ১৯৫২"], a: 0,
+    e: "২৬ মার্চ ১৯৭১ তারিখে স্বাধীনতা ঘোষণা করা হয়।", src: "JobHub editorial — Bangladesh affairs", diff: "easy" },
+  { subj: "bd", topic: 3, q: "মুজিবনগর সরকার গঠিত হয় কত তারিখে?", o: ["১০ এপ্রিল ১৯৭১", "১৭ এপ্রিল ১৯৭১", "২৬ মার্চ ১৯৭১", "৪ নভেম্বর ১৯৭২"], a: 0,
+    e: "১০ এপ্রিল ১৯৭১ মুজিবনগর সরকার গঠিত হয় এবং ১৭ এপ্রিল শপথ গ্রহণ করে।", src: "JobHub editorial — Bangladesh affairs", diff: "hard" },
+  // Bangladesh Affairs — সংবিধান (topic 4)
+  { subj: "bd", topic: 4, q: "বাংলাদেশের সংবিধান কার্যকর হয় কত তারিখে?", o: ["৪ নভেম্বর ১৯৭২", "১৬ ডিসেম্বর ১৯৭২", "২৬ মার্চ ১৯৭২", "৭ মার্চ ১৯৭৩"], a: 1,
+    e: "সংবিধান ৪ নভেম্বর ১৯৭২ গৃহীত ও ১৬ ডিসেম্বর ১৯৭২ কার্যকর হয়।", src: "JobHub editorial — Bangladesh affairs", diff: "medium" },
+  { subj: "bd", topic: 4, q: "বাংলাদেশের সংবিধানে মৌলিক অধিকার কোন ভাগে আছে?", o: ["প্রথম ভাগ", "দ্বিতীয় ভাগ", "তৃতীয় ভাগ", "চতুর্থ ভাগ"], a: 2,
+    e: "মৌলিক অধিকার সংবিধানের তৃতীয় ভাগে (অনুচ্ছেদ ২৬–৪৭) সন্নিবেশিত।", src: "JobHub editorial — Bangladesh affairs", diff: "medium" },
+  // International Affairs — জাতিসংঘ (topic 1)
+  { subj: "international", topic: 1, q: "জাতিসংঘের সদর দপ্তর কোথায়?", o: ["জেনেভা", "প্যারিস", "নিউইয়র্ক", "লন্ডন"], a: 2,
+    e: "জাতিসংঘের সদর দপ্তর নিউইয়র্ক, যুক্তরাষ্ট্রে।", src: "JobHub editorial — international affairs", diff: "easy" },
+  { subj: "international", topic: 1, q: "জাতিসংঘের নিরাপত্তা পরিষদের স্থায়ী সদস্য কতটি?", o: ["৩টি", "৫টি", "১০টি", "১৫টি"], a: 1,
+    e: "নিরাপত্তা পরিষদে ৫টি স্থায়ী সদস্য রয়েছে।", src: "JobHub editorial — international affairs", diff: "easy" },
+  { subj: "international", topic: 1, q: "বাংলাদেশ জাতিসংঘের সদস্যপদ লাভ করে কত সালে?", o: ["১৯৭২", "১৯৭৩", "১৯৭৪", "১৯৭৫"], a: 2,
+    e: "বাংলাদেশ ১৯৭৪ সালের ১৭ সেপ্টেম্বর জাতিসংঘের সদস্যপদ লাভ করে।", src: "JobHub editorial — international affairs", diff: "medium" },
+  // Geography — জলবায়ু (topic 2)
+  { subj: "geography", topic: 2, q: "বাংলাদেশের জলবায়ু মূলত কোন ধরনের?", o: ["নাতিশীতোষ্ণ", "উষ্ণ ও আর্দ্র সাব-ট্রপিক্যাল", "মরু", "মেরু"], a: 1,
+    e: "বাংলাদেশের জলবায়ু উষ্ণ, আর্দ্র ও সাব-ট্রপিক্যাল monsoon type।", src: "JobHub editorial — geography", diff: "medium" },
+  { subj: "geography", topic: 2, q: "বাংলাদেশে সবচেয়ে বেশি বৃষ্টিপাত হয় কোন মাসে?", o: ["জানুয়ারি", "এপ্রিল", "জুলাই", "নভেম্বর"], a: 2,
+    e: "জুলাই মাসে বর্ষাকালের সর্বোচ্চ বৃষ্টিপাত হয়।", src: "JobHub editorial — geography", diff: "easy" },
+  // Science — ভৌত রাশি ও একক (topic 1)
+  { subj: "science", topic: 1, q: "বলের একক কী?", o: ["জুল", "নিউটন", "ওয়াট", "প্যাসকেল"], a: 1,
+    e: "বলের SI একক নিউটন (N)।", src: "JobHub editorial — general science", diff: "easy" },
+  { subj: "science", topic: 1, q: "কাজের একক কোনটি?", o: ["নিউটন", "জুল", "ওয়াট", "প্যাসকেল"], a: 1,
+    e: "কাজের SI একক জুল (J)।", src: "JobHub editorial — general science", diff: "easy" },
+  { subj: "science", topic: 1, q: "আলোর গতিবেগ শূন্যস্থানে প্রায় কত?", o: ["৩ × ১০⁶ m/s", "৩ × ১০⁸ m/s", "৩ × ১০⁵ m/s", "৩ × ১০¹⁰ m/s"], a: 1,
+    e: "শূন্যস্থানে আলোর গতিবেগ প্রায় ৩ × ১০⁸ m/s।", src: "JobHub editorial — general science", diff: "medium" },
+  // ICT — হার্ডওয়্যার (topic 1)
+  { subj: "ict", topic: 1, q: "কম্পিউটারের মস্তিষ্ক বলা হয় কোনটিকে?", o: ["RAM", "CPU", "Hard Disk", "Monitor"], a: 1,
+    e: "CPU (Central Processing Unit) কম্পিউটারের মস্তিষ্ক।", src: "JobHub editorial — computer & ICT", diff: "easy" },
+  { subj: "ict", topic: 1, q: "নিচের কোনটি ইনপুট ডিভাইস?", o: ["মনিটর", "প্রিন্টার", "কিবোর্ড", "স্পিকার"], a: 2,
+    e: "কিবোর্ড একটি ইনপুট ডিভাইস।", src: "JobHub editorial — computer & ICT", diff: "easy" },
+  // ICT — সংখ্যা পদ্ধতি (topic 3)
+  { subj: "ict", topic: 3, q: "বাইনারি ১০১০ এর দশমিক মান কত?", o: ["৮", "১০", "১২", "১৪"], a: 1,
+    e: "১×৮ + ০×৪ + ১×২ + ০×১ = ১০।", src: "JobHub editorial — computer & ICT", diff: "medium" },
+  { subj: "ict", topic: 3, q: "হেক্সাডেসিমাল পদ্ধতিতে সর্বোচ্চ অঙ্ক কোনটি?", o: ["৯", "E", "F", "G"], a: 2,
+    e: "হেক্সাডেসিমাল পদ্ধতিতে ০–৯ এবং A–F ব্যবহৃত হয়; সর্বোচ্চ F।", src: "JobHub editorial — computer & ICT", diff: "medium" },
+  // Math — শতকরা (topic 1)
+  { subj: "math", topic: 1, q: "কোনো সংখ্যার ২৫% = ৫০ হলে সংখ্যাটি কত?", o: ["১০০", "১৫০", "২০০", "২৫০"], a: 2,
+    e: "সংখ্যাটি = ৫০ × ১০০ / ২৫ = ২০০।", src: "JobHub editorial — mathematical reasoning", diff: "easy" },
+  { subj: "math", topic: 1, q: "৮০ এর ১৫% কত?", o: ["১০", "১২", "১৪", "১৬"], a: 1,
+    e: "৮০ × ১৫ / ১০০ = ১২।", src: "JobHub editorial — mathematical reasoning", diff: "easy" },
+  // Math — অনুপাত (topic 2)
+  { subj: "math", topic: 2, q: "৫ : ৮ অনুপাতে ৩৯০ কে ভাগ করলে প্রথম অংশ কত?", o: ["১৫০", "১৮০", "২১০", "২৪০"], a: 0,
+    e: "মোট অংশ ১৩; প্রথম অংশ = ৩৯০ × ৫/১৩ = ১৫০।", src: "JobHub editorial — mathematical reasoning", diff: "medium" },
+  // Math — লাভ-ক্ষতি (topic 3)
+  { subj: "math", topic: 3, q: "১০০ টাকায় কিনে ১২০ টাকায় বিক্রি করলে শতকরা লাভ কত?", o: ["১০%", "১৫%", "২০%", "২৫%"], a: 2,
+    e: "লাভ = ২০ টাকা; শতকরা লাভ = ২০/১০০ × ১০০ = ২০%।", src: "JobHub editorial — mathematical reasoning", diff: "easy" },
+  // Mental ability — সংখ্যা ধারা (topic 1)
+  { subj: "mental", topic: 1, q: "২, ৬, ১২, ২০, ৩০, ? — পরবর্তী সংখ্যা কত?", o: ["৩৬", "৪০", "৪২", "৪৮"], a: 2,
+    e: "পার্থক্য ৪, ৬, ৮, ১০, ১২ — তাই ৩০ + ১২ = ৪২।", src: "JobHub editorial — mental ability", diff: "medium" },
+  { subj: "mental", topic: 1, q: "৩, ৬, ১২, ২৪, ? — পরবর্তী সংখ্যা কত?", o: ["৩৬", "৪২", "৪৮", "৫৪"], a: 2,
+    e: "প্রতিটি সংখ্যা আগেরটির দ্বিগুণ; ২৪ × ২ = ৪৮।", src: "JobHub editorial — mental ability", diff: "easy" },
+  // Ethics — নৈতিকতার ধারণা (topic 7)
+  { subj: "ethics", topic: 1, q: "সুশাসনের মূল উপাদান কোনটি?", o: ["স্বচ্ছতা", "স্বজনপ্রীতি", "ক্ষমতার অপব্যবহার", "দুর্নীতি"], a: 0,
+    e: "স্বচ্ছতা, জবাবদিহি ও আইনের শাসন সুশাসনের মূল উপাদান।", src: "JobHub editorial — ethics & governance", diff: "easy" },
+  { subj: "ethics", topic: 1, q: "‘স্বচ্ছতা’ বলতে বোঝায়—", o: ["গোপনীয়তা", "তথ্যের প্রকাশ্যতা", "নীরবতা", "নিয়ন্ত্রণ"], a: 1,
+    e: "স্বচ্ছতা মানে সিদ্ধান্ত ও তথ্যের প্রকাশ্যতা।", src: "JobHub editorial — ethics & governance", diff: "medium" },
+  // EEE — Electrical Circuit Analysis (topic 1)
+  { subj: "circuit", topic: 1, q: "A 10 Ω resistor carries 2 A. The power dissipated is—", o: ["20 W", "40 W", "10 W", "5 W"], a: 1,
+    e: "P = I²R = 4 × 10 = 40 W.", src: "JobHub editorial — EEE", diff: "easy" },
+  { subj: "circuit", topic: 1, q: "The SI unit of resistance is—", o: ["volt", "ampere", "ohm", "watt"], a: 2,
+    e: "Resistance is measured in ohms (Ω).", src: "JobHub editorial — EEE", diff: "easy" },
+  { subj: "circuit", topic: 1, q: "Two 6 Ω resistors in parallel give—", o: ["12 Ω", "6 Ω", "3 Ω", "1 Ω"], a: 2,
+    e: "Equal parallel resistors give R/2 = 3 Ω.", src: "JobHub editorial — EEE", diff: "medium" },
+  { subj: "circuit", topic: 1, q: "Kirchhoff's current law follows conservation of—", o: ["charge", "energy", "momentum", "power factor"], a: 0,
+    e: "The algebraic sum of currents at a node is zero because charge is conserved.", src: "JobHub editorial — EEE", diff: "medium" },
+  { subj: "circuit", topic: 1, q: "At series RLC resonance the impedance is—", o: ["zero always", "purely resistive", "purely capacitive", "infinite always"], a: 1,
+    e: "XL = XC, so net reactance is zero and impedance equals R.", src: "JobHub editorial — EEE", diff: "hard" },
+  { subj: "machines", topic: 1, q: "A transformer works on the principle of—", o: ["self induction", "mutual induction", "electrolysis", "thermoelectric effect"], a: 1,
+    e: "A transformer transfers energy through mutual induction.", src: "JobHub editorial — EEE", diff: "easy" },
+  { subj: "power", topic: 1, q: "The unit of apparent power is—", o: ["watt", "volt-ampere", "var", "joule"], a: 1,
+    e: "Apparent power S is measured in volt-amperes (VA).", src: "JobHub editorial — EEE", diff: "medium" },
+];

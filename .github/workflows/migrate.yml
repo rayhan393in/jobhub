@@ -1,0 +1,69 @@
+name: Migrate database
+
+# Applies supabase/migrations/*.sql to the hosted Supabase project, in filename
+# order, with `psql` on a GitHub runner. Every migration is idempotent, so a
+# re-run is safe.
+#
+# Required repository secret: SUPABASE_DB_URL
+#   postgresql://postgres.<project-ref>:<db-password>@aws-0-ap-southeast-1.pooler.supabase.com:5432/postgres
+#
+# Trigger it manually from Actions -> "Migrate database" -> Run workflow.
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Only print the files that would run
+        type: boolean
+        default: false
+
+concurrency:
+  group: migrate-db
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  migrate:
+    name: Apply migrations
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check secret
+        run: |
+          if [ -z "${{ secrets.SUPABASE_DB_URL }}" ]; then
+            echo "::error::SUPABASE_DB_URL secret is not set."
+            exit 1
+          fi
+
+      - name: List migrations
+        run: ls -1 supabase/migrations/*.sql
+
+      - name: Apply migrations in order
+        if: ${{ inputs.dry_run == false }}
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          for file in supabase/migrations/*.sql; do
+            echo "::group::${file}"
+            psql "${SUPABASE_DB_URL}" -v ON_ERROR_STOP=1 --single-transaction -f "${file}"
+            echo "::endgroup::"
+          done
+
+      - name: Verify
+        if: ${{ inputs.dry_run == false }}
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          psql "${SUPABASE_DB_URL}" -v ON_ERROR_STOP=1 -c "
+            select
+              (select count(*) from public.courses)   as courses,
+              (select count(*) from public.subjects)  as subjects,
+              (select count(*) from public.topics)    as topics,
+              (select count(*) from public.questions) as questions,
+              (select count(*) from public.profiles)  as profiles;"
