@@ -1,7 +1,7 @@
 import "server-only";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "./auth";
-import { ROLE_PERMISSIONS, can } from "./permission-matrix";
+import { can } from "./permission-matrix";
 import type { PermissionKey } from "./permission-matrix";
 
 export { ROLE_PERMISSIONS, can, ALL_PERMISSIONS } from "./permission-matrix";
