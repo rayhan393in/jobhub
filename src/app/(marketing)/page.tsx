@@ -3,7 +3,8 @@ import { cookies } from "next/headers";
 import { getCurrentUser } from "@/lib/auth";
 import { isSupabaseConfigured, supabaseEnv } from "@/lib/supabase/env";
 import {
-  ClosingCta, Hero, HowItWorks, LearningFeatures, LiveExamPreview, PrepTracks, RoutinePreview,
+  ClosingCta, ExamIntegrity, Hero, HowItWorks, LearningFeatures, LiveExamPreview, PrepTracks,
+  RoutinePreview,
 } from "@/components/marketing/landing-sections";
 import { FaqAccordion } from "@/components/marketing/faq-accordion";
 import { PLATFORM_FAQ } from "@/components/marketing/faq-data";
@@ -53,6 +54,7 @@ export default async function LandingPage() {
       <LiveExamPreview schedules={schedules} now={Date.now()} />
       <RoutinePreview routines={routines} />
       <LearningFeatures />
+      <ExamIntegrity />
       <HowItWorks />
 
       <section className="border-b border-[var(--border)] py-14 sm:py-16" aria-labelledby="faq-heading">

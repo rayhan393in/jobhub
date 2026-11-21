@@ -10,10 +10,11 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Progress, Ring } from "@/components/ui/progress";
 import { StatCard } from "@/components/ui/stat";
 import { PageHeader } from "@/components/dashboard/dashboard-shell";
-import { getCurrentUser, displayName } from "@/lib/auth";
+import { getCurrentUser, displayName, isStaff } from "@/lib/auth";
+import { FirstAdminBanner } from "@/components/dashboard/first-admin-banner";
 import {
-  getStudentAnalytics, listCourses, listMyResults, listPublishedSchedules, listRoutines,
-  getOpenAttempts,
+  getStudentAnalytics, isFirstAdminSeatOpen, listCourses, listMyResults, listPublishedSchedules,
+  listRoutines, getOpenAttempts,
 } from "@/lib/queries";
 import {
   dhakaDateKey, formatDate, formatNumber, formatPercent, formatTime, greeting, relativeFromNow,
@@ -29,13 +30,15 @@ export default async function DashboardPage() {
   if (!user) redirect("/login");
 
   const today = dhakaDateKey();
-  const [courseList, analytics, results, schedules, routines, openAttempts] = await Promise.all([
+  const [courseList, analytics, results, schedules, routines, openAttempts, adminSeatOpen] = await Promise.all([
     listCourses(),
     getStudentAnalytics(null),
     listMyResults(user.id, 5),
     listPublishedSchedules({ userId: user.id, limit: 20 }),
     listRoutines({ fromDate: today, limit: 10 }),
     getOpenAttempts(user.id),
+    // Only query this for non-staff: it is a cheap check but pointless for staff.
+    isStaff(user.role) ? Promise.resolve(false) : isFirstAdminSeatOpen(),
   ]);
 
   const names = displayName(user);
@@ -58,6 +61,7 @@ export default async function DashboardPage() {
 
   return (
     <div className="mx-auto w-full max-w-7xl">
+      {adminSeatOpen ? <FirstAdminBanner /> : null}
       <PageHeader
         eyebrow={formatDate(new Date(), "bn", { weekday: "long", day: "numeric", month: "long" })}
         title={

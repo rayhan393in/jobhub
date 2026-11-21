@@ -11,6 +11,19 @@ import { createServerClient } from "@supabase/ssr";
 const PROTECTED_PREFIXES = ["/dashboard", "/practice", "/admin", "/account"];
 const AUTH_PAGES = ["/login", "/register"];
 
+/**
+ * `/login` is normally off-limits once you are signed in, but two flows need a
+ * signed-in visitor to see it:
+ *   - `/admin/login` forwards a signed-in non-staff user to sign in again with a
+ *     staff account, so a hard redirect would loop forever.
+ *   - the first-admin claim panel lives there.
+ */
+function keepsSignInPage(request: NextRequest) {
+  // A `next` parameter means the visitor was deliberately sent here by a guard;
+  // honour it instead of bouncing them to the dashboard.
+  return request.nextUrl.pathname === "/login" && request.nextUrl.searchParams.has("next");
+}
+
 export async function proxy(request: NextRequest) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -48,7 +61,7 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(redirect);
   }
 
-  if (user && isAuthPage) {
+  if (user && isAuthPage && !keepsSignInPage(request)) {
     const redirect = request.nextUrl.clone();
     redirect.pathname = "/dashboard";
     redirect.search = "";

@@ -19,6 +19,7 @@ export default async function AdminLoginPage() {
   const user = await getCurrentUser();
   if (user && isStaff(user.role)) redirect("/admin");
   if (!user) redirect("/login?next=/admin");
+  // Signed in but not staff: fall through and explain, rather than looping.
 
   return (
     <div>

@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import {
   ArrowRight, BadgeCheck, Banknote, BookOpenCheck, Briefcase, Building2, ClipboardCheck,
@@ -7,7 +8,7 @@ import {
 import type { LucideIcon } from "lucide-react";
 import { ButtonLink } from "@/components/ui/button";
 import { Badge, LiveDot } from "@/components/ui/badge";
-import { formatClock, formatDate, formatNumber, formatTime } from "@/lib/format";
+import { formatDate, formatNumber, formatPercent, formatTime } from "@/lib/format";
 import type { Course, ExamSchedule, Routine } from "@/lib/types";
 
 export const COURSE_ICONS: Record<string, LucideIcon> = {
@@ -32,8 +33,9 @@ export function Hero({
   return (
     <section className="jh-hero-field relative overflow-hidden border-b border-[var(--border)]">
       <div className="jh-grid-lines pointer-events-none absolute inset-0 opacity-60" aria-hidden />
-      <div className="relative mx-auto w-full max-w-7xl px-4 pb-16 pt-14 sm:px-6 sm:pb-20 sm:pt-20 lg:px-8">
-        <div className="grid items-center gap-12 lg:grid-cols-[1.08fr_0.92fr]">
+      <div className="relative mx-auto w-full max-w-7xl px-4 pb-16 pt-12 sm:px-6 sm:pb-20 sm:pt-16 lg:px-8">
+        <div className="grid items-center gap-12 lg:grid-cols-[1.02fr_0.98fr] lg:gap-10">
+          {/* ---------------- copy ---------------- */}
           <div className="jh-enter">
             <div className="inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--surface)]/80 px-3 py-1.5 text-[0.6875rem] font-semibold text-[var(--text-muted)] backdrop-blur">
               <BadgeCheck className="size-3.5 text-[var(--brand)]" aria-hidden />
@@ -75,7 +77,7 @@ export function Hero({
               </ButtonLink>
             </div>
 
-            <dl className="mt-10 grid max-w-lg grid-cols-2 gap-x-6 gap-y-5 sm:grid-cols-4">
+            <dl className="mt-9 grid max-w-lg grid-cols-2 gap-x-6 gap-y-5 sm:grid-cols-4">
               {[
                 { label: "কোর্স", value: stats.courses },
                 { label: "বিষয়", value: stats.subjects },
@@ -95,102 +97,60 @@ export function Hero({
             </p>
           </div>
 
+          {/* ---------------- imagery ---------------- */}
           <div className="jh-enter relative" style={{ animationDelay: "90ms" }}>
-            <HeroExamPreview />
+            <div className="relative mx-auto max-w-[34rem]">
+              {/* soft brand glow behind the photo */}
+              <div
+                className="pointer-events-none absolute -inset-6 -z-10 rounded-[2.5rem] bg-[radial-gradient(60%_60%_at_70%_20%,var(--brand-soft),transparent_70%)] blur-2xl"
+                aria-hidden
+              />
+
+              <div className="relative overflow-hidden rounded-[1.75rem] border border-[var(--border)] shadow-[0_24px_60px_-24px_rgba(79,66,228,0.35)]">
+                <Image
+                  src="/hero-students-bd.jpg"
+                  alt="তিনজন শিক্ষার্থী ল্যাপটপ ও নোটবুক নিয়ে একসাথে JobHub-এ প্রস্তুতি নিচ্ছেন"
+                  width={1408}
+                  height={768}
+                  priority
+                  sizes="(max-width: 1024px) 100vw, 34rem"
+                  className="h-auto w-full object-cover"
+                />
+                {/* Legibility scrim so floating cards never sit on a busy area */}
+                <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1/3 bg-[linear-gradient(to_top,rgba(10,10,25,0.45),transparent)]" aria-hidden />
+
+                {/* live badge, top-left */}
+                <div className="absolute left-3 top-3 flex items-center gap-1.5 rounded-full bg-[var(--surface)]/95 px-2.5 py-1 text-[0.625rem] font-bold text-[var(--text)] shadow-sm backdrop-blur">
+                  <span className="relative flex size-1.5">
+                    <span className="absolute inline-flex size-full animate-ping rounded-full bg-red-500 opacity-75" />
+                    <span className="relative inline-flex size-1.5 rounded-full bg-red-500" />
+                  </span>
+                  লাইভ ক্লাস প্রস্তুতি
+                </div>
+
+                {/* score card, bottom-left */}
+                <div className="absolute bottom-3 left-3 w-[10.5rem] rounded-xl bg-[var(--surface)]/95 p-2.5 shadow-lg backdrop-blur">
+                  <p className="text-[0.5625rem] font-medium text-[var(--text-subtle)]">আজকের অনুশীলন</p>
+                  <p className="mt-0.5 flex items-baseline gap-1">
+                    <span className="text-[1.125rem] font-bold text-[var(--text)]">{formatNumber(72)}</span>
+                    <span className="text-[0.625rem] font-semibold text-mint-600 dark:text-mint-400">+12%</span>
+                  </p>
+                  <div className="mt-1.5 h-1 w-full overflow-hidden rounded-full bg-[var(--surface-muted)]">
+                    <div className="h-full w-[72%] rounded-full bg-[linear-gradient(90deg,var(--brand),var(--accent))]" />
+                  </div>
+                </div>
+
+                {/* accuracy pill, bottom-right */}
+                <div className="absolute bottom-3 right-3 rounded-xl bg-[var(--surface)]/95 px-2.5 py-2 text-center shadow-lg backdrop-blur">
+                  <p className="text-[0.5625rem] font-medium text-[var(--text-subtle)]">নির্ভুলতা</p>
+                  <p className="text-[0.9375rem] font-bold text-[var(--brand)]">{formatPercent(87)}</p>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
     </section>
-  );
-}
-
-/** Static, honest depiction of the answering interface — illustrative, not a live score. */
-function HeroExamPreview() {
-  const options = ["স্বরসন্ধি", "ব্যঞ্জনসন্ধি", "বিসর্গসন্ধি", "নিপাতনে সিদ্ধ"];
-  return (
-    <div className="relative mx-auto max-w-md lg:max-w-none">
-      <div className="absolute -inset-3 -z-10 rounded-[2rem] bg-[linear-gradient(150deg,var(--brand)/12,var(--accent)/10)] blur-2xl" aria-hidden />
-      <div className="jh-card overflow-hidden shadow-[0_28px_70px_-40px_rgba(48,44,128,.55)]">
-        <div className="flex items-center justify-between gap-3 border-b border-[var(--border)] bg-[var(--surface-muted)]/70 px-4 py-3">
-          <div className="flex items-center gap-2">
-            <LiveDot label="লাইভ" />
-            <span className="text-[0.6875rem] font-medium text-[var(--text-subtle)]">BCS · দৈনিক পরীক্ষা</span>
-          </div>
-          <span className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--surface)] px-2 py-1 text-[0.75rem] font-bold tabular-nums text-[var(--text)] ring-1 ring-[var(--border)]">
-            <Timer className="size-3.5 text-[var(--brand)]" aria-hidden />
-            {formatClock(1487)}
-          </span>
-        </div>
-
-        <div className="p-4 sm:p-5">
-          <div className="flex items-center justify-between text-[0.6875rem] font-semibold text-[var(--text-subtle)]">
-            <span>প্রশ্ন ৪ / ২৫</span>
-            <span className="inline-flex items-center gap-1 text-mint-600 dark:text-mint-500">
-              <Sparkles className="size-3" aria-hidden /> সংরক্ষিত
-            </span>
-          </div>
-          <div className="mt-2 h-1 w-full overflow-hidden rounded-full bg-[var(--surface-sunken)]">
-            <div className="h-full w-[16%] rounded-full bg-[var(--brand)]" aria-hidden />
-          </div>
-
-          <p className="mt-4 font-bangla text-[0.9375rem] font-semibold leading-relaxed text-[var(--text)]">
-            ‘নবী + ইমন = নবীন’ — এখানে কোন সন্ধি হয়েছে?
-          </p>
-
-          <div className="mt-4 grid gap-2">
-            {options.map((option, index) => (
-              <div
-                key={option}
-                className={`flex items-center gap-2.5 rounded-xl border px-3 py-2.5 text-[0.8125rem] ${
-                  index === 1
-                    ? "border-[var(--brand)] bg-[var(--brand-soft)] font-semibold text-[var(--brand)]"
-                    : "border-[var(--border)] bg-[var(--surface)] text-[var(--text-muted)]"
-                }`}
-              >
-                <span
-                  className={`flex size-5 shrink-0 items-center justify-center rounded-md text-[0.625rem] font-bold ${
-                    index === 1 ? "bg-[var(--brand)] text-white" : "bg-[var(--surface-sunken)] text-[var(--text-subtle)]"
-                  }`}
-                >
-                  {["ক", "খ", "গ", "ঘ"][index]}
-                </span>
-                {option}
-              </div>
-            ))}
-          </div>
-
-          <div className="mt-4 flex items-center justify-between">
-            <div className="flex gap-1" aria-hidden>
-              {[0, 1, 2, 3].map((i) => (
-                <span
-                  key={i}
-                  className={`size-6 rounded-md text-center text-[0.625rem] font-bold leading-6 ${
-                    i < 2
-                      ? "bg-[var(--brand)] text-white"
-                      : i === 2
-                        ? "bg-[var(--surface-sunken)] text-[var(--text-subtle)] ring-1 ring-[var(--border)]"
-                        : "bg-[var(--surface-sunken)] text-[var(--text-subtle)]"
-                  }`}
-                >
-                  {formatNumber(i + 1)}
-                </span>
-              ))}
-            </div>
-            <span className="rounded-lg bg-[var(--brand)] px-3 py-1.5 text-[0.6875rem] font-bold text-white">
-              পরবর্তী
-            </span>
-          </div>
-        </div>
-      </div>
-
-      <div className="absolute -bottom-5 -left-4 hidden rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 shadow-[0_16px_36px_-24px_rgba(22,26,51,.5)] sm:block">
-        <p className="text-[0.625rem] font-medium text-[var(--text-subtle)]">পূর্বে জমা দেওয়া হলো</p>
-        <p className="mt-0.5 flex items-center gap-1.5 text-[0.8125rem] font-bold text-[var(--text)]">
-          <ShieldCheck className="size-3.5 text-mint-600 dark:text-mint-500" aria-hidden />
-          সার্ভারে স্কোরিং
-        </p>
-      </div>
-    </div>
   );
 }
 
@@ -522,6 +482,85 @@ export function HowItWorks() {
             </li>
           ))}
         </ol>
+      </div>
+    </section>
+  );
+}
+
+export function ExamIntegrity() {
+  const points = [
+    {
+      icon: ShieldCheck,
+      title: "প্রশ্ন আসে যাচাইয়ের পরই",
+      text: "প্রতিটি প্রশ্ন সম্পাদকীয় পর্যালোচনা পেরিয়ে অনুমোদিত হয়। অনুমোদন ছাড়া কোনো প্রশ্ন কোনো পরীক্ষায় আসে না।",
+    },
+    {
+      icon: Timer,
+      title: "সময় নিয়ন্ত্রণ করে সার্ভার",
+      text: "পরীক্ষার সময়সীমা সার্ভারেই নির্ধারিত ও গণনা করা হয় — ডিভাইসের ঘড়ি বা পেজ রিফ্রেশ বদলাতে পারে না।",
+    },
+    {
+      icon: Target,
+      title: "স্কোরিং স্বয়ংক্রিয় ও নিরপেক্ষ",
+      text: "সঠিক উত্তরে পূর্ণ নম্বর, ভুলে নির্ধারিত কাটতি, না দিলে শূন্য — ফলাফল আপনার আসল উত্তরের ভিত্তিতেই।",
+    },
+  ];
+
+  return (
+    <section className="border-b border-[var(--border)] py-14 sm:py-16" aria-labelledby="integrity-heading">
+      <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="grid items-center gap-10 lg:grid-cols-2 lg:gap-14">
+          <div className="jh-enter order-2 lg:order-1">
+            <p className="text-[0.6875rem] font-semibold uppercase tracking-[0.14em] text-[var(--brand)]">
+              পরীক্ষার নির্ভরযোগ্যতা
+            </p>
+            <h2
+              id="integrity-heading"
+              className="mt-2 text-balance text-[1.5rem] font-bold tracking-[-0.03em] text-[var(--text)] sm:text-[1.875rem]"
+            >
+              যে পরীক্ষায় ফলাফল নিয়ে সন্দেহ থাকে না
+            </h2>
+            <p className="mt-3 max-w-xl text-pretty text-[0.9375rem] leading-relaxed text-[var(--text-muted)]">
+              প্রতিযোগিতামূলক পরীক্ষায় এক নম্বরও গুরুত্বপূর্ণ। তাই প্রশ্ন বাছাই, সময় নিয়ন্ত্রণ ও
+              স্কোরিং — সবকিছু স্বয়ংক্রিয়ভাবে এবং যাচাইযোগ্যভাবে সম্পন্ন হয়।
+            </p>
+
+            <ul className="mt-7 space-y-4">
+              {points.map((point) => (
+                <li key={point.title} className="flex gap-3">
+                  <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-xl bg-[var(--brand-soft)] text-[var(--brand)]">
+                    <point.icon className="size-4" aria-hidden />
+                  </span>
+                  <span>
+                    <span className="block text-[0.875rem] font-semibold text-[var(--text)]">{point.title}</span>
+                    <span className="mt-0.5 block text-[0.8125rem] leading-relaxed text-[var(--text-muted)]">
+                      {point.text}
+                    </span>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <div className="jh-enter order-1 lg:order-2" style={{ animationDelay: "80ms" }}>
+            <div className="relative overflow-hidden rounded-[1.75rem] border border-[var(--border)] shadow-[0_24px_60px_-28px_rgba(79,66,228,0.3)]">
+              <Image
+                src="/exam-hall-bd.jpg"
+                alt="আধুনিক পরীক্ষা কক্ষে শিক্ষার্থীরা কম্পিউটারে পরীক্ষা দিচ্ছেন"
+                width={1408}
+                height={768}
+                sizes="(max-width: 1024px) 100vw, 36rem"
+                className="h-auto w-full object-cover"
+              />
+              <div className="absolute bottom-3 left-3 right-3 flex items-center gap-2 rounded-xl bg-[var(--surface)]/95 px-3 py-2 shadow-lg backdrop-blur">
+                <ShieldCheck className="size-4 shrink-0 text-[var(--brand)]" aria-hidden />
+                <p className="text-[0.6875rem] font-medium leading-snug text-[var(--text-muted)]">
+                  সময়, প্রশ্ন ও নম্বর — সব সার্ভারে যাচাই হয়
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </section>
   );
