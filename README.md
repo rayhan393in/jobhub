@@ -136,6 +136,14 @@ Everything that decides a mark happens in Postgres:
 - `jh_get_attempt_review` → blocked until `result_release_at`.
 - `jh_leaderboard` → ties broken by score → accuracy → duration → `submitted_at` → `user_id`.
 
+The custom-exam builder (`/custom-exam`, `/practice`) lets a student pick several
+subjects, topics and subtopics at once. `src/lib/exam-composition.ts` splits the
+requested question count across that selection in proportion to each scope's
+verified pool, never asking one scope for more than it holds — a composition the
+database would reject rather than silently top up. It is unit-tested
+(`tests/unit/exam-composition.test.ts`) because a bad split is invisible in the
+UI until the attempt fails to start.
+
 ## Content is under editorial review
 
 The 48 seeded questions are **JobHub-authored editorial samples**, explicitly not
