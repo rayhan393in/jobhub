@@ -53,9 +53,11 @@ export function ExamPublisher({
   } | null>(null);
   const [checking, setChecking] = React.useState(false);
 
-  const now = new Date();
-  const startDefault = new Date(now.getTime() + 60 * 60 * 1000);
-  const endDefault = new Date(now.getTime() + 4 * 60 * 60 * 1000);
+  // One clock read for the whole render; `nowMs` is also used to decide whether a
+  // schedule has started, so nothing reads the clock again mid-render.
+  const [nowMs] = React.useState(() => Date.now());
+  const startDefault = new Date(nowMs + 60 * 60 * 1000);
+  const endDefault = new Date(nowMs + 4 * 60 * 60 * 1000);
 
   const [form, setForm] = React.useState({
     courseId: courses[0]?.id ?? "",
@@ -348,7 +350,9 @@ export function ExamPublisher({
             {schedules.map((schedule) => {
               const course = courses.find((c) => c.id === schedule.course_id);
               const start = new Date(schedule.starts_at);
-              const startFuture = start.getTime() > Date.now();
+              // Compared against the render-time clock from props, not Date.now():
+              // reading the clock during render makes the output impure.
+              const startFuture = start.getTime() > nowMs;
               return (
                 <li key={schedule.id} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 px-3 py-2.5 sm:grid-cols-[minmax(0,1fr)_7rem_8rem_auto]">
                   <div className="min-w-0">

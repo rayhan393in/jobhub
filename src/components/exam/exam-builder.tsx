@@ -75,7 +75,7 @@ export function ExamBuilder({
 
   const course = courses.find((c) => c.id === courseId);
   const subjects = subjectsByCourse[courseId] ?? [];
-  const topics = topicsByCourse[courseId] ?? [];
+  const allTopics = topicsByCourse[courseId];
   const limit = Math.min(maxQuestions, course?.exam_config.max_questions ?? maxQuestions);
   const durationLimit = Math.min(maxDuration, course?.exam_config.max_duration_minutes ?? maxDuration);
 
@@ -116,6 +116,10 @@ export function ExamBuilder({
   }, [checkAvailability, step]);
 
   // Preselect a topic supplied by the dashboard "revise weak topic" link.
+  // Memoised so the effect below does not re-run on every render just because
+  // `?? []` produced a fresh array identity.
+  const topics = React.useMemo(() => allTopics ?? [], [allTopics]);
+
   React.useEffect(() => {
     if (!presetTopic) return;
     const topic = topics.find((t) => t.id === presetTopic);
