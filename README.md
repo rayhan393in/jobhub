@@ -73,18 +73,31 @@ under **Supabase → Project Settings → Database → Connection pooling**.
 
 ## First administrator
 
-Never auto-promote the first sign-up — that is a privilege-escalation hole.
-Instead:
+A fresh deployment has no staff, and roles can only be granted by an existing
+super admin — so there is a deliberate, **single-use** bootstrap path:
 
 1. Register normally at `/register` and confirm the email.
-2. In the Supabase SQL editor run:
-   ```sql
-   select public.jh_bootstrap_super_admin('you@example.com');
-   ```
-3. Sign out and in again; `/admin` is now available.
+2. Sign in. While the platform has no staff at all, the sign-in page shows a
+   **"প্রথম অ্যাডমিন সেটআপ"** panel with an *অ্যাডমিন অ্যাক্সেস চালু করুন* button.
+3. Click it. `jh_claim_first_admin()` promotes you to `super_admin`, writes an
+   audit row, and the panel disappears for everyone forever.
 
-The function is `security definer` but revoked from `anon` and `authenticated`, so
-it can only be called by an operator with database access.
+The seat is checked under an advisory lock inside the database, so this cannot
+be raced or replayed, and `anon` has no execute grant. Once any content editor,
+admin or super admin exists, the endpoint returns 409 and the only way to add
+staff is `/admin/students` (requires `role.manage`).
+
+Staff entry points: a **অ্যাডমিন** button in the site header for signed-in staff,
+`/admin` directly, or the **স্টাফ প্রবেশ** link in the footer pointing at
+`/admin/login`, which forwards to sign-in and then back to `/admin`.
+
+Operators with database access can still promote out of band:
+
+```sql
+select public.jh_bootstrap_super_admin('you@example.com');
+```
+
+Never auto-promote the first sign-up: that is a privilege-escalation hole.
 
 ## Roles
 
