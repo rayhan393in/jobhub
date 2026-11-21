@@ -50,6 +50,10 @@ const bodySchema = z.discriminatedUnion("action", [
     id: z.string().uuid(),
   }),
   z.object({
+    action: z.literal("rebuild"),
+    courseId: z.string().uuid(),
+  }),
+  z.object({
     action: z.literal("clear"),
     courseId: z.string().uuid(),
     examName: z.string().trim().min(2).max(160).optional(),
@@ -82,6 +86,18 @@ export async function POST(request: Request) {
     const { error } = await supabase.from("question_frequency").delete().eq("id", body.id).eq("course_id", body.courseId);
     if (error) return fromDbError(error);
     return NextResponse.json({ ok: true }, { headers: { "Cache-Control": "no-store" } });
+  }
+
+  if (body.action === "rebuild") {
+    // Count what the approved bank already knows, rather than asking anyone to
+    // retype it. Only verified questions with a named exam contribute.
+    const { data, error } = await supabase.rpc("jh_rebuild_frequency", { p_course_id: body.courseId });
+    if (error) return fromDbError(error);
+    const summary = data as { exams: number; rows: number } | null;
+    return NextResponse.json(
+      { ok: true, exams: summary?.exams ?? 0, rows: summary?.rows ?? 0 },
+      { headers: { "Cache-Control": "no-store" } },
+    );
   }
 
   if (body.action === "clear") {

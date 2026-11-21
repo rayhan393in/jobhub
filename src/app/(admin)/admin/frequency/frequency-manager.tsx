@@ -34,7 +34,7 @@ export function FrequencyManager({
   const [courseId, setCourseId] = React.useState(initialCourseId);
   const [content, setContent] = React.useState("");
   const [filename, setFilename] = React.useState("");
-  const [busy, setBusy] = React.useState(false);
+  const [busy, setBusy] = React.useState<string | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   const [preview, setPreview] = React.useState<{
     ready: number;
@@ -42,14 +42,14 @@ export function FrequencyManager({
     missingSubjects: string[];
     missingTopics: string[];
   } | null>(null);
-  const [done, setDone] = React.useState<number | null>(null);
+  const [done, setDone] = React.useState<string | null>(null);
 
   async function send(mode: "dry_run" | "commit") {
     if (!content) {
       setError("আগে একটি CSV ফাইল বেছে নিন।");
       return;
     }
-    setBusy(true);
+    setBusy("csv");
     setError(null);
     try {
       const response = await fetch("/api/admin/frequency", {
@@ -65,7 +65,7 @@ export function FrequencyManager({
       if (mode === "dry_run") {
         setPreview(payload);
       } else {
-        setDone(payload.saved ?? 0);
+        setDone(`${payload.saved ?? 0}টি সারি সংরক্ষিত হয়েছে।`);
         setPreview(null);
         setContent("");
         setFilename("");
@@ -74,12 +74,12 @@ export function FrequencyManager({
     } catch {
       setError("নেটওয়ার্ক সমস্যা — আবার চেষ্টা করুন।");
     } finally {
-      setBusy(false);
+      setBusy(null);
     }
   }
 
   async function removeRow(id: string) {
-    setBusy(true);
+    setBusy("csv");
     try {
       await fetch("/api/admin/frequency", {
         method: "POST",
@@ -88,7 +88,7 @@ export function FrequencyManager({
       });
       router.refresh();
     } finally {
-      setBusy(false);
+      setBusy(null);
     }
   }
 
@@ -170,7 +170,7 @@ export function FrequencyManager({
             <Button
               className="mt-2 w-full"
               size="sm"
-              loading={busy}
+              loading={busy === "csv"}
               disabled={preview.ready === 0}
               onClick={() => send("commit")}
             >
@@ -178,16 +178,58 @@ export function FrequencyManager({
             </Button>
           </div>
         ) : (
-          <Button className="mt-3" size="sm" loading={busy} disabled={!content} onClick={() => send("dry_run")}>
+          <Button className="mt-3" size="sm" loading={busy === "csv"} disabled={!content} onClick={() => send("dry_run")}>
             যাচাই করুন
           </Button>
         )}
 
-        {done !== null ? (
+        {done ? (
           <p className="mt-2 rounded-lg bg-mint-50 px-2.5 py-2 text-[0.6875rem] font-medium text-mint-700 dark:bg-mint-600/10 dark:text-mint-400">
-            {done}টি সারি সংরক্ষিত হয়েছে।
+            {done}
           </p>
         ) : null}
+
+        <div className="mt-3 rounded-lg border border-[var(--border)] bg-[var(--surface-muted)] p-2.5">
+          <p className="text-[0.6875rem] font-semibold text-[var(--text)]">প্রশ্নব্যাংক থেকে গণনা</p>
+          <p className="mt-0.5 text-[0.5625rem] leading-relaxed text-[var(--text-subtle)]">
+            অনুমোদিত ও যাচাইকৃত প্রশ্নে যে পরীক্ষার নাম লেখা আছে, সেগুলো গুনে ফ্রিকোয়েন্সি তৈরি হবে।
+            হাতে গুনতে হবে না — এবং প্রতিটি সংখ্যা একটি বাস্তব প্রশ্ন থেকে আসে।
+          </p>
+          <Button
+            className="mt-2"
+            size="sm"
+            variant="secondary"
+            loading={busy === "rebuild"}
+            onClick={async () => {
+              setBusy("rebuild");
+              setError(null);
+              try {
+                const response = await fetch("/api/admin/frequency", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ action: "rebuild", courseId }),
+                });
+                const payload = await response.json();
+                if (!response.ok) {
+                  setError(payload.error ?? "গণনা ব্যর্থ হয়েছে।");
+                  return;
+                }
+                setDone(
+                  payload.rows === 0
+                    ? "প্রশ্নব্যাংকে পরীক্ষার নামসহ কোনো যাচাইকৃত প্রশ্ন নেই — গণনা করার মতো কিছু পাওয়া যায়নি।"
+                    : `${payload.exams ?? 0}টি পরীক্ষার ${payload.rows ?? 0}টি সারি গণনা করা হয়েছে।`,
+                );
+                router.refresh();
+              } catch {
+                setError("নেটওয়ার্ক সমস্যা।");
+              } finally {
+                setBusy(null);
+              }
+            }}
+          >
+            গণনা চালান
+          </Button>
+        </div>
       </div>
 
       <div className="jh-card overflow-hidden">
@@ -220,7 +262,7 @@ export function FrequencyManager({
                 <button
                   type="button"
                   onClick={() => removeRow(row.id)}
-                  disabled={busy}
+                  disabled={busy !== null}
                   className="rounded p-1 text-[var(--text-subtle)] hover:text-[var(--danger)] disabled:opacity-40"
                   aria-label="সারি মুছুন"
                 >

@@ -41,7 +41,34 @@ type SubjectRow = { id: string; title_bn: string; title_en: string | null };
 type TopicRow = { id: string; subject_id: string; title_bn: string; title_en: string | null };
 type SubtopicRow = { id: string; topic_id: string; title_bn: string };
 
-const normalise = (value: string) => value.trim().toLowerCase().replace(/\s+/g, " ");
+/**
+ * Name matching for syllabus rows.
+ *
+ * Beyond case and spacing this folds the punctuation that differs between a
+ * spreadsheet and the syllabus without changing the words: an arrow, an en or
+ * em dash and a hyphen all become a single hyphen, and the soft hyphen and
+ * zero-width joiners are dropped. "Subject-verb agreement → Subject–verb
+ * agreement" therefore matches the syllabus row "Subject-verb agreement".
+ */
+const normalise = (value: string) =>
+  value
+    .trim()
+    .toLowerCase()
+    .replace(/[\u200b-\u200d\u00ad]/g, "")
+    .replace(/\s*[→←↔–—>-]+>?\s*/g, "-")
+    .replace(/\s+/g, " ")
+    .replace(/-+/g, "-")
+    .trim();
+
+/**
+ * For a topic written as "A → B", also try the text before the arrow. The CSV
+ * carries the parent topic on the left and the leaf on the right; the syllabus
+ * stores the leaf only.
+ */
+const topicCandidates = (value: string): string[] => {
+  const parts = value.split(/[→←↔]/).map((part) => part.trim()).filter(Boolean);
+  return parts.length > 1 ? [...parts.reverse(), value.trim()] : [value.trim()];
+};
 
 export async function POST(request: Request) {
   const user = await getCurrentUser();
@@ -161,7 +188,10 @@ export async function POST(request: Request) {
     }
     let topic: TopicRow | undefined;
     if (row.topic) {
-      topic = topicByName.get(`${subject.id}::${normalise(row.topic)}`);
+      for (const candidate of topicCandidates(row.topic)) {
+        topic = topicByName.get(`${subject.id}::${normalise(candidate)}`);
+        if (topic) break;
+      }
       if (!topic) {
         unresolvedTopics.add(`${subject.title_bn} → ${row.topic}`);
         continue;

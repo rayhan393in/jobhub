@@ -332,3 +332,93 @@ $$;
 
 revoke all on function public.jh_week_completion(uuid,date) from public;
 grant execute on function public.jh_week_completion(uuid,date) to authenticated;
+
+-- ---------------------------------------------------------------------------
+-- Derive frequency from the question bank itself
+--
+-- Asking an admin to hand-count 40th–50th BCS questions into a spreadsheet is
+-- both tedious and a fabrication risk. If the questions are in the bank with
+-- their exam name and topic, the counts already exist — they just need
+-- aggregating. This rebuilds `question_frequency` from approved, verified
+-- questions only, so every number traces to a real row a reviewer approved.
+--
+-- Rows are replaced per (exam, year), never incremented, so running it twice
+-- cannot double a count.
+-- ---------------------------------------------------------------------------
+create or replace function public.jh_rebuild_frequency(p_course_id uuid)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  v_actor uuid := auth.uid();
+  v_exams integer := 0;
+  v_rows integer := 0;
+begin
+  if v_actor is null then
+    raise exception 'Authentication required' using errcode = '42501';
+  end if;
+  if not public.jh_has_permission('question.import') then
+    raise exception 'Rebuilding frequency requires question.import permission' using errcode = '42501';
+  end if;
+
+  -- Only questions that name a paper can contribute evidence.
+  create temporary table _agg on commit drop as
+  select
+    q.course_id,
+    q.subject_id,
+    q.topic_id,
+    q.subtopic_id,
+    q.exam_name,
+    q.year as exam_year,
+    count(*)::int as question_count
+  from public.questions q
+  where q.course_id = p_course_id
+    and q.status = 'approved'
+    and q.is_verified
+    and q.exam_name is not null
+    and length(btrim(q.exam_name)) > 0
+  group by q.course_id, q.subject_id, q.topic_id, q.subtopic_id, q.exam_name, q.year;
+
+  select count(distinct (exam_name, exam_year)), count(*) into v_exams, v_rows from _agg;
+
+  -- Replace the derived rows for every exam this rebuild touches. Manual rows
+  -- whose exam is not in the bank are left alone.
+  delete from public.question_frequency f
+  where f.course_id = p_course_id
+    and f.source_title = 'প্রশ্নব্যাংক থেকে স্বয়ংক্রিয় গণনা'
+    and exists (
+      select 1 from _agg a
+      where a.exam_name = f.exam_name
+        and a.exam_year is not distinct from f.exam_year
+    );
+
+  insert into public.question_frequency (
+    course_id, subject_id, topic_id, subtopic_id, exam_name, exam_year,
+    question_count, source_title, notes, created_by
+  )
+  select
+    a.course_id, a.subject_id, a.topic_id, a.subtopic_id, a.exam_name, a.exam_year,
+    a.question_count,
+    'প্রশ্নব্যাংক থেকে স্বয়ংক্রিয় গণনা',
+    'অনুমোদিত ও যাচাইকৃত প্রশ্ন থেকে গণনা করা হয়েছে',
+    v_actor
+  from _agg a
+  on conflict (course_id, exam_name, exam_year, subject_id, topic_id, subtopic_id)
+  do update set
+    question_count = excluded.question_count,
+    source_title = excluded.source_title,
+    notes = excluded.notes,
+    updated_at = now();
+
+  insert into public.audit_logs (actor_id, action, entity_type, entity_id, details)
+  values (v_actor, 'frequency.rebuild', 'question_frequency', p_course_id::text,
+          jsonb_build_object('exams', v_exams, 'rows', v_rows));
+
+  return jsonb_build_object('exams', v_exams, 'rows', v_rows);
+end;
+$$;
+
+revoke all on function public.jh_rebuild_frequency(uuid) from public;
+grant execute on function public.jh_rebuild_frequency(uuid) to authenticated;
