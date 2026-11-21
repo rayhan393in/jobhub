@@ -77,10 +77,21 @@ A fresh deployment has no staff, and roles can only be granted by an existing
 super admin — so there is a deliberate, **single-use** bootstrap path:
 
 1. Register normally at `/register` and confirm the email.
-2. Sign in. While the platform has no staff at all, the sign-in page shows a
-   **"প্রথম অ্যাডমিন সেটআপ"** panel with an *অ্যাডমিন অ্যাক্সেস চালু করুন* button.
+2. Sign in. While the platform has no staff at all, `/dashboard` shows a
+   **"প্রথম অ্যাডমিন সেটআপ"** banner with an *অ্যাডমিন বানুন* button. The same
+   panel also appears on `/login?next=/admin`.
 3. Click it. `jh_claim_first_admin()` promotes you to `super_admin`, writes an
-   audit row, and the panel disappears for everyone forever.
+   audit row, and the banner disappears for everyone forever.
+
+> **Why the guard has to be bypassed.** `jh_guard_profile_role()` refuses any
+> write where the JWT subject is the row being changed ("You cannot change your
+> own role"). The claim function therefore blanks **both** copies of the token
+> claim — `request.jwt.claim.sub` *and* `request.jwt.claims` — for the duration
+> of the update. Blanking only the first is not enough: Supabase's `auth.uid()`
+> is `coalesce(flat claim, claims json ->> 'sub')`, so the fallback still
+> identified the caller and the claim failed with 42501. `tests/db/harness.ts`
+> mirrors the real `auth.uid()` for exactly this reason — a simpler stub makes
+> the bug invisible.
 
 The seat is checked under an advisory lock inside the database, so this cannot
 be raced or replayed, and `anon` has no execute grant. Once any content editor,
