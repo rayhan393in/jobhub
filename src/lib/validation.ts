@@ -64,6 +64,23 @@ export const startCustomExamSchema = z.object({
     .default("custom"),
   titleEn: z.string().max(160).optional(),
   titleBn: z.string().max(160).optional(),
+  /**
+   * Exam mode: fixed total marks and the 60/20/10/10 difficulty mix. Off by
+   * default so ordinary practice keeps its simple 1-mark-per-question scoring.
+   */
+  structured: z
+    .object({
+      totalMarks: z.number().int().min(1).max(500).default(100),
+      mix: z
+        .object({
+          previous: z.number().int().min(0).max(100),
+          hard: z.number().int().min(0).max(100),
+          easy: z.number().int().min(0).max(100),
+          medium: z.number().int().min(0).max(100),
+        })
+        .optional(),
+    })
+    .optional(),
 });
 
 export const saveAnswerSchema = z.object({

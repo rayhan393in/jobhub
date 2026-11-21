@@ -76,6 +76,9 @@ export function ExamBuilder({
   });
   const [scopes, setScopes] = React.useState<Scope[]>([]);
   const [count, setCount] = React.useState(20);
+  // Exam mode: the paper is 100 marks at 60/20/10/10. Default off because a
+  // 20-question practice drill is not a 100-mark exam.
+  const [examMode, setExamMode] = React.useState(false);
   const [duration, setDuration] = React.useState(20);
   const [starting, setStarting] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -197,8 +200,9 @@ export function ExamBuilder({
           composition: { items },
           durationMinutes: duration,
           mode,
-          titleEn: "Custom practice exam",
-          titleBn: "কাস্টম প্র্যাকটিস পরীক্ষা",
+          titleEn: examMode ? "Custom 100-mark exam" : "Custom practice exam",
+          titleBn: examMode ? "কাস্টম ১০০ নম্বরের পরীক্ষা" : "কাস্টম প্র্যাকটিস পরীক্ষা",
+          structured: examMode ? { totalMarks: 100 } : undefined,
         }),
       });
       const payload = await response.json();
@@ -281,6 +285,24 @@ export function ExamBuilder({
               </div>
             </div>
           </div>
+
+          <label className="mt-3 flex cursor-pointer items-start gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface-muted)] px-3 py-2">
+            <input
+              type="checkbox"
+              checked={examMode}
+              onChange={(event) => {
+                setExamMode(event.target.checked);
+                if (event.target.checked) setCount(100);
+              }}
+              className="mt-0.5 size-3.5 accent-[var(--brand)]"
+            />
+            <span className="min-w-0">
+              <span className="block text-[0.75rem] font-semibold text-[var(--text)]">১০০ নম্বরের পরীক্ষা মোড</span>
+              <span className="block text-[0.625rem] leading-relaxed text-[var(--text-subtle)]">
+                পূর্ণমান ১০০ · ৬০% বিগত বছরের প্রশ্ন, ২০% কঠিন, ১০% সহজ, ১০% মাঝারি। প্রশ্ন যাচাইকৃত না হলে সার্ভার স্পষ্টভাবে জানাবে।
+              </span>
+            </span>
+          </label>
 
           <div className="mt-3 flex flex-wrap items-center gap-1.5">
             {[10, 20, 30, 50, 100].map((preset) => (

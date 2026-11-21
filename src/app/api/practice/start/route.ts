@@ -1,7 +1,7 @@
 import { ZodError } from "zod";
 import { assertSameOrigin, fail, fromDbError, fromZodError, ok, readJson } from "@/lib/api";
 import { getCurrentUser } from "@/lib/auth";
-import { startCustomAttempt } from "@/lib/exam-service";
+import { startCustomAttempt, startStructuredAttempt } from "@/lib/exam-service";
 import { startCustomExamSchema } from "@/lib/validation";
 
 export const runtime = "nodejs";
@@ -21,14 +21,25 @@ export async function POST(request: Request) {
   }
 
   try {
-    const result = await startCustomAttempt({
-      courseId: body.courseId,
-      composition: body.composition,
-      durationMinutes: body.durationMinutes,
-      mode: body.mode,
-      titleEn: body.titleEn,
-      titleBn: body.titleBn,
-    });
+    const result = body.structured
+      ? await startStructuredAttempt({
+          courseId: body.courseId,
+          composition: body.composition,
+          durationMinutes: body.durationMinutes,
+          mode: body.mode,
+          titleEn: body.titleEn,
+          titleBn: body.titleBn,
+          totalMarks: body.structured.totalMarks,
+          mix: body.structured.mix,
+        })
+      : await startCustomAttempt({
+          courseId: body.courseId,
+          composition: body.composition,
+          durationMinutes: body.durationMinutes,
+          mode: body.mode,
+          titleEn: body.titleEn,
+          titleBn: body.titleBn,
+        });
     return ok(result);
   } catch (error) {
     return fromDbError(error);

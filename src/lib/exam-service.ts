@@ -55,6 +55,36 @@ export async function startCustomAttempt(input: {
   return data as StartResult;
 }
 
+/**
+ * Exam-mode start: a fixed total mark and the 60/20/10/10 mix, via
+ * `jh_start_structured_attempt`. Throws with the database's own message when
+ * the verified bank is too small for the requested split.
+ */
+export async function startStructuredAttempt(input: {
+  courseId: string;
+  composition: { items: Array<Record<string, unknown>> };
+  durationMinutes: number;
+  mode: string;
+  titleEn?: string;
+  titleBn?: string;
+  totalMarks: number;
+  mix?: { previous: number; hard: number; easy: number; medium: number };
+}): Promise<StartResult & { total_marks?: number; question_count?: number }> {
+  const supabase = await client();
+  const { data, error } = await supabase.rpc("jh_start_structured_attempt", {
+    p_course_id: input.courseId,
+    p_composition: input.composition,
+    p_duration_minutes: input.durationMinutes,
+    p_mode: input.mode,
+    p_title_en: input.titleEn ?? "",
+    p_title_bn: input.titleBn ?? "",
+    p_total_marks: input.totalMarks,
+    ...(input.mix ? { p_mix: input.mix } : {}),
+  });
+  if (error) throw new Error(error.message);
+  return data as StartResult & { total_marks?: number; question_count?: number };
+}
+
 export async function getAttemptPaper(attemptId: string): Promise<AttemptPaper> {
   const supabase = await client();
   const { data, error } = await supabase.rpc("jh_get_attempt_paper", { p_attempt_id: attemptId });
