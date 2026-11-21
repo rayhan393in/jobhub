@@ -16,6 +16,14 @@ import type { PlanTopic } from "@/lib/study-plan";
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "স্টাডি রুটিন" };
 
+const TASK_KIND_META: Record<string, { label: string; tone: "brand" | "accent" | "info" | "warning" | "neutral" }> = {
+  study: { label: "পড়া", tone: "brand" },
+  practice: { label: "প্র্যাকটিস", tone: "accent" },
+  revision: { label: "রিভিশন", tone: "info" },
+  exam: { label: "পরীক্ষা", tone: "warning" },
+  rest: { label: "বিশ্রাম", tone: "neutral" },
+};
+
 export default async function RoutinesPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
@@ -194,28 +202,47 @@ export default async function RoutinesPage() {
                   </div>
                 </header>
                 <ul className="divide-y divide-[var(--border)]">
-                  {items.map((routine) => (
-                    <li key={routine.id} className="flex items-start gap-3 px-4 py-2.5">
-                      <span className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-lg bg-[var(--brand-soft)] text-[0.625rem] font-bold text-[var(--brand)]">
-                        {formatNumber(routine.minutes)}
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-[0.8125rem] font-semibold text-[var(--text)]">
-                          {routine.title_bn || routine.subject_title_bn || "পড়ার পরিকল্পনা"}
-                        </p>
-                        <p className="text-[0.6875rem] text-[var(--text-subtle)]">
-                          {courseById.get(routine.course_id)?.title_bn ?? ""}
-                          {routine.topic_title_bn ? ` · ${routine.topic_title_bn}` : ""}
-                          {routine.kind === "weekly_special" ? " · সাপ্তাহিক" : ""}
-                        </p>
-                        {routine.focus_note_bn ? (
-                          <p className="mt-1 text-[0.6875rem] leading-relaxed text-[var(--text-muted)]">
-                            {routine.focus_note_bn}
+                  {items.map((routine) => {
+                    const taskMeta = TASK_KIND_META[routine.task_kind ?? "study"] ?? TASK_KIND_META.study;
+                    return (
+                      <li key={routine.id} className="flex items-start gap-3 px-4 py-2.5">
+                        <span className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-lg bg-[var(--brand-soft)] text-[0.625rem] font-bold text-[var(--brand)]">
+                          {formatNumber(routine.minutes)}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <p className="text-[0.8125rem] font-semibold text-[var(--text)]">
+                              {routine.title_bn || routine.subject_title_bn || "পড়ার পরিকল্পনা"}
+                            </p>
+                            <Badge tone={taskMeta.tone}>{taskMeta.label}</Badge>
+                            {routine.slot_label ? (
+                              <span className="text-[0.625rem] text-[var(--text-subtle)]">{routine.slot_label}</span>
+                            ) : null}
+                          </div>
+                          <p className="text-[0.6875rem] text-[var(--text-subtle)]">
+                            {[
+                              routine.subject_title_bn,
+                              routine.topic_title_bn,
+                              routine.subtopic_title_bn,
+                            ]
+                              .filter(Boolean)
+                              .join(" › ") || (courseById.get(routine.course_id)?.title_bn ?? "")}
+                            {routine.kind === "weekly_special" ? " · সাপ্তাহিক" : ""}
                           </p>
-                        ) : null}
-                      </div>
-                    </li>
-                  ))}
+                          {routine.target_bn && routine.target_bn.startsWith("সাবটপিক") ? (
+                            <p className="mt-1 text-[0.6875rem] leading-relaxed text-[var(--brand)]">
+                              {routine.target_bn}
+                            </p>
+                          ) : null}
+                          {routine.focus_note_bn ? (
+                            <p className="mt-1 text-[0.6875rem] leading-relaxed text-[var(--text-muted)]">
+                              {routine.focus_note_bn}
+                            </p>
+                          ) : null}
+                        </div>
+                      </li>
+                    );
+                  })}
                 </ul>
               </section>
             );

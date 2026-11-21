@@ -363,6 +363,11 @@ export function RoutinePreview({ routines }: { routines: Routine[] }) {
                 <p className="mt-1 text-[0.75rem] text-[var(--text-muted)]">
                   {routine.subject_title_bn ?? "—"} {routine.topic_title_bn ? `· ${routine.topic_title_bn}` : ""}
                 </p>
+                {routine.subtopic_title_bn ? (
+                  <p className="mt-1 text-[0.6875rem] text-[var(--brand)]">
+                    সাবটপিক: {routine.subtopic_title_bn}
+                  </p>
+                ) : null}
                 <p className="mt-3 inline-flex items-center gap-1.5 text-[0.6875rem] font-medium text-[var(--text-subtle)]">
                   <Clock3 className="size-3" aria-hidden />
                   {formatNumber(routine.minutes)} মিনিট

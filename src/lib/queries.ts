@@ -153,10 +153,11 @@ export async function listRoutines(options?: {
   let query = supabase
     .from("routines")
     .select(
-      "id, course_id, kind, routine_date, title_en, title_bn, subject_id, topic_id, subtopic_id, minutes, focus_note_bn, status, subject_title_bn:subjects(title_bn), topic_title_bn:topics(title_bn)",
+      "id, course_id, kind, routine_date, title_en, title_bn, subject_id, topic_id, subtopic_id, minutes, focus_note_bn, status, slot_label, target_bn, task_kind, subject_title_bn:subjects(title_bn), topic_title_bn:topics(title_bn), subtopic_title_bn:subtopics(title_bn)",
     )
     .eq("status", "published")
     .order("routine_date", { ascending: true })
+    .order("slot_label", { ascending: true, nullsFirst: false })
     .limit(options?.limit ?? 60);
   if (options?.courseId) query = query.eq("course_id", options.courseId);
   if (options?.fromDate) query = query.gte("routine_date", options.fromDate);
@@ -166,6 +167,7 @@ export async function listRoutines(options?: {
     ...row,
     subject_title_bn: flattenEmbeddedTitle(row.subject_title_bn),
     topic_title_bn: flattenEmbeddedTitle(row.topic_title_bn),
+    subtopic_title_bn: flattenEmbeddedTitle(row.subtopic_title_bn),
   })) as unknown as Routine[];
 }
 
