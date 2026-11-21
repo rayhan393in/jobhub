@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { StudyPlanner } from "@/components/routines/study-planner";
+import { WeeklyPlanner } from "@/components/routines/weekly-planner";
 import { getCurrentUser } from "@/lib/auth";
 import { listCourses, listMyStudentRoutines, listRoutines, listSubjects, listTopicsWithSubtopics } from "@/lib/queries";
 import { dhakaDateKey, formatDate, formatNumber } from "@/lib/format";
@@ -76,6 +77,26 @@ export default async function RoutinesPage() {
           </ButtonLink>
         }
       />
+
+      <section className="mb-6" aria-labelledby="weekly-heading">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <h2 id="weekly-heading" className="text-[1rem] font-bold tracking-[-0.02em] text-[var(--text)]">
+            সপ্তাহভিত্তিক রুটিন ও পরীক্ষা
+          </h2>
+          <Badge tone="brand">২–৩ বিষয় / দিন</Badge>
+        </div>
+        {coursesWithSyllabus.length === 0 ? (
+          <p className="jh-card p-4 text-[0.8125rem] text-[var(--text-muted)]">
+            যে কোর্সে বিষয় ও টপিক আছে, তার জন্য সাপ্তাহিক রুটিন তৈরি হবে। এখনো কোনো কোর্সে সিলেবাস যোগ হয়নি।
+          </p>
+        ) : (
+          <WeeklyPlanner
+            courses={coursesWithSyllabus.map((course) => ({ id: course.id, title_bn: course.title_bn }))}
+            initialCourseId={initialCourseId || coursesWithSyllabus[0].id}
+            today={today}
+          />
+        )}
+      </section>
 
       <section className="mb-6" aria-labelledby="planner-heading">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">

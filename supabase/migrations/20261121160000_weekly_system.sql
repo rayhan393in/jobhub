@@ -254,3 +254,81 @@ $$;
 
 revoke all on function public.jh_topic_frequency(uuid) from public;
 grant execute on function public.jh_topic_frequency(uuid) to authenticated;
+
+-- ---------------------------------------------------------------------------
+-- Unfinished topics from one week, for the next week's plan.
+--
+-- The carry-forward itself happens in TypeScript (`buildWeekPlan` takes
+-- `priorityTopicIds`), because deciding *which* day a carried topic lands on is
+-- planning logic. The database only answers the factual question: which topics
+-- were scheduled that week and have no completed progress row.
+-- ---------------------------------------------------------------------------
+create or replace function public.jh_unfinished_topics(p_course_id uuid, p_week_start date)
+returns table (topic_id uuid, subject_id uuid, minutes integer)
+language sql
+stable
+security definer
+set search_path = public, pg_temp
+as $$
+  select sr.topic_id, sr.subject_id, sum(sr.minutes)::int
+  from public.student_routines sr
+  where sr.user_id = auth.uid()
+    and sr.course_id = p_course_id
+    and sr.routine_date between p_week_start and p_week_start + 6
+    and sr.plan_kind = 'study'
+    and sr.topic_id is not null
+    and not exists (
+      select 1 from public.routine_progress rp
+      where rp.user_id = auth.uid()
+        and rp.plan_id = sr.id
+        and rp.status = 'done'
+    )
+  group by sr.topic_id, sr.subject_id;
+$$;
+
+revoke all on function public.jh_unfinished_topics(uuid,date) from public;
+grant execute on function public.jh_unfinished_topics(uuid,date) to authenticated;
+
+-- ---------------------------------------------------------------------------
+-- Week completion, per subject. This is what "Daily Progress ও Weekly
+-- Completion Tracking" means in numbers: slots scheduled vs slots ticked.
+-- ---------------------------------------------------------------------------
+create or replace function public.jh_week_completion(p_course_id uuid, p_week_start date)
+returns jsonb
+language sql
+stable
+security definer
+set search_path = public, pg_temp
+as $$
+  with planned as (
+    select count(*)::int as slots,
+           coalesce(sum(minutes), 0)::int as planned_minutes
+    from public.student_routines
+    where user_id = auth.uid()
+      and course_id = p_course_id
+      and routine_date between p_week_start and p_week_start + 6
+  ),
+  done as (
+    select count(*)::int as completed,
+           coalesce(sum(rp.minutes_spent), 0)::int as spent_minutes
+    from public.routine_progress rp
+    join public.student_routines sr on sr.id = rp.plan_id
+    where rp.user_id = auth.uid()
+      and sr.course_id = p_course_id
+      and sr.routine_date between p_week_start and p_week_start + 6
+      and rp.status = 'done'
+  )
+  select jsonb_build_object(
+    'week_start', p_week_start,
+    'slots', planned.slots,
+    'completed', done.completed,
+    'completion', case when planned.slots = 0 then 0
+                       else round(100.0 * done.completed / planned.slots) end,
+    'planned_minutes', planned.planned_minutes,
+    'spent_minutes', done.spent_minutes
+  )
+  from planned, done;
+$$;
+
+revoke all on function public.jh_week_completion(uuid,date) from public;
+grant execute on function public.jh_week_completion(uuid,date) to authenticated;
