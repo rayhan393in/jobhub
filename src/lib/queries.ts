@@ -2,6 +2,7 @@ import "server-only";
 import { getServerClient } from "./supabase/server";
 import { getAdminClient } from "./supabase/admin";
 import { hasServiceRole } from "./supabase/env";
+import { flattenEmbeddedTitle } from "./postgrest";
 import type {
   Course,
   ExamSchedule,
@@ -161,7 +162,11 @@ export async function listRoutines(options?: {
   if (options?.fromDate) query = query.gte("routine_date", options.fromDate);
   if (options?.toDate) query = query.lte("routine_date", options.toDate);
   const { data } = await query;
-  return (data ?? []) as unknown as Routine[];
+  return (data ?? []).map((row) => ({
+    ...row,
+    subject_title_bn: flattenEmbeddedTitle(row.subject_title_bn),
+    topic_title_bn: flattenEmbeddedTitle(row.topic_title_bn),
+  })) as unknown as Routine[];
 }
 
 export type StudentPlanRow = {
@@ -194,7 +199,11 @@ export async function listMyStudentRoutines(userId: string, courseId?: string): 
     .order("routine_date");
   if (courseId) query = query.eq("course_id", courseId);
   const { data } = await query;
-  return (data ?? []) as unknown as StudentPlanRow[];
+  return (data ?? []).map((row) => ({
+    ...row,
+    topic_title_bn: flattenEmbeddedTitle(row.topic_title_bn),
+    course_title_bn: flattenEmbeddedTitle(row.course_title_bn),
+  })) as unknown as StudentPlanRow[];
 }
 
 export async function getProfile(userId: string): Promise<Profile | null> {
