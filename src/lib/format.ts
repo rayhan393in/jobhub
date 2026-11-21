@@ -66,7 +66,7 @@ export function formatClock(totalSeconds: number, locale: Locale = "bn"): string
   const minutes = Math.floor((safe % 3600) / 60);
   const seconds = safe % 60;
   const pad = (n: number) => String(n).padStart(2, "0");
-  const text = hours > 0 ? `${hours}:${pad(minutes)}:${pad(seconds)}` : `${pad(minutes)}:${pad(seconds)}`;
+  const text = hours > 0 ? `${pad(hours)}:${pad(minutes)}:${pad(seconds)}` : `${pad(minutes)}:${pad(seconds)}`;
   return locale === "bn" ? toBengaliDigits(text) : text;
 }
 

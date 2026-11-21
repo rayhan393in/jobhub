@@ -60,8 +60,11 @@ export async function getAttemptPaper(attemptId: string): Promise<AttemptPaper> 
   const { data, error } = await supabase.rpc("jh_get_attempt_paper", { p_attempt_id: attemptId });
   if (error) throw new Error(error.message);
   const payload = data as AttemptPaper & { questions: ExamQuestion[] };
+  if (Array.isArray(payload.saved_answers) && payload.saved_answers.length > 0) {
+    return payload as AttemptPaper & { saved_answers: SavedAnswer[] };
+  }
 
-  // Saved answers for this attempt (the student's own rows under RLS).
+  // Older databases return the paper only; read the student's own rows (RLS-scoped).
   const { data: answers } = await supabase
     .from("student_answers")
     .select("question_id, selected_option, marked_for_review")

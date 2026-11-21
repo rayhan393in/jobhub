@@ -343,6 +343,7 @@ declare
   v_user uuid := auth.uid();
   v_attempt public.exam_attempts;
   v_questions jsonb;
+  v_answers jsonb;
 begin
   select * into v_attempt from public.exam_attempts where id = p_attempt_id;
   if not found then
@@ -372,10 +373,24 @@ begin
     where eq.paper_id = v_attempt.paper_id
   ) s;
 
+  -- Answers already given, so a refresh or a reconnected phone resumes the paper
+  -- exactly where the student left it.
+  select jsonb_agg(
+           jsonb_build_object(
+             'question_id', sa.question_id,
+             'selected_option', sa.selected_option,
+             'marked_for_review', sa.marked_for_review
+           )
+         )
+    into v_answers
+    from public.student_answers sa
+   where sa.attempt_id = p_attempt_id;
+
   return jsonb_build_object(
     'attempt', to_jsonb(v_attempt) - 'ip_hash' - 'user_agent' - 'idempotency_key',
     'server_now', now(),
-    'questions', coalesce(v_questions, '[]'::jsonb)
+    'questions', coalesce(v_questions, '[]'::jsonb),
+    'saved_answers', coalesce(v_answers, '[]'::jsonb)
   );
 end;
 $$;

@@ -213,6 +213,32 @@ body {
     border-color: var(--danger);
   }
 
+  /* Compact native select used across the admin tables and filters. */
+  .jh-select {
+    width: 100%;
+    border-radius: 0.625rem;
+    border: 1px solid var(--border-strong);
+    background: var(--surface);
+    padding: 0.5rem 1.75rem 0.5rem 0.625rem;
+    font-size: 0.8125rem;
+    color: var(--text);
+    appearance: none;
+    background-image: linear-gradient(45deg, transparent 50%, currentColor 50%),
+      linear-gradient(135deg, currentColor 50%, transparent 50%);
+    background-position: calc(100% - 0.9375rem) 52%, calc(100% - 0.625rem) 52%;
+    background-size: 0.3125rem 0.3125rem, 0.3125rem 0.3125rem;
+    background-repeat: no-repeat;
+    transition: border-color 150ms ease, box-shadow 150ms ease;
+  }
+  .jh-select:focus {
+    outline: none;
+    border-color: var(--brand);
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--brand) 18%, transparent);
+  }
+  .jh-select:disabled {
+    opacity: 0.55;
+  }
+
   .jh-skeleton {
     background: linear-gradient(90deg, var(--surface-sunken), var(--surface), var(--surface-sunken));
     background-size: 200% 100%;

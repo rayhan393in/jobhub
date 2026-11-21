@@ -250,7 +250,17 @@ export function PrepTracks({ courses }: { courses: Course[] }) {
   );
 }
 
-export function LiveExamPreview({ schedules }: { schedules: (ExamSchedule & { course?: { title_bn: string } })[] }) {
+/**
+ * `now` is passed from the server page so this component stays pure: reading the
+ * clock during render would make the list flicker on every re-render.
+ */
+export function LiveExamPreview({
+  schedules,
+  now,
+}: {
+  schedules: (ExamSchedule & { course?: { title_bn: string } })[];
+  now: number;
+}) {
   return (
     <section className="border-b border-[var(--border)] py-14 sm:py-16" aria-labelledby="live-heading">
       <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -306,7 +316,6 @@ export function LiveExamPreview({ schedules }: { schedules: (ExamSchedule & { co
             ) : (
               <ul className="divide-y divide-[var(--border)]">
                 {schedules.slice(0, 5).map((schedule) => {
-                  const now = Date.now();
                   const start = new Date(schedule.starts_at).getTime();
                   const end = new Date(schedule.ends_at).getTime();
                   const isLive = now >= start && now < end;

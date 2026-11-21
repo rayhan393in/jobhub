@@ -50,7 +50,7 @@ export default async function LandingPage() {
     <>
       <Hero signedIn={Boolean(user)} stats={stats} />
       <PrepTracks courses={courses} />
-      <LiveExamPreview schedules={schedules} />
+      <LiveExamPreview schedules={schedules} now={Date.now()} />
       <RoutinePreview routines={routines} />
       <LearningFeatures />
       <HowItWorks />
