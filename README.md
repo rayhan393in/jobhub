@@ -147,6 +147,12 @@ Post-deploy check:
 npm run smoke -- https://your-preview.vercel.app
 ```
 
+The sandbox in which this was built has no outbound access to Vercel or
+Supabase, so the preview was verified through the hosting APIs instead:
+migrations applied (counts above), 22 RLS tables / 51 policies / 23 functions
+present, `anon` denied on `jh_bootstrap_super_admin`, and every branch build
+producing a **preview** (`target: null`) — `main` is untouched.
+
 It verifies pages render with Bangla copy, private routes redirect to `/login`,
 the exam API refuses anonymous callers without leaking an answer key, and RLS
 hides draft schedules while exposing published courses.
