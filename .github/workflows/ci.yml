@@ -42,6 +42,8 @@ jobs:
       - name: Tests (unit + database)
         run: npm test
 
+      # No database credentials in CI: the migrator skips and the build runs
+      # exactly as it does on a machine without Supabase access.
       - name: Production build
         run: npm run build
         env:
