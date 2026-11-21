@@ -33,6 +33,7 @@ export function SiteHeader({ signedIn, isStaff = false }: { signedIn: boolean; i
 
   return (
     <header
+      translate="no"
       className={cn(
         "sticky top-0 z-50 border-b transition-colors duration-200",
         scrolled
