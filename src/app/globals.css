@@ -1,0 +1,291 @@
+@import "tailwindcss";
+
+/* ==========================================================================
+   JobHub design system
+   Deep indigo + violet identity, clean white surfaces, soft shadows.
+   Bangla-first typography (Anek Bangla) with Inter for Latin text.
+   ========================================================================== */
+
+@theme inline {
+  --font-sans: "Inter Variable", "Anek Bangla Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-bangla: "Anek Bangla Variable", "Inter Variable", ui-sans-serif, sans-serif;
+
+  --color-ink-50: #f6f7fb;
+  --color-ink-100: #eceefa;
+  --color-ink-200: #d7dbef;
+  --color-ink-300: #b4bad7;
+  --color-ink-400: #8890b8;
+  --color-ink-500: #636c99;
+  --color-ink-600: #4a5280;
+  --color-ink-700: #373d63;
+  --color-ink-800: #242a49;
+  --color-ink-900: #161a33;
+  --color-ink-950: #0c0e1e;
+
+  --color-indigo-50: #eef1ff;
+  --color-indigo-100: #e0e5ff;
+  --color-indigo-200: #c6ceff;
+  --color-indigo-300: #a2adff;
+  --color-indigo-400: #7f85fb;
+  --color-indigo-500: #6661f3;
+  --color-indigo-600: #4f42e4;
+  --color-indigo-700: #4234c8;
+  --color-indigo-800: #372da2;
+  --color-indigo-900: #302c80;
+  --color-indigo-950: #1d1a4b;
+
+  --color-violet-50: #f5f0ff;
+  --color-violet-100: #ede3ff;
+  --color-violet-200: #ddcbff;
+  --color-violet-300: #c5a6ff;
+  --color-violet-400: #ab74fd;
+  --color-violet-500: #9448f5;
+  --color-violet-600: #8226e8;
+  --color-violet-700: #7018cc;
+  --color-violet-800: #5d16a7;
+  --color-violet-900: #4d1586;
+
+  --color-mint-50: #ecfdf7;
+  --color-mint-100: #d0fae9;
+  --color-mint-500: #11b981;
+  --color-mint-600: #059669;
+  --color-mint-700: #047857;
+
+  --color-amber-soft: #fef4e5;
+
+  --shadow-soft: 0 1px 2px rgb(22 26 51 / 0.04), 0 8px 24px -12px rgb(22 26 51 / 0.12);
+  --shadow-lift: 0 2px 4px rgb(22 26 51 / 0.04), 0 18px 40px -20px rgb(48 44 128 / 0.28);
+  --shadow-ring: 0 0 0 1px rgb(22 26 51 / 0.06);
+
+  --radius-card: 1.125rem;
+}
+
+:root {
+  color-scheme: light;
+  --surface: #ffffff;
+  --surface-muted: #f7f8fc;
+  --surface-sunken: #f1f3fa;
+  --border: #e5e8f4;
+  --border-strong: #d4d9ec;
+  --text: #161a33;
+  --text-muted: #5d6489;
+  --text-subtle: #828aae;
+  --brand: #4f42e4;
+  --brand-soft: #eef1ff;
+  --accent: #8226e8;
+  --success: #059669;
+  --danger: #dc2626;
+  --warning: #d97706;
+}
+
+.dark {
+  color-scheme: dark;
+  --surface: #14172b;
+  --surface-muted: #191d34;
+  --surface-sunken: #0f1222;
+  --border: #262b48;
+  --border-strong: #333a5e;
+  --text: #eef1ff;
+  --text-muted: #a6adcf;
+  --text-subtle: #7d85ab;
+  --brand: #8f8bff;
+  --brand-soft: #232448;
+  --accent: #c39bff;
+  --success: #34d399;
+  --danger: #f87171;
+  --warning: #fbbf24;
+}
+
+* {
+  border-color: var(--border);
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--surface-muted);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+:lang(bn),
+.font-bangla {
+  font-family: var(--font-bangla);
+  letter-spacing: 0.002em;
+}
+
+::selection {
+  background: var(--brand);
+  color: #fff;
+}
+
+/* Focus visibility for keyboard users ------------------------------------- */
+:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* Scrollbars -------------------------------------------------------------- */
+@media (min-width: 768px) {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-strong) transparent;
+  }
+}
+
+/* Components -------------------------------------------------------------- */
+@layer components {
+  .jh-surface {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-card);
+  }
+
+  .jh-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-card);
+    box-shadow: 0 1px 2px rgb(22 26 51 / 0.03);
+  }
+
+  .jh-card-hover {
+    transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+  }
+  .jh-card-hover:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lift);
+    border-color: var(--border-strong);
+  }
+
+  .jh-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    padding: 0.25rem 0.625rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--text-muted);
+    white-space: nowrap;
+  }
+
+  .jh-label {
+    display: block;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    margin-bottom: 0.375rem;
+  }
+
+  .jh-input {
+    width: 100%;
+    border-radius: 0.75rem;
+    border: 1px solid var(--border-strong);
+    background: var(--surface);
+    padding: 0.625rem 0.875rem;
+    font-size: 0.9375rem;
+    color: var(--text);
+    transition: border-color 150ms ease, box-shadow 150ms ease;
+  }
+  .jh-input::placeholder {
+    color: var(--text-subtle);
+  }
+  .jh-input:focus {
+    outline: none;
+    border-color: var(--brand);
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--brand) 18%, transparent);
+  }
+  .jh-input[aria-invalid="true"] {
+    border-color: var(--danger);
+  }
+
+  .jh-skeleton {
+    background: linear-gradient(90deg, var(--surface-sunken), var(--surface), var(--surface-sunken));
+    background-size: 200% 100%;
+    animation: jh-shimmer 1.6s ease-in-out infinite;
+    border-radius: 0.75rem;
+  }
+
+  .jh-prose-bn p {
+    margin-bottom: 1rem;
+    line-height: 1.9;
+    color: var(--text-muted);
+  }
+  .jh-prose-bn h2 {
+    font-size: 1.25rem;
+    font-weight: 700;
+    margin: 2rem 0 0.75rem;
+    color: var(--text);
+  }
+  .jh-prose-bn ul {
+    margin: 0 0 1rem 1.25rem;
+    list-style: disc;
+    color: var(--text-muted);
+    line-height: 1.9;
+  }
+}
+
+@keyframes jh-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+@keyframes jh-fade-up {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.jh-enter {
+  animation: jh-fade-up 380ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Hero decorative field — subtle, no rainbow gradients -------------------- */
+.jh-hero-field {
+  background:
+    radial-gradient(60rem 30rem at 12% -10%, color-mix(in oklab, var(--brand) 12%, transparent), transparent 60%),
+    radial-gradient(45rem 26rem at 92% 0%, color-mix(in oklab, var(--accent) 10%, transparent), transparent 62%);
+}
+
+.jh-grid-lines {
+  background-image:
+    linear-gradient(to right, color-mix(in oklab, var(--border) 80%, transparent) 1px, transparent 1px),
+    linear-gradient(to bottom, color-mix(in oklab, var(--border) 80%, transparent) 1px, transparent 1px);
+  background-size: 56px 56px;
+  mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, #000 30%, transparent 75%);
+}
+
+/* Scrollable question palette without horizontal overflow ----------------- */
+.jh-scroll-x {
+  overflow-x: auto;
+  scrollbar-width: thin;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Number input spinner removal for cleaner exam forms --------------------- */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}

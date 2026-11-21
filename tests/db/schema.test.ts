@@ -16,7 +16,7 @@ const topicId = uuid(102);
 async function seedTaxonomy() {
   await actAsService(db);
   await db.query(
-    `insert into public.courses (id, slug, title_en, title_bn, status) values ($1,'bcs','BCS','বিসিএস','published')`,
+    `insert into public.courses (id, slug, title_en, title_bn, status) values ($1,'test-bcs','BCS Test','বিসিএস টেস্ট','published') on conflict (slug) do nothing`,
     [courseId],
   );
   await db.query(
