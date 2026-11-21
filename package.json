@@ -14,7 +14,8 @@
     "test:db": "vitest run tests/db",
     "check": "npm run typecheck && npm run lint && npm run test",
     "db:migrate": "node scripts/migrate.mjs",
-    "db:migrate:check": "node scripts/migrate.mjs --check"
+    "db:migrate:check": "node scripts/migrate.mjs --check",
+    "smoke": "node scripts/smoke.mjs"
   },
   "dependencies": {
     "@fontsource-variable/anek-bangla": "^5.3.0",
