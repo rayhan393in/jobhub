@@ -2,13 +2,14 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import {
-  ArrowLeft, Check, Clock3, CircleCheck, CircleX, MinusCircle, RotateCcw, Target, Trophy, Lock,
+  ArrowLeft, Check, Clock3, CircleCheck, CircleX, MinusCircle, RotateCcw, Target, Trophy, Lock, FileDown,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { getCurrentUser } from "@/lib/auth";
 import { getAttemptPaper, getAttemptReview } from "@/lib/exam-service";
+import { getSystemSettings } from "@/lib/admin-queries";
 import { formatDateTime, formatNumber, formatPercent, toBengaliDigits } from "@/lib/format";
 import { MODE_LABELS, type AttemptMode } from "@/lib/types";
 import { cn } from "@/lib/cn";
@@ -33,6 +34,13 @@ export default async function ResultPage({ params }: { params: Promise<{ attempt
   } catch {
     notFound();
   }
+
+  // Requirement 7: the admin decides whether students get a printable sheet.
+  const settings = await getSystemSettings();
+  const pdfFlags = (settings.pdf_downloads ?? {}) as Record<string, unknown>;
+  const pdfEnabled =
+    Boolean(review.released) &&
+    (pdfFlags.question_paper === true || pdfFlags.answer_key === true || pdfFlags.performance_report === true);
 
   if (paper.attempt.status === "in_progress") {
     redirect(`/exam/${attemptId}`);
@@ -205,10 +213,12 @@ export default async function ResultPage({ params }: { params: Promise<{ attempt
                     </div>
                   ) : null}
 
-                  {item.source ? (
+                  {item.exam_name || item.source || item.year || item.book_chapter ? (
                     <p className="mt-2 text-[0.625rem] text-[var(--text-subtle)]">
-                      উৎস: {item.source}
+                      উৎস: {item.exam_name || item.source}
                       {item.year ? ` · ${formatNumber(item.year)}` : ""}
+                      {item.book_chapter ? ` · ${item.book_chapter}` : ""}
+                      {item.book_page ? ` · পৃষ্ঠা ${formatNumber(item.book_page)}` : ""}
                     </p>
                   ) : null}
                 </li>
@@ -219,6 +229,12 @@ export default async function ResultPage({ params }: { params: Promise<{ attempt
       ) : null}
 
       <div className="mt-6 flex flex-wrap gap-2">
+        {pdfEnabled ? (
+          <ButtonLink href={`/results/${attemptId}/sheet`} size="md">
+            <FileDown className="size-3.5" aria-hidden />
+            PDF ডাউনলোড
+          </ButtonLink>
+        ) : null}
         <ButtonLink href="/practice" size="md">
           <RotateCcw className="size-3.5" aria-hidden />
           আবার অনুশীলন

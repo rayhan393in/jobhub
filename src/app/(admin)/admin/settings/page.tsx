@@ -31,6 +31,7 @@ export default async function SettingsPage() {
           platform={(settings.platform ?? {}) as Record<string, unknown>}
           limits={(settings.exam_limits ?? {}) as Record<string, unknown>}
           marking={(settings.marking ?? {}) as Record<string, unknown>}
+          pdf={(settings.pdf_downloads ?? {}) as Record<string, unknown>}
         />
       </div>
     </div>

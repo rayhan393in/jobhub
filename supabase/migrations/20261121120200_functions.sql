@@ -698,6 +698,7 @@ begin
 
   return jsonb_build_object(
     'released', true,
+    'result_release_at', v_release,
     'score', v_attempt.score,
     'total_marks', v_attempt.total_marks,
     'correct', v_attempt.correct_count,

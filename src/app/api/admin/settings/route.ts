@@ -8,7 +8,7 @@ import { fromDbError } from "@/lib/api";
 export const dynamic = "force-dynamic";
 
 const schema = z.object({
-  key: z.enum(["platform", "exam_limits", "marking"]),
+  key: z.enum(["platform", "exam_limits", "marking", "pdf_downloads"]),
   value: z.record(z.string(), z.unknown()),
 });
 
@@ -64,6 +64,25 @@ export async function PATCH(request: Request) {
     value.positive_marks = positive;
     value.negative_marks = negative;
     value.unanswered_marks = Number(value.unanswered_marks ?? 0) || 0;
+  }
+
+  // Requirement 7: the admin decides which PDF downloads students may take.
+  // Anything not supplied keeps its previous value, so toggling one switch never
+  // silently switches the others off.
+  if (parsed.data.key === "pdf_downloads") {
+    const flags = ["question_paper", "answer_key", "performance_report", "embed_exam_id", "embed_user_info"] as const;
+    const next: Record<string, boolean> = {};
+    for (const flag of flags) next[flag] = value[flag] === true;
+    const { data: existing } = await supabase
+      .from("system_settings")
+      .select("value")
+      .eq("key", "pdf_downloads")
+      .maybeSingle();
+    const previous = (existing?.value ?? {}) as Record<string, unknown>;
+    for (const flag of flags) {
+      if (value[flag] === undefined) next[flag] = previous[flag] === true;
+    }
+    Object.assign(value, next);
   }
 
   const { error } = await supabase

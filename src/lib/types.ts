@@ -187,6 +187,7 @@ export type ExamQuestion = {
   source: string;
   year: number | null;
   subject_title_bn?: string | null;
+  topic_title_bn?: string | null;
 };
 
 export type SavedAnswer = {
@@ -208,6 +209,12 @@ export type ReviewItem = ExamQuestion & {
   selected_option: number | null;
   is_correct: boolean;
   explanation: string;
+  /** Joined in by jh_get_attempt_review so the result sheet can group honestly. */
+  topic_title_bn?: string | null;
+  exam_name?: string | null;
+  source_title?: string | null;
+  book_chapter?: string | null;
+  book_page?: number | null;
 };
 
 export type AttemptReview = {
