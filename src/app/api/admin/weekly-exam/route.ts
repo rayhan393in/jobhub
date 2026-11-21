@@ -5,6 +5,7 @@ import { can } from "@/lib/permissions";
 import { getServerClient } from "@/lib/supabase/server";
 import { fromDbError } from "@/lib/api";
 import { weeklyExamComposition } from "@/lib/routines/weekly-plan";
+import { flattenEmbeddedTitle } from "@/lib/postgrest";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -289,7 +290,11 @@ export async function GET(request: Request) {
     .gte("routine_date", parsed.data.weekStart)
     .lte("routine_date", weekEnd);
 
-  const rows = (data ?? []) as unknown as Array<{
+  const rows = (data ?? []).map((row) => ({
+    ...row,
+    topic_title_bn: flattenEmbeddedTitle(row.topic_title_bn),
+    subject_title_bn: flattenEmbeddedTitle(row.subject_title_bn),
+  })) as unknown as Array<{
     topic_id: string | null;
     subject_id: string | null;
     minutes: number;

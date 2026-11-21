@@ -3,6 +3,7 @@ import { CalendarDays, Info } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { getServerClient } from "@/lib/supabase/server";
 import { listCourses } from "@/lib/queries";
+import { flattenEmbeddedTitle } from "@/lib/postgrest";
 import { requirePermission } from "@/lib/permissions";
 import { dhakaDateKey, formatDate, formatNumber } from "@/lib/format";
 import { AdminNote, AdminPageHeader } from "@/components/admin/admin-ui";
@@ -45,7 +46,11 @@ export default async function RoutinesAdminPage() {
       .order("routine_date", { ascending: true })
       .order("created_at", { ascending: false })
       .limit(120);
-    routines = (data ?? []) as unknown as AdminRoutine[];
+    routines = (data ?? []).map((row) => ({
+      ...row,
+      subject_title_bn: flattenEmbeddedTitle(row.subject_title_bn),
+      topic_title_bn: flattenEmbeddedTitle(row.topic_title_bn),
+    })) as unknown as AdminRoutine[];
   }
 
   const drafts = routines.filter((r) => r.status === "draft").length;
