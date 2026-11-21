@@ -164,6 +164,39 @@ export async function listRoutines(options?: {
   return (data ?? []) as unknown as Routine[];
 }
 
+export type StudentPlanRow = {
+  id: string;
+  course_id: string;
+  routine_date: string;
+  plan_day: number;
+  plan_kind: "study" | "revision" | "rest";
+  title_bn: string;
+  minutes: number;
+  focus_note_bn: string | null;
+  topic_title_bn: string | null;
+  course_title_bn: string | null;
+};
+
+/**
+ * The signed-in student's own saved study plan. RLS already restricts these rows
+ * to the owner; the explicit `eq("user_id", …)` is belt-and-braces and keeps the
+ * query honest if the client is ever swapped for the service role.
+ */
+export async function listMyStudentRoutines(userId: string, courseId?: string): Promise<StudentPlanRow[]> {
+  const supabase = await getServerClient();
+  if (!supabase) return [];
+  let query = supabase
+    .from("student_routines")
+    .select(
+      "id, course_id, routine_date, plan_day, plan_kind, title_bn, minutes, focus_note_bn, topic_title_bn:topics(title_bn), course_title_bn:courses(title_bn)",
+    )
+    .eq("user_id", userId)
+    .order("routine_date");
+  if (courseId) query = query.eq("course_id", courseId);
+  const { data } = await query;
+  return (data ?? []) as unknown as StudentPlanRow[];
+}
+
 export async function getProfile(userId: string): Promise<Profile | null> {
   const supabase = await getServerClient();
   if (!supabase) return null;

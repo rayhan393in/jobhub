@@ -1,13 +1,15 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { CalendarDays, Info, Radio, Sparkles } from "lucide-react";
+import { CalendarDays, Radio, Sparkles } from "lucide-react";
 import { PageHeader } from "@/components/dashboard/dashboard-shell";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
+import { StudyPlanner } from "@/components/routines/study-planner";
 import { getCurrentUser } from "@/lib/auth";
-import { listCourses, listRoutines } from "@/lib/queries";
+import { listCourses, listMyStudentRoutines, listRoutines, listSubjects, listTopicsWithSubtopics } from "@/lib/queries";
 import { dhakaDateKey, formatDate, formatNumber } from "@/lib/format";
+import type { PlanTopic } from "@/lib/study-plan";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "স্টাডি রুটিন" };
@@ -21,6 +23,36 @@ export default async function RoutinesPage() {
     listCourses(),
     listRoutines({ fromDate: today, limit: 60 }),
   ]);
+
+  // The personal planner needs the real syllabus, and only for courses that have
+  // one — most catalogue entries are published before their subjects exist.
+  const subjectRows = await Promise.all(courses.map((course) => listSubjects(course.id)));
+  const coursesWithSyllabus = courses.filter((_, index) => subjectRows[index].length > 0);
+
+  const topicsByCourse: Record<string, PlanTopic[]> = {};
+  await Promise.all(
+    coursesWithSyllabus.map(async (course) => {
+      const [subjects, topics] = await Promise.all([
+        listSubjects(course.id),
+        listTopicsWithSubtopics(course.id),
+      ]);
+      const subjectLabel = new Map(subjects.map((subject) => [subject.id, subject.title_bn]));
+      topicsByCourse[course.id] = topics.map((topic) => ({
+        id: topic.id,
+        subjectId: topic.subject_id,
+        subjectLabel: subjectLabel.get(topic.subject_id) ?? "",
+        label: topic.title_bn,
+      }));
+    }),
+  );
+
+  const targetCourseId = user.profile?.target_course_id ?? null;
+  const initialCourseId =
+    (targetCourseId && topicsByCourse[targetCourseId]?.length ? targetCourseId : null) ??
+    coursesWithSyllabus[0]?.id ??
+    "";
+
+  const myPlan = await listMyStudentRoutines(user.id);
 
   const courseById = new Map(courses.map((c) => [c.id, c]));
   const byDate = new Map<string, typeof routines>();
@@ -45,10 +77,63 @@ export default async function RoutinesPage() {
         }
       />
 
-      <p className="mb-4 flex items-start gap-1.5 rounded-xl bg-[var(--surface-muted)] px-3.5 py-2.5 text-[0.6875rem] leading-relaxed text-[var(--text-muted)]">
-        <Info className="mt-0.5 size-3.5 shrink-0 text-[var(--brand)]" aria-hidden />
-        নিজের রুটিন তৈরি করার সুবিধা শীঘ্রই আসছে। এখন প্রশাসক প্রকাশিত রুটিন অনুসরণ করুন।
-      </p>
+      <section className="mb-6" aria-labelledby="planner-heading">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <h2 id="planner-heading" className="text-[1rem] font-bold tracking-[-0.02em] text-[var(--text)]">
+            আমার ৩০ দিনের রুটিন
+          </h2>
+          <Badge tone={myPlan.length > 0 ? "success" : "neutral"} dot={myPlan.length > 0}>
+            {myPlan.length > 0 ? `${formatNumber(myPlan.length)} দিন সেভ করা আছে` : "এখনো সেভ করা হয়নি"}
+          </Badge>
+        </div>
+
+        {courses.length === 0 ? (
+          <p className="jh-card p-4 text-[0.8125rem] text-[var(--text-muted)]">
+            কোর্স প্রকাশিত হলে এখানে ৩০ দিনের প্ল্যান তৈরি করা যাবে।
+          </p>
+        ) : (
+          <StudyPlanner
+            courses={courses.map((course) => ({ id: course.id, slug: course.slug, title_bn: course.title_bn }))}
+            topicsByCourse={topicsByCourse}
+            initialCourseId={initialCourseId}
+            today={today}
+            hasTargetCourse={Boolean(targetCourseId)}
+          />
+        )}
+      </section>
+
+      {myPlan.length > 0 ? (
+        <section className="mb-6" aria-labelledby="saved-heading">
+          <h2 id="saved-heading" className="mb-3 text-[1rem] font-bold tracking-[-0.02em] text-[var(--text)]">
+            সেভ করা প্ল্যান
+          </h2>
+          <div className="jh-card overflow-hidden">
+            <ul className="divide-y divide-[var(--border)]">
+              {myPlan.slice(0, 30).map((row) => (
+                <li key={row.id} className="flex items-center gap-3 px-4 py-2">
+                  <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-[var(--brand-soft)] text-[0.625rem] font-bold text-[var(--brand)]">
+                    {formatNumber(row.plan_day)}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[0.8125rem] font-semibold text-[var(--text)]">
+                      {row.topic_title_bn ?? (row.plan_kind === "rest" ? "বিশ্রাম" : "পুনরাবৃত্তি")}
+                    </p>
+                    <p className="truncate text-[0.625rem] text-[var(--text-subtle)]">
+                      {formatDate(row.routine_date, "bn", { weekday: "short", day: "numeric", month: "short" })}
+                      {row.course_title_bn ? ` · ${row.course_title_bn}` : ""}
+                    </p>
+                  </div>
+                  <span className="shrink-0 text-[0.6875rem] font-semibold text-[var(--text-muted)]">
+                    {formatNumber(row.minutes)} মিনিট
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </section>
+      ) : null}
+
+      <h2 className="mb-3 text-[1rem] font-bold tracking-[-0.02em] text-[var(--text)]">প্রশাসকের দেওয়া রুটিন</h2>
 
       {dates.length === 0 ? (
         <EmptyState
