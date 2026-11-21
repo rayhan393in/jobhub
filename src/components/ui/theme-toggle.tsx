@@ -22,19 +22,27 @@ export function applyTheme(theme: Theme) {
 /** FOUC-free theme bootstrap, injected in <head>. */
 export const themeScript = `(function(){try{var t=localStorage.getItem('${STORAGE_KEY}');var m=window.matchMedia('(prefers-color-scheme: dark)').matches;var d=t?t==='dark':m;if(d){document.documentElement.classList.add('dark');document.documentElement.style.colorScheme='dark';}}catch(e){}})();`;
 
-export function ThemeToggle({ className }: { className?: string }) {
-  const [theme, setTheme] = React.useState<Theme>("light");
-  const [mounted, setMounted] = React.useState(false);
+function subscribe(onChange: () => void) {
+  const observer = new MutationObserver(onChange);
+  observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
+  return () => observer.disconnect();
+}
 
-  React.useEffect(() => {
-    setMounted(true);
-    setTheme(document.documentElement.classList.contains("dark") ? "dark" : "light");
-  }, []);
+function getSnapshot(): Theme {
+  return document.documentElement.classList.contains("dark") ? "dark" : "light";
+}
+
+function getServerSnapshot(): Theme {
+  return "light";
+}
+
+export function ThemeToggle({ className }: { className?: string }) {
+  // The <html> class is the single source of truth, so we subscribe to it rather
+  // than mirroring it into state (which would need an effect and cause a flash).
+  const theme = React.useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 
   const toggle = () => {
-    const next: Theme = theme === "dark" ? "light" : "dark";
-    setTheme(next);
-    applyTheme(next);
+    applyTheme(theme === "dark" ? "light" : "dark");
   };
 
   return (
@@ -48,7 +56,8 @@ export function ThemeToggle({ className }: { className?: string }) {
         className,
       )}
     >
-      {mounted && theme === "dark" ? <Sun className="size-4" aria-hidden /> : <Moon className="size-4" aria-hidden />}
+      <Sun className="hidden size-4 dark:block" aria-hidden />
+      <Moon className="size-4 dark:hidden" aria-hidden />
     </button>
   );
 }

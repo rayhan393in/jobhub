@@ -1090,3 +1090,24 @@ grant execute on function public.jh_leaderboard(text,uuid,uuid,integer) to authe
 grant execute on function public.jh_student_analytics(uuid) to authenticated;
 grant execute on function public.jh_publish_schedule(uuid) to authenticated;
 grant execute on function public.jh_bulk_review(text,uuid[],jsonb,text) to authenticated;
+
+-- ---------------------------------------------------------------------------
+-- Public counters: never expose question rows, only aggregate availability.
+-- ---------------------------------------------------------------------------
+create or replace function public.jh_public_question_count(
+  p_course_id uuid default null,
+  p_subject_id uuid default null,
+  p_topic_id uuid default null,
+  p_subtopic_id uuid default null
+)
+returns integer
+language sql
+stable
+security definer
+set search_path = public, pg_temp
+as $$
+  select public.jh_question_availability(p_course_id, p_subject_id, p_topic_id, p_subtopic_id);
+$$;
+
+revoke all on function public.jh_public_question_count(uuid,uuid,uuid,uuid) from public;
+grant execute on function public.jh_public_question_count(uuid,uuid,uuid,uuid) to anon, authenticated;

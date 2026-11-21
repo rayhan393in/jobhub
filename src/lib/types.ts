@@ -199,6 +199,8 @@ export type AttemptPaper = {
   attempt: ExamAttempt;
   server_now: string;
   questions: ExamQuestion[];
+  /** Present when the paper is re-opened so answers survive a refresh. */
+  saved_answers?: SavedAnswer[];
 };
 
 export type ReviewItem = ExamQuestion & {

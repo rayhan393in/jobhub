@@ -30,9 +30,6 @@ export function SiteHeader({ signedIn }: { signedIn: boolean }) {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  React.useEffect(() => {
-    setOpen(false);
-  }, [pathname]);
 
   return (
     <header
@@ -53,6 +50,7 @@ export function SiteHeader({ signedIn }: { signedIn: boolean }) {
               <Link
                 key={item.href}
                 href={item.href}
+                onClick={() => setOpen(false)}
                 className={cn(
                   "rounded-lg px-3 py-2 text-[0.8125rem] font-medium transition-colors",
                   active
@@ -104,6 +102,7 @@ export function SiteHeader({ signedIn }: { signedIn: boolean }) {
               <Link
                 key={item.href}
                 href={item.href}
+                onClick={() => setOpen(false)}
                 className={cn(
                   "rounded-xl px-3 py-2.5 text-sm font-medium",
                   pathname === item.href

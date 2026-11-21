@@ -11,7 +11,7 @@ import { createServerClient } from "@supabase/ssr";
 const PROTECTED_PREFIXES = ["/dashboard", "/practice", "/admin", "/account"];
 const AUTH_PAGES = ["/login", "/register"];
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
