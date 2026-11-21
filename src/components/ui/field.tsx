@@ -54,6 +54,17 @@ export const Select = React.forwardRef<HTMLSelectElement, React.SelectHTMLAttrib
   },
 );
 
+/** Compact native select used in admin tables and filters. */
+export const CompactSelect = React.forwardRef<HTMLSelectElement, React.SelectHTMLAttributes<HTMLSelectElement>>(
+  function CompactSelect({ className, children, ...props }, ref) {
+    return (
+      <select ref={ref} className={cn("jh-select", className)} {...props}>
+        {children}
+      </select>
+    );
+  },
+);
+
 export const Textarea = React.forwardRef<HTMLTextAreaElement, React.TextareaHTMLAttributes<HTMLTextAreaElement>>(
   function Textarea({ className, ...props }, ref) {
     return <textarea ref={ref} className={cn("jh-input min-h-28 resize-y", className)} {...props} />;

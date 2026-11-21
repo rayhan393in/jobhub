@@ -259,3 +259,16 @@ export async function listMyResults(userId: string, limit = 10): Promise<ResultH
     course_id: r.course_id as string,
   }));
 }
+
+/**
+ * True while the platform has no staff member, so the sign-in screen can offer
+ * the one-time first-admin claim. Never throws: a database hiccup just hides
+ * the panel instead of breaking the login page.
+ */
+export async function isFirstAdminSeatOpen(): Promise<boolean> {
+  const supabase = await getServerClient();
+  if (!supabase) return false;
+  const { data, error } = await supabase.rpc("jh_admin_seat_available");
+  if (error) return false;
+  return data === true;
+}

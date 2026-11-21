@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Menu, X, LayoutDashboard, UserRound } from "lucide-react";
+import { Menu, X, LayoutDashboard, UserRound, ShieldCheck } from "lucide-react";
 import { Logo } from "@/components/ui/logo";
 import { ButtonLink } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
@@ -18,7 +18,7 @@ const NAV = [
   { href: "/faq", label: "প্রশ্নোত্তর" },
 ];
 
-export function SiteHeader({ signedIn }: { signedIn: boolean }) {
+export function SiteHeader({ signedIn, isStaff = false }: { signedIn: boolean; isStaff?: boolean }) {
   const [open, setOpen] = React.useState(false);
   const [scrolled, setScrolled] = React.useState(false);
   const pathname = usePathname();
@@ -67,10 +67,18 @@ export function SiteHeader({ signedIn }: { signedIn: boolean }) {
         <div className="ml-auto flex items-center gap-2">
           <ThemeToggle className="hidden sm:inline-flex" />
           {signedIn ? (
-            <ButtonLink href="/dashboard" size="sm" className="hidden sm:inline-flex">
-              <LayoutDashboard className="size-3.5" aria-hidden />
-              ড্যাশবোর্ড
-            </ButtonLink>
+            <>
+              <ButtonLink href="/dashboard" size="sm" variant="secondary" className="hidden sm:inline-flex">
+                <LayoutDashboard className="size-3.5" aria-hidden />
+                ড্যাশবোর্ড
+              </ButtonLink>
+              {isStaff ? (
+                <ButtonLink href="/admin" size="sm" className="hidden sm:inline-flex">
+                  <ShieldCheck className="size-3.5" aria-hidden />
+                  অ্যাডমিন
+                </ButtonLink>
+              ) : null}
+            </>
           ) : (
             <>
               <ButtonLink href="/login" variant="ghost" size="sm" className="hidden sm:inline-flex">
@@ -116,9 +124,16 @@ export function SiteHeader({ signedIn }: { signedIn: boolean }) {
             <div className="mt-2 flex items-center gap-2 border-t border-[var(--border)] pt-3">
               <ThemeToggle />
               {signedIn ? (
-                <ButtonLink href="/dashboard" size="sm" className="flex-1">
-                  ড্যাশবোর্ড
-                </ButtonLink>
+                <>
+                  <ButtonLink href="/dashboard" size="sm" variant="secondary" className="flex-1">
+                    ড্যাশবোর্ড
+                  </ButtonLink>
+                  {isStaff ? (
+                    <ButtonLink href="/admin" size="sm" className="flex-1">
+                      অ্যাডমিন
+                    </ButtonLink>
+                  ) : null}
+                </>
               ) : (
                 <>
                   <ButtonLink href="/login" variant="secondary" size="sm" className="flex-1">

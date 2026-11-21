@@ -81,7 +81,15 @@ export function SiteFooter() {
         </div>
 
         <div className="mt-12 flex flex-col gap-3 border-t border-[var(--border)] pt-6 text-[0.75rem] text-[var(--text-subtle)] sm:flex-row sm:items-center sm:justify-between">
-          <p>© {new Date().getFullYear()} JobHub. সর্বস্বত্ব সংরক্ষিত।</p>
+          <p className="flex flex-wrap items-center gap-x-2">
+            <span>© {new Date().getFullYear()} JobHub. সর্বস্বত্ব সংরক্ষিত।</span>
+            <span aria-hidden className="text-[var(--border-strong)]">
+              ·
+            </span>
+            <Link href="/admin/login" className="transition-colors hover:text-[var(--brand)]">
+              স্টাফ প্রবেশ
+            </Link>
+          </p>
           <p className="max-w-xl leading-relaxed">
             JobHub একটি স্বাধীন প্রস্তুতি প্ল্যাটফর্ম। কোনো সরকারি সংস্থা, ব্যাংক বা কমিশনের সাথে
             সম্পর্কিত নয়। সিলেবাস-রূপরেখাগুলো সম্পাদনা-ভিত্তিক, অফিসিয়াল নয়।

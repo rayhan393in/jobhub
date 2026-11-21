@@ -24,6 +24,7 @@ export function RegisterForm({ courses }: { courses: { slug: string; title: stri
     targetCourse: courses[0]?.slug ?? "bcs",
   });
   const [showPassword, setShowPassword] = React.useState(false);
+  const catalogueReady = courses.length > 0;
   const [error, setError] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(false);
   const [needsConfirmation, setNeedsConfirmation] = React.useState(false);
@@ -166,13 +167,27 @@ export function RegisterForm({ courses }: { courses: { slug: string; title: stri
           />
         </Field>
 
-        <Field label="লক্ষ্য কোর্স" htmlFor="targetCourse">
-          <Select id="targetCourse" name="targetCourse" value={form.targetCourse} onChange={set("targetCourse")}>
-            {courses.map((course) => (
-              <option key={course.slug} value={course.slug}>
-                {course.title}
-              </option>
-            ))}
+        <Field
+          label="লক্ষ্য কোর্স"
+          htmlFor="targetCourse"
+          hint={catalogueReady ? undefined : "কোর্স তালিকা লোড হয়নি — পরে অ্যাকাউন্ট সেটিংস থেকে বেছে নিতে পারবেন।"}
+        >
+          <Select
+            id="targetCourse"
+            name="targetCourse"
+            value={form.targetCourse}
+            onChange={set("targetCourse")}
+            disabled={!catalogueReady}
+          >
+            {catalogueReady ? (
+              courses.map((course) => (
+                <option key={course.slug} value={course.slug}>
+                  {course.title}
+                </option>
+              ))
+            ) : (
+              <option value="">কোর্স লোড হচ্ছে…</option>
+            )}
           </Select>
         </Field>
       </div>
