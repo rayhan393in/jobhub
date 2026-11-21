@@ -206,3 +206,39 @@ describe("past-exam provenance", () => {
     expect(row.explanation).toBe("ব্যাখ্যা");
   });
 });
+
+describe("page numbers embedded in a locator", () => {
+  const base = {
+    statement: "The director and the owner ___ signed the contract.",
+    option_a: "has", option_b: "is", option_c: "have", option_d: "was", correct: "C",
+  };
+
+  it("reads 'PDF পৃ. 448' as page 448", () => {
+    const result = validateRows(
+      [{ ...base, source_title: "MASTER — A most helpful book of English", source_locator: "PDF পৃ. 448; ধারণাভিত্তিক নতুন রচনা" }],
+      { sourceType: "csv_import" },
+    );
+    expect(result.valid[0].bookPage).toBe(448);
+  });
+
+  it("prefers an explicit page column over the locator", () => {
+    const result = validateRows(
+      [{ ...base, source_locator: "PDF পৃ. 448", book_page: "12" }],
+      { sourceType: "csv_import" },
+    );
+    expect(result.valid[0].bookPage).toBe(12);
+  });
+
+  it("leaves the page null when the locator states none", () => {
+    const result = validateRows(
+      [{ ...base, source_type: "previous", exam_name: "16th BCS Preli", source_locator: "প্রশ্নের নিজস্ব page; URL-এ locator" }],
+      { sourceType: "csv_import" },
+    );
+    expect(result.valid[0].bookPage).toBeNull();
+  });
+
+  it("reads an English locator too", () => {
+    const result = validateRows([{ ...base, source_locator: "Book, p. 77" }], { sourceType: "csv_import" });
+    expect(result.valid[0].bookPage).toBe(77);
+  });
+});

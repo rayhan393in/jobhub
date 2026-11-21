@@ -305,7 +305,12 @@ export function validateRows(
     const author = pick(row, ["author", "লেখক"]).trim();
     const edition = pick(row, ["edition", "সংস্করণ"]).trim();
 
-    const pageRaw = pick(row, ["book_page", "page", "পৃষ্ঠা", "page_number"]).trim();
+    // The Drive CSV puts the page inside `source_locator` ("PDF পৃ. 448;
+    // ধারণাভিত্তিক নতুন রচনা") rather than a page column. Reading it from there
+    // is extraction, not inference: the page number is stated.
+    const locatorPage = sourceLocator.match(/(?:পৃ\.?|পৃষ্ঠা|page|p\.)\s*(\d{1,5})/i);
+    const pageRaw =
+      pick(row, ["book_page", "page", "পৃষ্ঠা", "page_number"]).trim() || (locatorPage ? locatorPage[1] : "");
     let bookPage: number | null = null;
     if (pageRaw) {
       // "১২৫", "p. 125" and "125-126" all mean the question starts on a page.
@@ -373,7 +378,19 @@ export function validateRows(
   return { total: rows.length, valid, invalid, duplicates };
 }
 
+/**
+ * Two templates: a minimal one for hand-written practice questions, and the
+ * full 19-column shape the Drive exports already use. The second exists so a
+ * real past-paper file keeps its exam name, book and page instead of losing
+ * them on import.
+ */
 export const CSV_TEMPLATE = [
   "statement,option_a,option_b,option_c,option_d,correct_option,explanation,difficulty,source_type,year,subject_slug,topic_slug",
   "বাংলাদেশের রাজধানী কোনটি?,ঢাকা,চট্টগ্রাম,খুলনা,রাজশাহী,a,ঢাকা বাংলাদেশের রাজধানী।,easy,manual,1971,bangla,",
+].join("\n");
+
+export const CSV_TEMPLATE_PROVENANCE = [
+  "question,A,B,C,D,correct,explanation,source_type,source_title,source_locator,source_url,exam_name,exam_year,author,edition,topic,difficulty",
+  "Choose the correct sentence.,The matter was informed,Informed of the matter,The police was informed,The police were informed of the matter,D,Police plural agreement নেয়।,previous,৪০তম বিসিএস প্রশ্ন,PDF পৃ. ১২৫,,৪০তম বিসিএস প্রিলিমিনারি,2018,খাইরুল ইসলাম,৪র্থ,Subject-verb agreement,medium",
+  "One of my friends ___ a lawyer.,are,is,were,has,B,One of-এর পরে plural noun কিন্তু head subject one singular।,book,MASTER — A most helpful book of English,PDF পৃ. 448,,,2020,Md. Jahangir Alam,Royal Edition 2020,Subject-verb agreement,hard",
 ].join("\n");
