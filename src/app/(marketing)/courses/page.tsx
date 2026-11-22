@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
   title: "কোর্স ক্যাটালগ",
   description:
-    "BCS, ব্যাংক জবস, সরকারি চাকরি, প্রাথমিক শিক্ষক, NTRCA, EEE ও টেকনিক্যাল নিয়োগ — প্রতিটি কোর্সের বিষয় ও প্রশ্নব্যাংক দেখুন।",
+    "BCS, বিশ্ববিদ্যালয় ভর্তি, সরকারি চাকরি, প্রাথমিক শিক্ষক, NTRCA, EEE ও টেকনিক্যাল নিয়োগ — প্রতিটি কোর্সের বিষয় ও প্রশ্নব্যাংক দেখুন।",
 };
 
 const LEVEL_LABEL: Record<string, string> = {
