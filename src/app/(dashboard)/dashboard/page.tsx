@@ -9,7 +9,6 @@ import { ButtonLink } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Progress, Ring } from "@/components/ui/progress";
 import { StatCard } from "@/components/ui/stat";
-import { PageHeader } from "@/components/dashboard/dashboard-shell";
 import { getCurrentUser, displayName, isStaff } from "@/lib/auth";
 import { FirstAdminBanner } from "@/components/dashboard/first-admin-banner";
 import {
@@ -51,6 +50,14 @@ export default async function DashboardPage() {
   );
   const upcomingExams = schedules.filter((s) => new Date(s.starts_at).getTime() > now).slice(0, 3);
   const todayRoutines = routines.filter((r) => r.routine_date === today);
+  const todayStudy = todayRoutines.filter((r) => r.task_kind !== "exam");
+  const liveExam = liveExams[0] ?? null;
+  const todayExam =
+    liveExam ??
+    schedules.find(
+      (s) => dhakaDateKey(new Date(s.starts_at)) === today && new Date(s.ends_at).getTime() > now,
+    ) ??
+    null;
 
   const summary = analytics?.summary;
   const weakTopics = (analytics?.topics ?? []).filter((t) => t.attempted >= 1).slice(0, 3);
@@ -62,25 +69,93 @@ export default async function DashboardPage() {
   return (
     <div className="mx-auto w-full max-w-7xl">
       {adminSeatOpen ? <FirstAdminBanner /> : null}
-      <PageHeader
-        eyebrow={formatDate(new Date(), "bn", { weekday: "long", day: "numeric", month: "long" })}
-        title={
-          <span className="font-bangla">
+
+      {/* Hero: greeting + today's plan + quick actions */}
+      <section
+        aria-labelledby="hero-h"
+        className="relative mb-6 overflow-hidden rounded-3xl bg-gradient-to-br from-[#4f42e4] via-[#4538cf] to-[#2c2490] text-white shadow-[0_18px_40px_-18px_rgba(79,66,228,0.55)]"
+      >
+        <HeroBooksArt />
+        <div className="relative z-10 max-w-3xl px-5 py-6 sm:px-8 sm:py-8">
+          <p className="text-[0.6875rem] font-semibold uppercase tracking-[0.14em] text-white/70">
+            {formatDate(new Date(), "bn", { weekday: "long", day: "numeric", month: "long" })}
+          </p>
+          <h1 id="hero-h" className="font-bangla mt-1.5 text-[1.375rem] font-bold leading-snug sm:text-[1.625rem]">
             {greeting("bn")}, {names.bn}
-          </span>
-        }
-        description={
-          hasData
-            ? `আপনি এখন পর্যন্ত ${formatNumber(summary?.attempts ?? 0)}টি পরীক্ষা সম্পন্ন করেছেন। গড় নির্ভুলতা ${formatPercent(summary?.avg_accuracy ?? 0)}।`
-            : "আপনার প্রস্তুতির যাত্রা শুরু হোক। প্রথম পরীক্ষা দিলেই এখানে বাস্তব বিশ্লেষণ দেখা যাবে।"
-        }
-        action={
-          <ButtonLink href="/practice" size="md">
-            <Play className="size-3.5" aria-hidden />
-            প্র্যাকটিস শুরু
-          </ButtonLink>
-        }
-      />
+          </h1>
+          <p className="font-bangla mt-1 max-w-xl text-[0.8125rem] leading-relaxed text-white/80">
+            {hasData
+              ? `আপনি এখন পর্যন্ত ${formatNumber(summary?.attempts ?? 0)}টি পরীক্ষা সম্পন্ন করেছেন। গড় নির্ভুলতা ${formatPercent(summary?.avg_accuracy ?? 0)}।`
+              : "আপনার প্রস্তুতির যাত্রা শুরু হোক। প্রথম পরীক্ষা দিলেই এখানে বাস্তব বিশ্লেষণ দেখা যাবে।"}
+          </p>
+
+          {/* আজ যা পড়বেন */}
+          <div className="mt-4">
+            <p className="flex items-center gap-1.5 text-[0.75rem] font-semibold text-white/90">
+              <BookOpenCheck className="size-3.5" aria-hidden />
+              আজ যা পড়বেন
+            </p>
+            {todayStudy.length === 0 ? (
+              <p className="mt-1.5 text-[0.75rem] text-white/70">
+                আজকের জন্য প্রকাশিত রুটিন নেই — প্র্যাকটিস দিয়ে প্রস্তুতি চালিয়ে যান।
+              </p>
+            ) : (
+              <ul className="mt-2 flex flex-wrap gap-1.5">
+                {todayStudy.slice(0, 4).map((routine) => (
+                  <li
+                    key={routine.id}
+                    className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-white/25 bg-white/10 px-3 py-1 text-[0.75rem] font-medium backdrop-blur-sm"
+                  >
+                    <span className="truncate">
+                      {routine.subject_title_bn ?? routine.title_bn ?? "পড়ার পরিকল্পনা"}
+                      {routine.topic_title_bn ? ` — ${routine.topic_title_bn}` : ""}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          {/* Quick actions */}
+          <div className="mt-5 flex flex-wrap items-center gap-2.5">
+            <Link
+              href="/practice"
+              className="inline-flex items-center gap-1.5 rounded-xl bg-white px-4 py-2.5 text-[0.8125rem] font-bold text-[#3b2fc9] shadow-sm transition hover:bg-white/90"
+            >
+              <Play className="size-3.5" aria-hidden />
+              প্র্যাকটিস শুরু
+            </Link>
+            {liveExam ? (
+              <Link
+                href={liveExam.my_attempt_id ? `/exam/${liveExam.my_attempt_id}` : `/exams/${liveExam.id}`}
+                className="inline-flex items-center gap-2 rounded-xl border border-white/30 bg-white/10 px-4 py-2.5 text-[0.8125rem] font-bold text-white backdrop-blur-sm transition hover:bg-white/20"
+              >
+                <span className="relative flex size-2" aria-hidden>
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
+                  <span className="relative inline-flex size-2 rounded-full bg-red-400" />
+                </span>
+                লাইভ পরীক্ষা চলছে — অংশ নিন
+              </Link>
+            ) : todayExam ? (
+              <Link
+                href={`/exams/${todayExam.id}`}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-white/30 bg-white/10 px-4 py-2.5 text-[0.8125rem] font-bold text-white backdrop-blur-sm transition hover:bg-white/20"
+              >
+                <Radio className="size-3.5" aria-hidden />
+                আজকের লাইভ পরীক্ষা · {formatTime(todayExam.starts_at)} থেকে
+              </Link>
+            ) : (
+              <Link
+                href="/exams"
+                className="inline-flex items-center gap-1.5 rounded-xl border border-white/30 bg-white/10 px-4 py-2.5 text-[0.8125rem] font-bold text-white backdrop-blur-sm transition hover:bg-white/20"
+              >
+                <Radio className="size-3.5" aria-hidden />
+                পরীক্ষা কেন্দ্র
+              </Link>
+            )}
+          </div>
+        </div>
+      </section>
 
       {/* Resume banner */}
       {openAttempts.length > 0 ? (
@@ -532,5 +607,62 @@ export default async function DashboardPage() {
         </div>
       </section>
     </div>
+  );
+}
+
+/** Decorative book/study illustration on the right side of the hero (inline SVG, no external assets). */
+function HeroBooksArt() {
+  return (
+    <svg
+      viewBox="0 0 520 360"
+      aria-hidden
+      className="pointer-events-none absolute -right-6 bottom-0 hidden h-full w-auto select-none md:block"
+      fill="none"
+    >
+      {/* soft glow circles */}
+      <circle cx="400" cy="90" r="150" fill="white" fillOpacity="0.05" />
+      <circle cx="430" cy="300" r="190" fill="white" fillOpacity="0.06" />
+      <circle cx="320" cy="60" r="60" fill="white" fillOpacity="0.07" />
+      {/* stacked books */}
+      <g opacity="0.9">
+        <rect x="258" y="268" width="196" height="30" rx="7" fill="white" fillOpacity="0.22" />
+        <rect x="272" y="236" width="168" height="30" rx="7" fill="white" fillOpacity="0.3" />
+        <rect x="286" y="204" width="140" height="30" rx="7" fill="white" fillOpacity="0.4" />
+        <rect x="300" y="248" width="8" height="18" rx="2" fill="#4f42e4" fillOpacity="0.35" />
+        <rect x="330" y="216" width="8" height="18" rx="2" fill="#4f42e4" fillOpacity="0.35" />
+        <rect x="290" y="280" width="8" height="18" rx="2" fill="#4f42e4" fillOpacity="0.35" />
+      </g>
+      {/* open book */}
+      <g opacity="0.95">
+        <path
+          d="M268 160c28-14 62-18 88-10v46c-26-8-60-4-88 10v-46z"
+          fill="white"
+          fillOpacity="0.55"
+        />
+        <path
+          d="M444 160c-28-14-62-18-88-10v46c26-8 60-4 88 10v-46z"
+          fill="white"
+          fillOpacity="0.4"
+        />
+        <path d="M356 150v46" stroke="white" strokeOpacity="0.7" strokeWidth="3" strokeLinecap="round" />
+        <path d="M282 166c20-8 44-11 62-7M282 180c20-8 44-11 62-7" stroke="#4f42e4" strokeOpacity="0.35" strokeWidth="3" strokeLinecap="round" />
+        <path d="M430 166c-20-8-44-11-62-7M430 180c-20-8-44-11-62-7" stroke="#4f42e4" strokeOpacity="0.25" strokeWidth="3" strokeLinecap="round" />
+      </g>
+      {/* graduation cap */}
+      <g opacity="0.9">
+        <path d="M356 74l62 24-62 24-62-24 62-24z" fill="white" fillOpacity="0.6" />
+        <path d="M332 108v22c0 7 11 13 24 13s24-6 24-13v-22" stroke="white" strokeOpacity="0.55" strokeWidth="5" strokeLinecap="round" fill="none" />
+        <path d="M414 100v26" stroke="white" strokeOpacity="0.6" strokeWidth="4" strokeLinecap="round" />
+        <circle cx="414" cy="132" r="5" fill="white" fillOpacity="0.7" />
+      </g>
+      {/* pencil */}
+      <g opacity="0.75">
+        <rect x="200" y="226" width="64" height="12" rx="4" transform="rotate(-32 200 226)" fill="white" fillOpacity="0.45" />
+        <path d="M196 232l-10 14 17-3-7-11z" fill="white" fillOpacity="0.6" />
+      </g>
+      {/* sparkles */}
+      <path d="M250 96l3 8 8 3-8 3-3 8-3-8-8-3 8-3 3-8z" fill="white" fillOpacity="0.5" />
+      <path d="M470 196l2.5 6.5 6.5 2.5-6.5 2.5-2.5 6.5-2.5-6.5-6.5-2.5 6.5-2.5 2.5-6.5z" fill="white" fillOpacity="0.45" />
+    </svg>
   );
 }

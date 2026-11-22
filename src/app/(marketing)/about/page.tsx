@@ -43,7 +43,7 @@ export default function AboutPage() {
           {
             icon: <Compass className="size-5" />,
             title: "আমাদের পথচলা",
-            text: "প্রথমে BCS, তারপর ব্যাংক, সরকারি চাকরি, প্রাথমিক শিক্ষক, NTRCA এবং EEE — ধাপে ধাপে প্রতিটি কোর্সের নিজস্ব প্রশ্নব্যাংক তৈরি হচ্ছে।",
+            text: "প্রথমে BCS, তারপর বিশ্ববিদ্যালয় ভর্তি, সরকারি চাকরি, প্রাথমিক শিক্ষক, NTRCA এবং EEE — ধাপে ধাপে প্রতিটি কোর্সের নিজস্ব প্রশ্নব্যাংক তৈরি হচ্ছে।",
           },
         ].map((item) => (
           <div key={item.title} className="jh-card p-5">
