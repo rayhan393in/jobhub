@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   AlertTriangle, ArrowLeft, ArrowRight, Bookmark, Check, CheckCheck, ChevronLeft, Clock3,
-  Flag, Loader2, RotateCcw, Send, X, ShieldAlert,
+  Flag, Loader2, Maximize2, Minimize2, RotateCcw, Send, X, ShieldAlert,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -37,7 +37,34 @@ export function ExamRunner({
   const [paletteOpen, setPaletteOpen] = React.useState(false);
   const [confirmOpen, setConfirmOpen] = React.useState(false);
   const [showShortcuts, setShowShortcuts] = React.useState(false);
+  const [fullscreen, setFullscreen] = React.useState(false);
   const questionRefs = React.useRef(new Map<string, HTMLElement>());
+
+  /** Track browser fullscreen state (students can also exit with Esc). */
+  React.useEffect(() => {
+    const onChange = () => setFullscreen(Boolean(document.fullscreenElement));
+    document.addEventListener("fullscreenchange", onChange);
+    return () => document.removeEventListener("fullscreenchange", onChange);
+  }, []);
+
+  const toggleFullscreen = React.useCallback(() => {
+    if (document.fullscreenElement) {
+      void document.exitFullscreen().catch(() => {});
+    } else {
+      void document.documentElement.requestFullscreen().catch(() => {});
+    }
+  }, []);
+
+  /** Enter fullscreen automatically on the student's first tap/click inside the exam. */
+  React.useEffect(() => {
+    const once = () => {
+      if (!document.fullscreenElement) {
+        void document.documentElement.requestFullscreen().catch(() => {});
+      }
+    };
+    window.addEventListener("pointerdown", once, { once: true });
+    return () => window.removeEventListener("pointerdown", once);
+  }, []);
 
   const questions = React.useMemo(() => session.paper?.questions ?? [], [session.paper]);
   const visible = React.useMemo(() => {
@@ -156,7 +183,7 @@ export function ExamRunner({
   const locked = session.submitted || session.paper.attempt.status !== "in_progress";
 
   return (
-    <div className="min-h-dvh bg-[var(--surface-muted)] pb-28">
+    <div className="jh-exam-bg min-h-dvh pb-28">
       {/* Sticky exam header */}
       <div className="sticky top-0 z-40 border-b border-[var(--border)] bg-[var(--surface)]/95 backdrop-blur">
         <div className="mx-auto flex w-full max-w-6xl items-center gap-3 px-4 py-2.5 sm:px-6">
@@ -189,6 +216,15 @@ export function ExamRunner({
             <Clock3 className="size-3.5" aria-hidden />
             {formatClock(session.remainingSeconds)}
           </div>
+          <button
+            type="button"
+            onClick={toggleFullscreen}
+            className="inline-flex size-9 items-center justify-center rounded-lg border border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text)]"
+            aria-label={fullscreen ? "ফুলস্ক্রিন থেকে বের হোন" : "ফুলস্ক্রিন"}
+            title={fullscreen ? "ফুলস্ক্রিন থেকে বের হোন" : "ফুলস্ক্রিন"}
+          >
+            {fullscreen ? <Minimize2 className="size-4" aria-hidden /> : <Maximize2 className="size-4" aria-hidden />}
+          </button>
           <button
             type="button"
             onClick={() => setPaletteOpen((v) => !v)}

@@ -53,6 +53,11 @@ export function DashboardShell({
     router.refresh();
   }
 
+  // The exam runner takes over the whole screen: no sidebar, no topbar, no padding.
+  if (pathname.startsWith("/exam/")) {
+    return <>{children}</>;
+  }
+
   return (
     <div className="flex min-h-dvh bg-[var(--surface-muted)]">
       {/* Desktop sidebar */}
