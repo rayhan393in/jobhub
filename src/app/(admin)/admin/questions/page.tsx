@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/field";
 import { listQuestions, type QuestionFilters } from "@/lib/admin-queries";
-import { listCourses } from "@/lib/queries";
+import { listCourses, listSubjects, listTopicsWithSubtopics } from "@/lib/queries";
 import { requirePermission } from "@/lib/permissions";
 import { formatNumber } from "@/lib/format";
 import { AdminPageHeader } from "@/components/admin/admin-ui";
@@ -37,18 +37,31 @@ export default async function QuestionBankPage({
 }) {
   await requirePermission("question.edit");
   const params = await searchParams;
+  const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const courseParam = params.course && UUID.test(params.course) ? params.course : undefined;
+  const subjectParam = params.subject && UUID.test(params.subject) ? params.subject : undefined;
+  const topicParam = params.topic && UUID.test(params.topic) ? params.topic : undefined;
   const filters: QuestionFilters = {
     status: params.status,
-    courseId: params.course,
+    courseId: courseParam,
+    subjectId: subjectParam,
+    topicId: topicParam,
     difficulty: params.difficulty,
     sourceType: params.source,
     verified: params.verified === "yes" || params.verified === "no" ? params.verified : undefined,
     search: params.q,
+    sort: params.sort,
     page: Math.max(1, Number(params.page) || 1),
     pageSize: 20,
   };
 
-  const [result, courses] = await Promise.all([listQuestions(filters), listCourses()]);
+  const [result, courses, subjects, allTopics] = await Promise.all([
+    listQuestions(filters),
+    listCourses(),
+    courseParam ? listSubjects(courseParam) : Promise.resolve([]),
+    courseParam && subjectParam ? listTopicsWithSubtopics(courseParam) : Promise.resolve([]),
+  ]);
+  const topics = allTopics.filter((t) => t.subject_id === subjectParam);
   const pages = Math.max(1, Math.ceil(result.total / 20));
   const courseById = new Map(courses.map((c) => [c.id, c]));
   const query = new URLSearchParams(
@@ -99,6 +112,28 @@ export default async function QuestionBankPage({
             ))}
           </select>
         </div>
+        {courseParam ? (
+          <div>
+            <label htmlFor="subject" className="jh-label">বিষয়</label>
+            <select id="subject" name="subject" defaultValue={subjectParam ?? ""} className="jh-select h-9 text-[0.75rem]">
+              <option value="">সব</option>
+              {subjects.map((subject) => (
+                <option key={subject.id} value={subject.id}>{subject.title_bn}</option>
+              ))}
+            </select>
+          </div>
+        ) : null}
+        {subjectParam && topics.length > 0 ? (
+          <div>
+            <label htmlFor="topic" className="jh-label">টপিক</label>
+            <select id="topic" name="topic" defaultValue={topicParam ?? ""} className="jh-select h-9 text-[0.75rem]">
+              <option value="">সব</option>
+              {topics.map((topic) => (
+                <option key={topic.id} value={topic.id}>{topic.title_bn}</option>
+              ))}
+            </select>
+          </div>
+        ) : null}
         <div>
           <label htmlFor="verified" className="jh-label">যাচাই</label>
           <select id="verified" name="verified" defaultValue={params.verified ?? ""} className="jh-select h-9 text-[0.75rem]">
@@ -124,6 +159,14 @@ export default async function QuestionBankPage({
             <option value="easy">সহজ</option>
             <option value="medium">মধ্যম</option>
             <option value="hard">কঠিন</option>
+          </select>
+        </div>
+        <div>
+          <label htmlFor="sort" className="jh-label">সাজান</label>
+          <select id="sort" name="sort" defaultValue={params.sort ?? ""} className="jh-select h-9 text-[0.75rem]">
+            <option value="">নতুন আগে</option>
+            <option value="oldest">পুরনো আগে</option>
+            <option value="difficulty">কঠিনতা অনুযায়ী</option>
           </select>
         </div>
         <button
@@ -180,7 +223,10 @@ export default async function QuestionBankPage({
                 </div>
                 <div className="min-w-0 text-[0.6875rem] text-[var(--text-muted)]">
                   <p className="truncate">{courseById.get(question.course_id)?.title_bn}</p>
-                  <p className="truncate text-[0.5625rem] text-[var(--text-subtle)]">{question.subject?.title_bn}</p>
+                  <p className="truncate text-[0.5625rem] text-[var(--text-subtle)]">
+                    {question.subject?.title_bn}
+                    {question.topic?.title_bn ? ` · ${question.topic.title_bn}` : ""}
+                  </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-1">
                   <Badge tone={STATUS_TONE[question.status] ?? "neutral"}>{STATUS_LABELS[question.status]}</Badge>

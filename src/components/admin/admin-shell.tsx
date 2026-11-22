@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import {
   BookCopy, CalendarClock, CalendarDays, ChartNoAxesColumn, ChevronLeft, ClipboardCheck,
   Columns3, FileUp, GraduationCap, Home, LayoutDashboard, Lock, Menu, PenLine, Radio,
-  ScrollText, Settings, ShieldCheck, Upload, UserCog, Users, X,
+  ScrollText, Settings, ShieldCheck, Sparkles, Upload, UserCog, Users, X,
 } from "lucide-react";
 import { Logo } from "@/components/ui/logo";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
@@ -30,7 +30,8 @@ export const ADMIN_NAV: AdminNavItem[] = [
   { href: "/admin", label: "ওভারভিউ", icon: LayoutDashboard, hint: "সামগ্রিক অবস্থা" },
   { href: "/admin/questions", label: "প্রশ্নব্যাংক", icon: BookCopy, permission: "question.edit", hint: "প্রশ্ন সম্পাদনা" },
   { href: "/admin/review", label: "রিভিউ কিউ", icon: ClipboardCheck, permission: "question.review", hint: "অনুমোদন ও বাতিল" },
-  { href: "/admin/import", label: "ইমপোর্ট", icon: FileUp, permission: "question.import", hint: "CSV / JSON" },
+  { href: "/admin/import", label: "ইমপোর্ট", icon: FileUp, permission: "question.import", hint: "CSV / JSON / Excel" },
+  { href: "/admin/ai", label: "AI জেনারেটর", icon: Sparkles, permission: "question.import", hint: "Gemini খসড়া" },
   { href: "/admin/bulk", label: "বাল্ক অ্যাকশন", icon: Columns3, permission: "question.review", hint: "ফিল্টার-স্কোপড" },
   { href: "/admin/courses", label: "কোর্স ও ট্যাক্সোনমি", icon: GraduationCap, permission: "taxonomy.manage", hint: "কোর্স · বিষয় · টপিক" },
   { href: "/admin/routines", label: "রুটিন ম্যানেজার", icon: CalendarDays, permission: "routine.manage", hint: "রুটিন তৈরি" },

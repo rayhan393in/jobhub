@@ -141,6 +141,8 @@ export type QuestionFilters = {
   sourceType?: string;
   verified?: "yes" | "no";
   search?: string;
+  /** newest (default) | oldest | difficulty */
+  sort?: string;
   page?: number;
   pageSize?: number;
 };
@@ -158,9 +160,18 @@ export async function listQuestions(filters: QuestionFilters): Promise<{ rows: Q
     .select(
       "id, statement, statement_bn, option_a, option_b, option_c, option_d, correct_option, explanation, source, status, difficulty, source_type, is_verified, year, created_at, course_id, subject_id, topic_id, course:courses(title_bn, slug), subject:subjects(title_bn), topic:topics(title_bn)",
       { count: "exact" },
-    )
-    .order("created_at", { ascending: false })
-    .range(from, from + pageSize - 1);
+    );
+
+  if (filters.sort === "oldest") {
+    query = query.order("created_at", { ascending: true });
+  } else if (filters.sort === "difficulty") {
+    // easy < hard < medium alphabetically is useless, so order by mapped weight via status column trick is
+    // not possible in PostgREST; order by difficulty text then recency keeps groups together predictably.
+    query = query.order("difficulty", { ascending: true }).order("created_at", { ascending: false });
+  } else {
+    query = query.order("created_at", { ascending: false });
+  }
+  query = query.range(from, from + pageSize - 1);
 
   if (filters.status) query = query.eq("status", filters.status);
   if (filters.courseId) query = query.eq("course_id", filters.courseId);

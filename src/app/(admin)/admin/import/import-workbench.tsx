@@ -18,6 +18,7 @@ type Preview = {
   duplicatesInFile: number;
   duplicatesInDb: number;
   toInsert: number;
+  taxonomy?: { taggedRows: number; unmatchedLabels: string[] };
   preview: {
     row: number;
     statement: string;
@@ -51,7 +52,32 @@ export function ImportWorkbench({
 
   function readFile(file: File) {
     setFilename(file.name);
-    setFormat(file.name.toLowerCase().endsWith(".json") ? "json" : "csv");
+    const lower = file.name.toLowerCase();
+
+    // Excel files are converted to CSV in the browser; the server pipeline
+    // stays unchanged and still does the authoritative validation.
+    if (lower.endsWith(".xlsx") || lower.endsWith(".xls")) {
+      setFormat("csv");
+      const reader = new FileReader();
+      reader.onload = async () => {
+        try {
+          const XLSX = await import("xlsx");
+          const workbook = XLSX.read(reader.result, { type: "array" });
+          const sheet = workbook.Sheets[workbook.SheetNames[0]];
+          if (!sheet) throw new Error("empty");
+          setContent(XLSX.utils.sheet_to_csv(sheet, { blankrows: false }));
+          setPreview(null);
+          setDone(null);
+          setError(null);
+        } catch {
+          setError("Excel ফাইলটি পড়া যায়নি — ফাইলটি ঠিক আছে কি না দেখুন, অথবা CSV হিসেবে সেভ করে চেষ্টা করুন।");
+        }
+      };
+      reader.readAsArrayBuffer(file);
+      return;
+    }
+
+    setFormat(lower.endsWith(".json") ? "json" : "csv");
     const reader = new FileReader();
     reader.onload = () => {
       setContent(String(reader.result ?? ""));
@@ -140,7 +166,7 @@ export function ImportWorkbench({
             <input
               id="import-file"
               type="file"
-              accept=".csv,.json,.txt"
+              accept=".csv,.json,.txt,.xlsx,.xls"
               className="sr-only"
               onChange={(event) => {
                 const file = event.target.files?.[0];
@@ -215,7 +241,13 @@ export function ImportWorkbench({
             <li>difficulty (easy/medium/hard)</li>
             <li>source_type (manual/ai_assisted)</li>
             <li>year</li>
+            <li>subject / subject_slug (বাংলা নামেও চলবে)</li>
+            <li>topic / topic_slug</li>
+            <li>subtopic_slug</li>
           </ul>
+          <p className="mt-2 text-[0.5625rem] leading-relaxed text-[var(--text-subtle)]">
+            Excel (.xlsx) ফাইল দিলে প্রথম শিটটি স্বয়ংক্রিয়ভাবে CSV-তে রূপান্তর হয়।
+          </p>
           <Button
             size="sm"
             variant="ghost"
@@ -242,6 +274,7 @@ export function ImportWorkbench({
                 ["অবৈধ", formatNumber(preview.invalid), preview.invalid ? "danger" : "neutral"],
                 ["ফাইলে ডুপ্লিকেট", formatNumber(preview.duplicatesInFile), "neutral"],
                 ["ডেটাবেসে আছে", formatNumber(preview.duplicatesInDb), "neutral"],
+                ...(preview.taxonomy ? [["বিষয়/টপিক ট্যাগড", formatNumber(preview.taxonomy.taggedRows), "neutral"]] : []),
               ].map(([label, value]) => (
                 <div key={label} className="flex justify-between gap-2">
                   <dt className="text-[var(--text-subtle)]">{label}</dt>
@@ -255,6 +288,24 @@ export function ImportWorkbench({
                 {formatNumber(preview.toInsert)}
               </span>
             </div>
+
+            {preview.taxonomy && preview.taxonomy.unmatchedLabels.length > 0 ? (
+              <details className="mt-2">
+                <summary className="cursor-pointer text-[0.6875rem] font-semibold text-amber-600 dark:text-amber-400">
+                  {formatNumber(preview.taxonomy.unmatchedLabels.length)}টি বিষয়/টপিক লেবেল মেলেনি
+                </summary>
+                <ul className="mt-1.5 max-h-32 space-y-1 overflow-y-auto">
+                  {preview.taxonomy.unmatchedLabels.map((label) => (
+                    <li key={label} className="rounded bg-amber-50 px-2 py-1 text-[0.5625rem] leading-relaxed text-amber-700 dark:bg-amber-500/10 dark:text-amber-300">
+                      {label}
+                    </li>
+                  ))}
+                </ul>
+                <p className="mt-1 text-[0.5625rem] text-[var(--text-subtle)]">
+                  এই সারিগুলো ট্যাগ ছাড়াই যোগ হবে — পরে প্রশ্ন সম্পাদনা করে বিষয়/টপিক দেওয়া যাবে।
+                </p>
+              </details>
+            ) : null}
 
             {preview.errors.length > 0 ? (
               <details className="mt-2">

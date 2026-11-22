@@ -17,6 +17,111 @@ const schema = z.object({
   content: z.string().min(1).max(2_000_000),
 });
 
+/** Normalise Bangla/English labels so slug, title_bn and title_en all match. */
+function normLabel(value: string): string {
+  return value.normalize("NFC").trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+type TaxonomyMaps = {
+  subjectByLabel: Map<string, { id: string }>;
+  topicByLabel: Map<string, { id: string; subject_id: string }[]>;
+  subtopicByLabel: Map<string, { id: string; topic_id: string }[]>;
+};
+
+/**
+ * Resolve subject/topic/subtopic columns of an import file to real taxonomy
+ * ids within the course. Rows may reference slugs or exact titles (bn/en).
+ */
+async function loadTaxonomy(
+  supabase: NonNullable<Awaited<ReturnType<typeof getServerClient>>>,
+  courseId: string,
+): Promise<TaxonomyMaps> {
+  const subjectByLabel = new Map<string, { id: string }>();
+  const topicByLabel = new Map<string, { id: string; subject_id: string }[]>();
+  const subtopicByLabel = new Map<string, { id: string; topic_id: string }[]>();
+
+  const { data: subjects } = await supabase
+    .from("subjects")
+    .select("id, slug, title_bn, title_en")
+    .eq("course_id", courseId);
+  const subjectIds = (subjects ?? []).map((s) => s.id as string);
+  for (const s of subjects ?? []) {
+    for (const label of [s.slug, s.title_bn, s.title_en]) {
+      if (label) subjectByLabel.set(normLabel(label as string), { id: s.id as string });
+    }
+  }
+
+  if (subjectIds.length > 0) {
+    const { data: topics } = await supabase
+      .from("topics")
+      .select("id, slug, title_bn, title_en, subject_id")
+      .in("subject_id", subjectIds);
+    const topicIds = (topics ?? []).map((t) => t.id as string);
+    for (const t of topics ?? []) {
+      for (const label of [t.slug, t.title_bn, t.title_en]) {
+        if (!label) continue;
+        const key = normLabel(label as string);
+        const list = topicByLabel.get(key) ?? [];
+        list.push({ id: t.id as string, subject_id: t.subject_id as string });
+        topicByLabel.set(key, list);
+      }
+    }
+
+    if (topicIds.length > 0) {
+      // Chunk the IN() list to stay well under PostgREST URL limits.
+      for (let i = 0; i < topicIds.length; i += 150) {
+        const { data: subtopics } = await supabase
+          .from("subtopics")
+          .select("id, slug, title_bn, title_en, topic_id")
+          .in("topic_id", topicIds.slice(i, i + 150));
+        for (const st of subtopics ?? []) {
+          for (const label of [st.slug, st.title_bn, st.title_en]) {
+            if (!label) continue;
+            const key = normLabel(label as string);
+            const list = subtopicByLabel.get(key) ?? [];
+            list.push({ id: st.id as string, topic_id: st.topic_id as string });
+            subtopicByLabel.set(key, list);
+          }
+        }
+      }
+    }
+  }
+
+  return { subjectByLabel, topicByLabel, subtopicByLabel };
+}
+
+function resolveRowTaxonomy(
+  maps: TaxonomyMaps,
+  row: { subjectSlug: string; topicSlug: string; subtopicSlug: string },
+  unmatched: Set<string>,
+): { subject_id: string | null; topic_id: string | null; subtopic_id: string | null } {
+  let subjectId: string | null = null;
+  let topicId: string | null = null;
+  let subtopicId: string | null = null;
+
+  if (row.subjectSlug) {
+    const hit = maps.subjectByLabel.get(normLabel(row.subjectSlug));
+    if (hit) subjectId = hit.id;
+    else unmatched.add(`বিষয়: ${row.subjectSlug}`);
+  }
+  if (row.topicSlug) {
+    const hits = maps.topicByLabel.get(normLabel(row.topicSlug)) ?? [];
+    const hit = subjectId ? (hits.find((t) => t.subject_id === subjectId) ?? null) : (hits[0] ?? null);
+    if (hit) {
+      topicId = hit.id;
+      subjectId = subjectId ?? hit.subject_id;
+    } else unmatched.add(`টপিক: ${row.topicSlug}`);
+  }
+  if (row.subtopicSlug) {
+    const hits = maps.subtopicByLabel.get(normLabel(row.subtopicSlug)) ?? [];
+    const hit = topicId ? (hits.find((s) => s.topic_id === topicId) ?? null) : (hits[0] ?? null);
+    if (hit) subtopicId = hit.id;
+    else unmatched.add(`সাব-টপিক: ${row.subtopicSlug}`);
+  }
+
+  return { subject_id: subjectId, topic_id: topicId, subtopic_id: subtopicId };
+}
+
 export async function POST(request: Request) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "লগইন প্রয়োজন।" }, { status: 401 });
@@ -82,6 +187,21 @@ export async function POST(request: Request) {
   const fresh = result.valid.filter((row) => !existing.has(row.fingerprint));
   const alreadyInDb = result.valid.length - fresh.length;
 
+  // Resolve subject/topic/subtopic labels (slug or exact title) to taxonomy ids
+  // so a huge bank imported per-topic lands correctly tagged, not orphaned.
+  const needsTaxonomy = fresh.some((row) => row.subjectSlug || row.topicSlug || row.subtopicSlug);
+  const maps = needsTaxonomy ? await loadTaxonomy(supabase, courseId) : null;
+  const unmatched = new Set<string>();
+  const taxonomyByRow = new Map<number, { subject_id: string | null; topic_id: string | null; subtopic_id: string | null }>();
+  let taggedRows = 0;
+  if (maps) {
+    for (const row of fresh) {
+      const resolved = resolveRowTaxonomy(maps, row, unmatched);
+      taxonomyByRow.set(row.row, resolved);
+      if (resolved.subject_id || resolved.topic_id || resolved.subtopic_id) taggedRows += 1;
+    }
+  }
+
   if (mode === "dry_run") {
     return NextResponse.json(
       {
@@ -92,6 +212,10 @@ export async function POST(request: Request) {
         duplicatesInFile: result.duplicates.length,
         duplicatesInDb: alreadyInDb,
         toInsert: fresh.length,
+        taxonomy: {
+          taggedRows,
+          unmatchedLabels: Array.from(unmatched).slice(0, 20),
+        },
         preview: fresh.slice(0, 8).map((row) => ({
           row: row.row,
           statement: row.statement,
@@ -141,6 +265,9 @@ export async function POST(request: Request) {
 
   const payload = fresh.map((row) => ({
     course_id: courseId,
+    subject_id: taxonomyByRow.get(row.row)?.subject_id ?? null,
+    topic_id: taxonomyByRow.get(row.row)?.topic_id ?? null,
+    subtopic_id: taxonomyByRow.get(row.row)?.subtopic_id ?? null,
     statement: row.statement,
     option_a: row.options[0],
     option_b: row.options[1],
