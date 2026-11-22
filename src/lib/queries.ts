@@ -153,7 +153,7 @@ export async function listRoutines(options?: {
   let query = supabase
     .from("routines")
     .select(
-      "id, course_id, kind, routine_date, title_en, title_bn, subject_id, topic_id, subtopic_id, minutes, focus_note_bn, status, slot_label, target_bn, task_kind, subject_title_bn:subjects(title_bn), topic_title_bn:topics(title_bn), subtopic_title_bn:subtopics(title_bn)",
+      "id, course_id, kind, routine_date, title_en, title_bn, subject_id, topic_id, subtopic_id, topic_ids, subtopic_ids, minutes, focus_note_bn, status, slot_label, target_bn, task_kind, subject_title_bn:subjects(title_bn), topic_title_bn:topics(title_bn), subtopic_title_bn:subtopics(title_bn)",
     )
     .eq("status", "published")
     .order("routine_date", { ascending: true })
@@ -163,11 +163,36 @@ export async function listRoutines(options?: {
   if (options?.fromDate) query = query.gte("routine_date", options.fromDate);
   if (options?.toDate) query = query.lte("routine_date", options.toDate);
   const { data } = await query;
+
+  // Multi-topic rows carry id arrays; resolve all names in two batched lookups.
+  const extraTopicIds = new Set<string>();
+  const extraSubtopicIds = new Set<string>();
+  for (const row of data ?? []) {
+    for (const id of (row.topic_ids as string[] | null) ?? []) extraTopicIds.add(id);
+    for (const id of (row.subtopic_ids as string[] | null) ?? []) extraSubtopicIds.add(id);
+  }
+  const topicNames = new Map<string, string>();
+  const subtopicNames = new Map<string, string>();
+  if (extraTopicIds.size > 0) {
+    const { data: rows } = await supabase.from("topics").select("id, title_bn").in("id", [...extraTopicIds]);
+    for (const row of rows ?? []) topicNames.set(row.id, row.title_bn);
+  }
+  if (extraSubtopicIds.size > 0) {
+    const { data: rows } = await supabase.from("subtopics").select("id, title_bn").in("id", [...extraSubtopicIds]);
+    for (const row of rows ?? []) subtopicNames.set(row.id, row.title_bn);
+  }
+
   return (data ?? []).map((row) => ({
     ...row,
     subject_title_bn: flattenEmbeddedTitle(row.subject_title_bn),
     topic_title_bn: flattenEmbeddedTitle(row.topic_title_bn),
     subtopic_title_bn: flattenEmbeddedTitle(row.subtopic_title_bn),
+    topic_titles_bn: (((row.topic_ids as string[] | null) ?? [])
+      .map((id) => topicNames.get(id))
+      .filter(Boolean) ?? []) as string[],
+    subtopic_titles_bn: (((row.subtopic_ids as string[] | null) ?? [])
+      .map((id) => subtopicNames.get(id))
+      .filter(Boolean) ?? []) as string[],
   })) as unknown as Routine[];
 }
 

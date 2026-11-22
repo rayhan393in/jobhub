@@ -22,11 +22,15 @@ export type AdminRoutine = {
   subject_id: string | null;
   topic_id: string | null;
   subtopic_id: string | null;
+  topic_ids?: string[];
+  subtopic_ids?: string[];
+  task_kind?: "study" | "practice" | "revision" | "exam" | "rest" | null;
   minutes: number;
   focus_note_bn: string | null;
   status: string;
   subject_title_bn?: string | null;
   topic_title_bn?: string | null;
+  topic_titles_bn?: string[];
 };
 
 export default async function RoutinesAdminPage() {
@@ -40,16 +44,31 @@ export default async function RoutinesAdminPage() {
     const { data } = await supabase
       .from("routines")
       .select(
-        "id, course_id, kind, routine_date, title_bn, subject_id, topic_id, subtopic_id, minutes, focus_note_bn, status, subject_title_bn:subjects(title_bn), topic_title_bn:topics(title_bn)",
+        "id, course_id, kind, routine_date, title_bn, subject_id, topic_id, subtopic_id, topic_ids, subtopic_ids, task_kind, minutes, focus_note_bn, status, subject_title_bn:subjects(title_bn), topic_title_bn:topics(title_bn)",
       )
       .gte("routine_date", new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10))
       .order("routine_date", { ascending: true })
       .order("created_at", { ascending: false })
       .limit(120);
+
+    // Resolve the names of multi-topic rows in one batched lookup.
+    const allTopicIds = new Set<string>();
+    for (const row of data ?? []) {
+      for (const id of (row.topic_ids as string[] | null) ?? []) allTopicIds.add(id);
+    }
+    const topicNames = new Map<string, string>();
+    if (allTopicIds.size > 0) {
+      const { data: topicRows } = await supabase.from("topics").select("id, title_bn").in("id", [...allTopicIds]);
+      for (const row of topicRows ?? []) topicNames.set(row.id, row.title_bn);
+    }
+
     routines = (data ?? []).map((row) => ({
       ...row,
       subject_title_bn: flattenEmbeddedTitle(row.subject_title_bn),
       topic_title_bn: flattenEmbeddedTitle(row.topic_title_bn),
+      topic_titles_bn: (((row.topic_ids as string[] | null) ?? [])
+        .map((id) => topicNames.get(id))
+        .filter(Boolean)) as string[],
     })) as unknown as AdminRoutine[];
   }
 

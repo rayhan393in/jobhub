@@ -26,7 +26,12 @@ export async function GET(request: Request) {
     return NextResponse.json(
       {
         subjects: subjects.map((s) => ({ id: s.id, title_bn: s.title_bn, title_en: s.title_en })),
-        topics: topics.map((t) => ({ id: t.id, subject_id: t.subject_id, title_bn: t.title_bn })),
+        topics: topics.map((t) => ({
+          id: t.id,
+          subject_id: t.subject_id,
+          title_bn: t.title_bn,
+          subtopics: t.subtopics.map((sub) => ({ id: sub.id, title_bn: sub.title_bn })),
+        })),
       },
       { headers: { "Cache-Control": "private, max-age=60" } },
     );

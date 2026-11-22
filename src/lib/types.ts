@@ -51,6 +51,10 @@ export type Topic = {
   title_bn: string;
   chapter: string | null;
   sort_order: number;
+  approval_status?: "pending" | "approved" | "rejected";
+  source_url?: string | null;
+  occurrence_years?: number[];
+  canonical_id?: string | null;
 };
 
 export type Subtopic = {
@@ -60,6 +64,26 @@ export type Subtopic = {
   title_en: string;
   title_bn: string;
   sort_order: number;
+  approval_status?: "pending" | "approved" | "rejected";
+};
+
+export type MicroTopic = {
+  id: string;
+  subtopic_id: string;
+  slug: string;
+  title_en: string;
+  title_bn: string;
+  sort_order: number;
+  is_active: boolean;
+  approval_status: "pending" | "approved" | "rejected";
+};
+
+export type CanonicalTopic = {
+  id: string;
+  slug: string;
+  title_en: string;
+  title_bn: string;
+  subject_group: string | null;
 };
 
 export type Profile = {
@@ -311,9 +335,14 @@ export type Routine = {
   slot_label?: string | null;
   target_bn?: string | null;
   task_kind?: "study" | "practice" | "revision" | "exam" | "rest" | null;
+  topic_ids?: string[];
+  subtopic_ids?: string[];
   subject_title_bn?: string | null;
   topic_title_bn?: string | null;
   subtopic_title_bn?: string | null;
+  /** Bengali titles resolved from topic_ids / subtopic_ids (multi-topic rows). */
+  topic_titles_bn?: string[];
+  subtopic_titles_bn?: string[];
 };
 
 export type AuditLog = {
