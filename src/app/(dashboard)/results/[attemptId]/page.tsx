@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import type { ReactNode } from "react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import {
@@ -10,6 +11,9 @@ import { Progress } from "@/components/ui/progress";
 import { getCurrentUser } from "@/lib/auth";
 import { getAttemptPaper, getAttemptReview } from "@/lib/exam-service";
 import { getSystemSettings } from "@/lib/admin-queries";
+import { getServerClient } from "@/lib/supabase/server";
+import { computeSubjectBreakdown, computeTopicBreakdown, weakTopics } from "@/lib/result-breakdown";
+import { SectionBreakdown } from "./section-breakdown";
 import { formatClock, formatDateTime, formatNumber, formatPercent } from "@/lib/format";
 import { MODE_LABELS, type AttemptMode } from "@/lib/types";
 import { cn } from "@/lib/cn";
@@ -52,6 +56,71 @@ export default async function ResultPage({ params }: { params: Promise<{ attempt
   const hasSummary = review.score !== null && review.score !== undefined;
   const answered = (review.correct ?? 0) + (review.wrong ?? 0);
   const durationSeconds = review.duration_seconds ?? null;
+
+  // Subject (main 90 / secondary 10) + topic breakdown — only once the key is
+  // released, from exactly the same items the review shows.
+  let breakdown: ReactNode = null;
+  if (showKey && review.items.length > 0) {
+    const supabase = await getServerClient();
+    const subjectIds = [...new Set(review.items.map((item) => item.subject_id).filter(Boolean))] as string[];
+    const topicIds = [...new Set(review.items.map((item) => item.topic_id).filter(Boolean))] as string[];
+
+    let subjectTitles = new Map<string, string>();
+    let topicTitles = new Map<string, string>();
+    let positive = paper.attempt.total_questions
+      ? paper.attempt.total_marks / paper.attempt.total_questions
+      : 1;
+    let negative = 0;
+    let mainSubjectId: string | null = null;
+    let secondarySubjectId: string | null = null;
+
+    if (supabase) {
+      const [{ data: subjectRows }, { data: topicRows }, scheduleResult] = await Promise.all([
+        subjectIds.length
+          ? supabase.from("subjects").select("id, title_bn").in("id", subjectIds)
+          : Promise.resolve({ data: [] as { id: string; title_bn: string }[] }),
+        topicIds.length
+          ? supabase.from("topics").select("id, title_bn").in("id", topicIds)
+          : Promise.resolve({ data: [] as { id: string; title_bn: string }[] }),
+        paper.attempt.schedule_id
+          ? supabase
+              .from("exam_schedules")
+              .select("positive_marks, negative_marks, settings")
+              .eq("id", paper.attempt.schedule_id)
+              .maybeSingle()
+          : Promise.resolve({ data: null }),
+      ]);
+      subjectTitles = new Map((subjectRows ?? []).map((row) => [row.id, row.title_bn]));
+      topicTitles = new Map((topicRows ?? []).map((row) => [row.id, row.title_bn]));
+      const schedule = scheduleResult.data as
+        | { positive_marks: number | null; negative_marks: number | null; settings: Record<string, unknown> | null }
+        | null;
+      if (schedule) {
+        positive = Number(schedule.positive_marks ?? positive);
+        negative = Number(schedule.negative_marks ?? 0);
+        const scheduleSettings = schedule.settings ?? {};
+        mainSubjectId = (scheduleSettings.main_subject_id as string | undefined) ?? null;
+        secondarySubjectId = (scheduleSettings.secondary_subject_id as string | undefined) ?? null;
+      }
+    }
+
+    const sections = computeSubjectBreakdown(review.items, {
+      positiveMarks: positive,
+      negativeMarks: negative,
+      mainSubjectId,
+      secondarySubjectId,
+    });
+    const topics = computeTopicBreakdown(review.items);
+    breakdown = (
+      <SectionBreakdown
+        sections={sections}
+        topics={topics}
+        weak={weakTopics(topics)}
+        subjectTitles={subjectTitles}
+        topicTitles={topicTitles}
+      />
+    );
+  }
 
   return (
     <div className="mx-auto w-full max-w-4xl">
@@ -149,6 +218,8 @@ export default async function ResultPage({ params }: { params: Promise<{ attempt
           </ul>
         </div>
       ) : null}
+
+      {breakdown}
 
       {/* Question review with "দেখান" filter dropdown */}
       {showKey && review.items.length > 0 ? (
