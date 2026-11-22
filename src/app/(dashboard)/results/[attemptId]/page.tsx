@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import {
-  ArrowLeft, Check, Clock3, CircleCheck, CircleX, MinusCircle, RotateCcw, Target, Trophy, Lock, FileDown,
+  ArrowLeft, Clock3, CircleCheck, CircleX, MinusCircle, RotateCcw, Target, Trophy, Lock, FileDown,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
@@ -10,15 +10,14 @@ import { Progress } from "@/components/ui/progress";
 import { getCurrentUser } from "@/lib/auth";
 import { getAttemptPaper, getAttemptReview } from "@/lib/exam-service";
 import { getSystemSettings } from "@/lib/admin-queries";
-import { formatDateTime, formatNumber, formatPercent, toBengaliDigits } from "@/lib/format";
+import { formatDateTime, formatNumber, formatPercent } from "@/lib/format";
 import { MODE_LABELS, type AttemptMode } from "@/lib/types";
 import { cn } from "@/lib/cn";
+import { AnswerReview } from "./answer-review";
 
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = { title: "ফলাফল" };
-
-const OPTION_KEYS = ["ক", "খ", "গ", "ঘ"];
 
 export default async function ResultPage({ params }: { params: Promise<{ attemptId: string }> }) {
   const user = await getCurrentUser();
@@ -142,90 +141,14 @@ export default async function ResultPage({ params }: { params: Promise<{ attempt
         </div>
       ) : null}
 
-      {/* Question review */}
+      {/* Question review with "দেখান" filter dropdown */}
       {showKey && review.items.length > 0 ? (
-        <section className="mt-5" aria-labelledby="review-h">
-          <div className="mb-3 flex items-center justify-between">
-            <h2 id="review-h" className="text-[1rem] font-bold tracking-[-0.02em] text-[var(--text)]">
-              উত্তরপত্র ও ব্যাখ্যা
-            </h2>
-            <span className="text-[0.6875rem] text-[var(--text-subtle)]">
-              {formatNumber(review.items.length)} প্রশ্ন
-            </span>
-          </div>
-          <ol className="space-y-3">
-            {review.items.map((item) => {
-              const selected = item.selected_option;
-              return (
-                <li key={item.question_id} className="jh-card p-4 sm:p-5">
-                  <div className="flex items-start justify-between gap-2">
-                    <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-md bg-[var(--surface-sunken)] px-1.5 text-[0.6875rem] font-bold text-[var(--text-muted)]">
-                      {toBengaliDigits(item.position)}
-                    </span>
-                    {item.selected_option === null ? (
-                      <Badge tone="neutral">অনুত্তরিত</Badge>
-                    ) : item.is_correct ? (
-                      <Badge tone="success">সঠিক</Badge>
-                    ) : (
-                      <Badge tone="danger">ভুল</Badge>
-                    )}
-                  </div>
-
-                  <p className="mt-2.5 font-bangla text-[0.9375rem] font-medium leading-[1.8] text-[var(--text)]">
-                    {item.statement}
-                  </p>
-
-                  <ul className="mt-3 grid gap-1.5 sm:grid-cols-2">
-                    {item.options.map((option, index) => {
-                      const isCorrect = index === item.correct_option;
-                      const isPicked = selected === index;
-                      return (
-                        <li
-                          key={index}
-                          className={cn(
-                            "flex items-center gap-2 rounded-lg border px-2.5 py-2 text-[0.8125rem]",
-                            isCorrect
-                              ? "border-mint-200 bg-mint-50 font-semibold text-mint-800 dark:border-mint-600/40 dark:bg-mint-600/10 dark:text-mint-300"
-                              : isPicked
-                                ? "border-red-200 bg-red-50 text-red-700 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-300"
-                                : "border-[var(--border)] text-[var(--text-muted)]",
-                          )}
-                        >
-                          <span className="flex size-5 shrink-0 items-center justify-center rounded text-[0.625rem] font-bold bg-[var(--surface-sunken)]">
-                            {OPTION_KEYS[index]}
-                          </span>
-                          <span className="flex-1">{option}</span>
-                          {isCorrect ? <Check className="size-3.5 shrink-0" aria-hidden /> : null}
-                          {isPicked && !isCorrect ? <CircleX className="size-3.5 shrink-0" aria-hidden /> : null}
-                        </li>
-                      );
-                    })}
-                  </ul>
-
-                  {item.explanation ? (
-                    <div className="mt-3 rounded-xl bg-[var(--surface-muted)] px-3.5 py-3">
-                      <p className="text-[0.625rem] font-semibold uppercase tracking-[0.1em] text-[var(--text-subtle)]">
-                        ব্যাখ্যা
-                      </p>
-                      <p className="mt-1 text-[0.8125rem] leading-[1.85] text-[var(--text-muted)]">
-                        {item.explanation}
-                      </p>
-                    </div>
-                  ) : null}
-
-                  {item.exam_name || item.source || item.year || item.book_chapter ? (
-                    <p className="mt-2 text-[0.625rem] text-[var(--text-subtle)]">
-                      উৎস: {item.exam_name || item.source}
-                      {item.year ? ` · ${formatNumber(item.year)}` : ""}
-                      {item.book_chapter ? ` · ${item.book_chapter}` : ""}
-                      {item.book_page ? ` · পৃষ্ঠা ${formatNumber(item.book_page)}` : ""}
-                    </p>
-                  ) : null}
-                </li>
-              );
-            })}
-          </ol>
-        </section>
+        <AnswerReview
+          items={review.items}
+          flaggedIds={(paper.saved_answers ?? [])
+            .filter((answer) => answer.marked_for_review)
+            .map((answer) => answer.question_id)}
+        />
       ) : null}
 
       <div className="mt-6 flex flex-wrap gap-2">

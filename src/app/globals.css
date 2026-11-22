@@ -302,6 +302,15 @@ body {
     radial-gradient(45rem 26rem at 92% 0%, color-mix(in oklab, var(--accent) 10%, transparent), transparent 62%);
 }
 
+/* Exam room background — calm brand-tinted field behind the runner -------- */
+.jh-exam-bg {
+  background:
+    radial-gradient(55rem 30rem at 88% -8%, color-mix(in oklab, var(--brand) 11%, transparent), transparent 62%),
+    radial-gradient(48rem 28rem at -12% 22%, color-mix(in oklab, var(--accent) 9%, transparent), transparent 58%),
+    linear-gradient(180deg, color-mix(in oklab, var(--brand) 4%, var(--surface-muted)), var(--surface-muted) 26rem);
+  background-attachment: fixed;
+}
+
 .jh-grid-lines {
   background-image:
     linear-gradient(to right, color-mix(in oklab, var(--border) 80%, transparent) 1px, transparent 1px),
