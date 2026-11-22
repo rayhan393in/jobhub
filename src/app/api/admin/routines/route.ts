@@ -17,8 +17,12 @@ const upsertSchema = z.object({
   subjectId: z.string().uuid().nullable().optional(),
   topicId: z.string().uuid().nullable().optional(),
   subtopicId: z.string().uuid().nullable().optional(),
+  topicIds: z.array(z.string().uuid()).max(20).optional().default([]),
+  subtopicIds: z.array(z.string().uuid()).max(30).optional().default([]),
   minutes: z.number().int().min(5).max(480).default(45),
   focusNoteBn: z.string().trim().max(600).optional().default(""),
+  taskKind: z.enum(["study", "practice", "revision", "exam", "rest"]).default("study"),
+  slotLabel: z.string().trim().max(40).optional().default(""),
   status: z.enum(["draft", "published", "archived", "cancelled"]).default("draft"),
 });
 
@@ -53,6 +57,10 @@ export async function POST(request: Request) {
   if (!supabase) return NextResponse.json({ error: "সার্ভার কনফিগারেশন নেই।" }, { status: 500 });
 
   const data = parsed.data;
+  // A single-select topic also lands in topic_ids so every consumer can rely
+  // on one field; the legacy topic_id column keeps old rows and tooling alive.
+  const topicIds = [...new Set([...(data.topicId ? [data.topicId] : []), ...data.topicIds])];
+  const subtopicIds = [...new Set([...(data.subtopicId ? [data.subtopicId] : []), ...data.subtopicIds])];
   const payload = {
     course_id: data.courseId,
     kind: data.kind,
@@ -60,10 +68,14 @@ export async function POST(request: Request) {
     title_bn: data.titleBn,
     title_en: data.titleEn || data.titleBn,
     subject_id: data.subjectId ?? null,
-    topic_id: data.topicId ?? null,
+    topic_id: data.topicId ?? topicIds[0] ?? null,
     subtopic_id: data.subtopicId ?? null,
+    topic_ids: topicIds,
+    subtopic_ids: subtopicIds,
     minutes: data.minutes,
     focus_note_bn: data.focusNoteBn || null,
+    task_kind: data.taskKind,
+    slot_label: data.slotLabel || null,
     status: data.status,
     created_by: user.id,
   };

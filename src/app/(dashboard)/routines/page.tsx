@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { CalendarDays, Radio, Sparkles } from "lucide-react";
+import { CalendarDays, FileDown, Radio, Sparkles } from "lucide-react";
 import { PageHeader } from "@/components/dashboard/dashboard-shell";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
@@ -80,10 +80,16 @@ export default async function RoutinesPage() {
         title="প্রতিদিনের প্রস্তুতি পরিকল্পনা"
         description="প্রশাসক প্রকাশিত রুটিন এখানে দেখা যায়। রুটিন সংরক্ষণ করলেই কোনো পরীক্ষা প্রকাশ পায় না, আবার পরীক্ষা প্রকাশ করলেই রুটিন তৈরি হয় না।"
         action={
-          <ButtonLink href="/practice" variant="secondary" size="md">
-            <Sparkles className="size-3.5" aria-hidden />
-            প্র্যাকটিস
-          </ButtonLink>
+          <div className="flex flex-wrap gap-2">
+            <ButtonLink href="/routines/print" variant="secondary" size="md" target="_blank">
+              <FileDown className="size-3.5" aria-hidden />
+              PDF ডাউনলোড
+            </ButtonLink>
+            <ButtonLink href="/practice" variant="secondary" size="md">
+              <Sparkles className="size-3.5" aria-hidden />
+              প্র্যাকটিস
+            </ButtonLink>
+          </div>
         }
       />
 
@@ -222,8 +228,12 @@ export default async function RoutinesPage() {
                           <p className="text-[0.6875rem] text-[var(--text-subtle)]">
                             {[
                               routine.subject_title_bn,
-                              routine.topic_title_bn,
-                              routine.subtopic_title_bn,
+                              routine.topic_titles_bn && routine.topic_titles_bn.length > 0
+                                ? routine.topic_titles_bn.join(", ")
+                                : routine.topic_title_bn,
+                              routine.subtopic_titles_bn && routine.subtopic_titles_bn.length > 0
+                                ? routine.subtopic_titles_bn.join(", ")
+                                : routine.subtopic_title_bn,
                             ]
                               .filter(Boolean)
                               .join(" › ") || (courseById.get(routine.course_id)?.title_bn ?? "")}

@@ -11,7 +11,20 @@ import type { AdminRoutine } from "./page";
 
 type Course = { id: string; title_bn: string };
 type Subject = { id: string; title_bn: string };
-type Topic = { id: string; title_bn: string; subject_id?: string };
+type Topic = {
+  id: string;
+  title_bn: string;
+  subject_id?: string;
+  subtopics?: Array<{ id: string; title_bn: string }>;
+};
+
+const TASK_KIND_LABELS: Record<string, string> = {
+  study: "পড়া",
+  practice: "প্র্যাকটিস",
+  revision: "রিভিশন",
+  exam: "পরীক্ষা",
+  rest: "বিশ্রাম",
+};
 
 export function RoutineManager({
   routines,
@@ -35,7 +48,9 @@ export function RoutineManager({
     routineDate: today,
     titleBn: "",
     subjectId: "",
-    topicId: "",
+    topicIds: [] as string[],
+    subtopicIds: [] as string[],
+    taskKind: "study",
     minutes: 45,
     focusNoteBn: "",
     status: "draft",
@@ -65,7 +80,9 @@ export function RoutineManager({
       routineDate: today,
       titleBn: "",
       subjectId: "",
-      topicId: "",
+      topicIds: [],
+      subtopicIds: [],
+      taskKind: "study",
       minutes: 45,
       focusNoteBn: "",
       status: "draft",
@@ -82,7 +99,14 @@ export function RoutineManager({
       routineDate: routine.routine_date,
       titleBn: routine.title_bn,
       subjectId: routine.subject_id ?? "",
-      topicId: routine.topic_id ?? "",
+      topicIds:
+        routine.topic_ids && routine.topic_ids.length > 0
+          ? routine.topic_ids
+          : routine.topic_id
+            ? [routine.topic_id]
+            : [],
+      subtopicIds: routine.subtopic_ids ?? [],
+      taskKind: routine.task_kind ?? "study",
       minutes: routine.minutes,
       focusNoteBn: routine.focus_note_bn ?? "",
       status: routine.status,
@@ -108,7 +132,10 @@ export function RoutineManager({
           routineDate: form.routineDate,
           titleBn: form.titleBn,
           subjectId: form.subjectId || null,
-          topicId: form.topicId || null,
+          topicId: form.topicIds[0] ?? null,
+          topicIds: form.topicIds,
+          subtopicIds: form.subtopicIds,
+          taskKind: form.taskKind,
           minutes: form.minutes,
           focusNoteBn: form.focusNoteBn,
           status: form.status,
@@ -218,7 +245,7 @@ export function RoutineManager({
                 <span className="jh-label">কোর্স</span>
                 <select
                   value={form.courseId}
-                  onChange={(e) => setForm({ ...form, courseId: e.target.value, subjectId: "", topicId: "" })}
+                  onChange={(e) => setForm({ ...form, courseId: e.target.value, subjectId: "", topicIds: [], subtopicIds: [] })}
                   className="jh-select"
                 >
                   {courses.map((course) => (
@@ -264,7 +291,7 @@ export function RoutineManager({
                 <span className="jh-label">বিষয়</span>
                 <select
                   value={form.subjectId}
-                  onChange={(e) => setForm({ ...form, subjectId: e.target.value, topicId: "" })}
+                  onChange={(e) => setForm({ ...form, subjectId: e.target.value, topicIds: [], subtopicIds: [] })}
                   className="jh-select"
                 >
                   <option value="">নির্বাচন করুন</option>
@@ -274,22 +301,94 @@ export function RoutineManager({
                 </select>
               </label>
 
-              <label className="block">
-                <span className="jh-label">টপিক</span>
-                <select
-                  value={form.topicId}
-                  onChange={(e) => setForm({ ...form, topicId: e.target.value })}
-                  className="jh-select"
-                  disabled={!form.subjectId}
-                >
-                  <option value="">নির্বাচন করুন</option>
-                  {availableTopics.map((topic: Topic) => (
-                    <option key={topic.id} value={topic.id}>{topic.title_bn}</option>
-                  ))}
-                </select>
-              </label>
+              {form.subjectId ? (
+                <div className="block">
+                  <span className="jh-label">
+                    টপিক (একাধিক নির্বাচন করা যায়
+                    {form.topicIds.length > 0 ? ` · ${formatNumber(form.topicIds.length)}টি নির্বাচিত` : ""})
+                  </span>
+                  <div className="max-h-44 space-y-0.5 overflow-y-auto rounded-lg border border-[var(--border)] p-1.5">
+                    {availableTopics.length === 0 ? (
+                      <p className="px-1 py-0.5 text-[0.6875rem] text-[var(--text-subtle)]">এই বিষয়ে টপিক নেই।</p>
+                    ) : (
+                      availableTopics.map((topic: Topic) => {
+                        const checked = form.topicIds.includes(topic.id);
+                        return (
+                          <div key={topic.id}>
+                            <label className="flex cursor-pointer items-center gap-1.5 rounded px-1 py-0.5 hover:bg-[var(--surface-muted)]">
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                onChange={() =>
+                                  setForm((prev) => ({
+                                    ...prev,
+                                    topicIds: checked
+                                      ? prev.topicIds.filter((id) => id !== topic.id)
+                                      : [...prev.topicIds, topic.id],
+                                    subtopicIds: checked
+                                      ? prev.subtopicIds.filter(
+                                          (id) => !(topic.subtopics ?? []).some((sub) => sub.id === id),
+                                        )
+                                      : prev.subtopicIds,
+                                  }))
+                                }
+                                className="size-3.5 accent-[var(--brand)]"
+                              />
+                              <span className="truncate font-bangla text-[0.75rem] text-[var(--text)]">
+                                {topic.title_bn}
+                              </span>
+                            </label>
+                            {checked && (topic.subtopics ?? []).length > 0 ? (
+                              <div className="ml-5 space-y-0.5">
+                                {(topic.subtopics ?? []).map((sub) => {
+                                  const subChecked = form.subtopicIds.includes(sub.id);
+                                  return (
+                                    <label
+                                      key={sub.id}
+                                      className="flex cursor-pointer items-center gap-1.5 rounded px-1 py-0.5 hover:bg-[var(--surface-muted)]"
+                                    >
+                                      <input
+                                        type="checkbox"
+                                        checked={subChecked}
+                                        onChange={() =>
+                                          setForm((prev) => ({
+                                            ...prev,
+                                            subtopicIds: subChecked
+                                              ? prev.subtopicIds.filter((id) => id !== sub.id)
+                                              : [...prev.subtopicIds, sub.id],
+                                          }))
+                                        }
+                                        className="size-3 accent-[var(--brand)]"
+                                      />
+                                      <span className="truncate font-bangla text-[0.6875rem] text-[var(--text-muted)]">
+                                        {sub.title_bn}
+                                      </span>
+                                    </label>
+                                  );
+                                })}
+                              </div>
+                            ) : null}
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+              ) : null}
 
               <div className="grid grid-cols-2 gap-2">
+                <label className="block">
+                  <span className="jh-label">কাজের ধরন</span>
+                  <select
+                    value={form.taskKind}
+                    onChange={(e) => setForm({ ...form, taskKind: e.target.value })}
+                    className="jh-select"
+                  >
+                    {Object.entries(TASK_KIND_LABELS).map(([value, label]) => (
+                      <option key={value} value={value}>{label}</option>
+                    ))}
+                  </select>
+                </label>
                 <label className="block">
                   <span className="jh-label">মিনিট</span>
                   <Input
@@ -301,18 +400,19 @@ export function RoutineManager({
                     className="h-9 text-[0.8125rem]"
                   />
                 </label>
-                <label className="block">
-                  <span className="jh-label">অবস্থা</span>
-                  <select
-                    value={form.status}
-                    onChange={(e) => setForm({ ...form, status: e.target.value })}
-                    className="jh-select"
-                  >
-                    <option value="draft">ড্রাফট</option>
-                    <option value="published">প্রকাশিত</option>
-                  </select>
-                </label>
               </div>
+
+              <label className="block">
+                <span className="jh-label">অবস্থা</span>
+                <select
+                  value={form.status}
+                  onChange={(e) => setForm({ ...form, status: e.target.value })}
+                  className="jh-select"
+                >
+                  <option value="draft">ড্রাফট</option>
+                  <option value="published">প্রকাশিত</option>
+                </select>
+              </label>
 
               <label className="block">
                 <span className="jh-label">ফোকাস নোট</span>
@@ -371,17 +471,40 @@ export function RoutineManager({
             <p className="mt-1 text-[0.6875rem] text-[var(--text-subtle)]">বাঁ দিকের ফর্ম দিয়ে প্রথম রুটিন তৈরি করুন।</p>
           </div>
         ) : (
-          <div className="jh-card divide-y divide-[var(--border)] overflow-hidden">
-            {routines.map((routine) => (
-              <div key={routine.id} className="flex flex-wrap items-center gap-x-2 gap-y-1 px-3 py-2">
-                <span className="w-16 shrink-0 text-[0.625rem] text-[var(--text-subtle)]">
-                  {formatDate(`${routine.routine_date}T12:00:00`, "bn", { day: "numeric", month: "short" })}
+          <div className="space-y-3">
+            {[...new Set(routines.map((r) => r.routine_date))].sort().map((date) => {
+              const items = routines.filter((r) => r.routine_date === date);
+              const totalMinutes = items.reduce((sum, r) => sum + r.minutes, 0);
+              return (
+            <section key={date} className="jh-card overflow-hidden">
+              <header className="flex items-center justify-between gap-2 border-b border-[var(--border)] bg-[var(--surface-muted)] px-3 py-2">
+                <h3 className="text-[0.75rem] font-semibold text-[var(--text)]">
+                  {formatDate(`${date}T12:00:00`, "bn", { weekday: "long", day: "numeric", month: "long" })}
+                  {date === today ? " · আজ" : ""}
+                </h3>
+                <span className="text-[0.625rem] text-[var(--text-subtle)]">
+                  {formatNumber(items.length)}টি এন্ট্রি · {formatNumber(totalMinutes)} মিনিট
                 </span>
+              </header>
+              <div className="divide-y divide-[var(--border)]">
+            {items.map((routine) => (
+              <div key={routine.id} className="flex flex-wrap items-center gap-x-2 gap-y-1 px-3 py-2">
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[0.75rem] font-medium text-[var(--text)]">{routine.title_bn}</span>
+                  <span className="block truncate text-[0.75rem] font-medium text-[var(--text)]">
+                    {routine.title_bn}
+                    {routine.task_kind && routine.task_kind !== "study" ? (
+                      <span className="ml-1 text-[0.5625rem] font-semibold text-[var(--brand)]">
+                        [{TASK_KIND_LABELS[routine.task_kind] ?? routine.task_kind}]
+                      </span>
+                    ) : null}
+                  </span>
                   <span className="block truncate text-[0.5625rem] text-[var(--text-subtle)]">
                     {routine.subject_title_bn ?? "বিষয় নেই"}
-                    {routine.topic_title_bn ? ` · ${routine.topic_title_bn}` : ""} · {formatNumber(routine.minutes)} মিনিট
+                    {routine.topic_titles_bn && routine.topic_titles_bn.length > 0
+                      ? ` · ${routine.topic_titles_bn.join(", ")}`
+                      : routine.topic_title_bn
+                        ? ` · ${routine.topic_title_bn}`
+                        : ""} · {formatNumber(routine.minutes)} মিনিট
                   </span>
                 </span>
                 <Badge tone={routine.status === "published" ? "success" : routine.status === "draft" ? "warning" : "neutral"}>
@@ -418,6 +541,10 @@ export function RoutineManager({
                 </button>
               </div>
             ))}
+              </div>
+            </section>
+              );
+            })}
           </div>
         )}
       </div>

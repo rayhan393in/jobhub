@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   BookCopy, CalendarClock, CalendarDays, ChartNoAxesColumn, ChevronLeft, ClipboardCheck,
-  Columns3, FileUp, GraduationCap, Home, LayoutDashboard, Lock, Menu, PenLine, Radio,
+  Columns3, FileUp, GraduationCap, Home, LayoutDashboard, Lock, Menu, Network, PenLine, Radio,
   ScrollText, Settings, ShieldCheck, Sparkles, Upload, UserCog, Users, X,
 } from "lucide-react";
 import { Logo } from "@/components/ui/logo";
@@ -34,6 +34,7 @@ export const ADMIN_NAV: AdminNavItem[] = [
   { href: "/admin/ai", label: "AI জেনারেটর", icon: Sparkles, permission: "question.import", hint: "Gemini খসড়া" },
   { href: "/admin/bulk", label: "বাল্ক অ্যাকশন", icon: Columns3, permission: "question.review", hint: "ফিল্টার-স্কোপড" },
   { href: "/admin/courses", label: "কোর্স ও ট্যাক্সোনমি", icon: GraduationCap, permission: "taxonomy.manage", hint: "কোর্স · বিষয় · টপিক" },
+  { href: "/admin/taxonomy", label: "টপিক ডাটাবেস", icon: Network, permission: "taxonomy.manage", hint: "অনুমোদন · বাল্ক · কমন লাইব্রেরি" },
   { href: "/admin/routines", label: "রুটিন ম্যানেজার", icon: CalendarDays, permission: "routine.manage", hint: "রুটিন তৈরি" },
   { href: "/admin/frequency", label: "প্রশ্ন-ফ্রিকোয়েন্সি", icon: ChartNoAxesColumn, permission: "question.import", hint: "বিগত বছরের বিশ্লেষণ" },
   { href: "/admin/exams", label: "পরীক্ষা প্রকাশ", icon: Radio, permission: "exam.publish", hint: "ভ্যালিডেশন সহ" },
