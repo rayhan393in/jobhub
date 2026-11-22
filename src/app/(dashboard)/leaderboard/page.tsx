@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { PageHeader } from "@/components/dashboard/dashboard-shell";
 import { LeaderboardClient } from "@/components/leaderboard/leaderboard-client";
 import { getCurrentUser } from "@/lib/auth";
-import { getLeaderboard, listCourses, listPublishedSchedules } from "@/lib/queries";
+import { getLeaderboard, listCourses, listPublishedSchedules, releaseDueResults } from "@/lib/queries";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "লিডারবোর্ড" };
@@ -12,6 +12,8 @@ export default async function LeaderboardPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
+  // Persist release flags for any schedule whose publication time has passed.
+  await releaseDueResults();
   const [courses, schedules] = await Promise.all([listCourses(), listPublishedSchedules({ limit: 40 })]);
   const initialRows = await getLeaderboard({ scope: "daily", limit: 50 });
 

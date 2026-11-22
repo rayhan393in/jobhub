@@ -132,8 +132,8 @@ export function LeaderboardClient({
 
       <p className="mb-3 flex items-start gap-1.5 text-[0.6875rem] leading-relaxed text-[var(--text-subtle)]">
         <Info className="mt-0.5 size-3 shrink-0" aria-hidden />
-        শুধু প্রকাশিত ফলাফল গণনা হয়। টাই হলে নির্ভুলতা, তারপর কম সময়, তারপর আগে জমা দেওয়া — এই ক্রমে
-        র‍্যাংক নির্ধারিত হয়। নাম ছাড়া কেউ তালিকায় আসে না।
+        শুধু প্রকাশিত ফলাফল গণনা হয়। র‍্যাংক নির্ধারণ: প্রাপ্ত নম্বর → নির্ভুলতা → আগে জমা দেওয়া। তিনটিই সমান
+        হলে একই র‍্যাংক দেওয়া হয়। শীর্ষ ৫ জন হাইলাইট করা হয়। নাম ছাড়া কেউ তালিকায় আসে না।
       </p>
 
       {loading ? (
@@ -192,15 +192,22 @@ export function LeaderboardClient({
           <ol className="jh-card divide-y divide-[var(--border)] overflow-hidden">
             {rest.map((row) => {
               const isMe = row.user_id === currentUserId;
+              const isTop5 = row.rank <= 5;
               return (
                 <li
                   key={`${row.user_id}-${row.rank}`}
                   className={cn(
                     "flex items-center gap-3 px-4 py-2.5",
+                    isTop5 && "bg-amber-50/70 dark:bg-amber-500/[0.07]",
                     isMe && "bg-[var(--brand-soft)]",
                   )}
                 >
-                  <span className="w-6 shrink-0 text-center text-[0.75rem] font-bold tabular-nums text-[var(--text-subtle)]">
+                  <span
+                    className={cn(
+                      "w-6 shrink-0 text-center text-[0.75rem] font-bold tabular-nums",
+                      isTop5 ? "text-amber-600 dark:text-amber-400" : "text-[var(--text-subtle)]",
+                    )}
+                  >
                     {formatNumber(row.rank)}
                   </span>
                   <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-[var(--surface-sunken)] text-[0.625rem] font-bold text-[var(--text-muted)]">
@@ -209,6 +216,11 @@ export function LeaderboardClient({
                   <span className="min-w-0 flex-1 truncate text-[0.8125rem] font-medium text-[var(--text)]">
                     {row.full_name}
                     {isMe ? <span className="ml-1.5 text-[0.625rem] font-semibold text-[var(--brand)]">(আপনি)</span> : null}
+                    {isTop5 ? (
+                      <span className="ml-1.5 rounded-full bg-amber-100 px-1.5 py-0.5 text-[0.5625rem] font-bold text-amber-700 dark:bg-amber-500/15 dark:text-amber-400">
+                        টপ ৫
+                      </span>
+                    ) : null}
                   </span>
                   <span className="shrink-0 text-[0.6875rem] tabular-nums text-[var(--text-subtle)]">
                     {formatPercent(row.accuracy)}

@@ -253,6 +253,18 @@ export async function getStudentAnalytics(courseId?: string | null): Promise<Stu
   return data as StudentAnalytics;
 }
 
+/**
+ * Persist `is_released` on results/attempts whose schedule's publication time
+ * has passed. Best-effort and idempotent — readers also compute release
+ * dynamically, so a failure here never hides a due result.
+ */
+export async function releaseDueResults(): Promise<void> {
+  const supabase = await getServerClient();
+  if (!supabase) return;
+  const { error } = await supabase.rpc("jh_release_due_results");
+  if (error) console.error("[release-sweep]", error.message);
+}
+
 export async function getLeaderboard(params: {
   scope: "daily" | "weekly" | "course" | "exam";
   courseId?: string | null;
