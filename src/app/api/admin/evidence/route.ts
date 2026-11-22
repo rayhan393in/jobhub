@@ -1,10 +1,16 @@
 import { NextResponse } from "next/server";
-import { createHash } from "node:crypto";
 import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth";
 import { can } from "@/lib/permissions";
 import { getAdminClient } from "@/lib/supabase/admin";
 import { parseCsvRows } from "@/lib/routines/parse";
+import {
+  normaliseStatement,
+  pick,
+  STATEMENT_ALIASES,
+  validateEvidenceCsv,
+  type MatchedQuestion,
+} from "@/lib/evidence/validate";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -21,7 +27,8 @@ export const maxDuration = 60;
  *    (and the DB trigger refuses it without an evidence record);
  *  - CSV rows that do not match an existing question can OPTIONALLY create a
  *    new DRAFT question (unverified, pending review) when the row carries the
- *    full question body; otherwise the row is reported back as unmatched.
+ *    full question body; otherwise the row is reported back as unmatched;
+ *  - every mutation is written to audit_logs with the acting admin.
  */
 
 const matchKind = z.enum(["exact", "same_concept", "related"]);
@@ -51,27 +58,6 @@ const bulkSchema = z.object({
 
 const bodySchema = z.discriminatedUnion("action", [addSchema, deleteSchema, bulkSchema]);
 
-function fingerprintOf(statement: string): string {
-  return createHash("sha256").update(statement).digest("hex");
-}
-
-function normalise(text: string): string {
-  return text.replace(/\s+/g, " ").trim();
-}
-
-function pick(row: Record<string, string>, keys: string[]): string {
-  for (const key of keys) {
-    const value = row[key];
-    if (value !== undefined && value.trim() !== "") return value.trim();
-  }
-  return "";
-}
-
-const CORRECT_MAP: Record<string, number> = {
-  a: 0, b: 1, c: 2, d: 3, "0": 0, "1": 1, "2": 2, "3": 3,
-  "ক": 0, "খ": 1, "গ": 2, "ঘ": 3,
-};
-
 export async function POST(request: Request) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "লগইন প্রয়োজন।" }, { status: 401 });
@@ -93,30 +79,56 @@ export async function POST(request: Request) {
 
   const supabase = getAdminClient();
 
+  const audit = async (action: string, entityId: string | null, details: Record<string, unknown>) => {
+    await supabase.from("audit_logs").insert({
+      actor_id: user.id,
+      action,
+      entity_type: "evidence_records",
+      entity_id: entityId,
+      details,
+    });
+  };
+
   if (body.action === "delete") {
+    const { data: existing } = await supabase
+      .from("evidence_records")
+      .select("question_id, exam_name, exam_year")
+      .eq("id", body.id)
+      .single();
     const { error } = await supabase.from("evidence_records").delete().eq("id", body.id);
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    await audit("evidence.delete", body.id, existing ?? {});
     await supabase.rpc("jh_recompute_topic_priorities");
     return NextResponse.json({ ok: true });
   }
 
   if (body.action === "add") {
-    const { error } = await supabase.from("evidence_records").insert({
-      question_id: body.questionId,
-      exam_name: body.examName,
-      exam_year: body.examYear,
-      match_kind: body.matchKind,
-      source_ref: body.sourceRef || null,
-      source_url: body.sourceUrl || null,
-      original_text: body.originalText || null,
-      verified_by: user.id,
-    });
+    const { data: inserted, error } = await supabase
+      .from("evidence_records")
+      .insert({
+        question_id: body.questionId,
+        exam_name: body.examName,
+        exam_year: body.examYear,
+        match_kind: body.matchKind,
+        source_ref: body.sourceRef || null,
+        source_url: body.sourceUrl || null,
+        original_text: body.originalText || null,
+        verified_by: user.id,
+      })
+      .select("id")
+      .single();
     if (error) {
       const friendly = error.code === "23505"
         ? "এই প্রশ্নের জন্য এই পরীক্ষা+সালের এভিডেন্স আগেই আছে।"
         : error.message;
       return NextResponse.json({ error: friendly }, { status: 409 });
     }
+    await audit("evidence.add", (inserted as { id: string } | null)?.id ?? null, {
+      question_id: body.questionId,
+      exam_name: body.examName,
+      exam_year: body.examYear,
+      match_kind: body.matchKind,
+    });
     await supabase.rpc("jh_recompute_topic_priorities");
     return NextResponse.json({ ok: true });
   }
@@ -126,21 +138,11 @@ export async function POST(request: Request) {
   if (rawRows.length === 0) return NextResponse.json({ error: "CSV-তে কোনো সারি নেই।" }, { status: 422 });
   if (rawRows.length > 2000) return NextResponse.json({ error: "একবারে সর্বোচ্চ ২০০০ সারি।" }, { status: 422 });
 
-  type Verdict = {
-    row: number;
-    examName: string;
-    examYear: number | null;
-    statement: string;
-    outcome: "match" | "create_draft" | "error";
-    detail: string;
-  };
-  const verdicts: Verdict[] = [];
-
   // Resolve statements against the live question bank of this course.
-  const statements = rawRows.map((row) => normalise(pick(row, ["question", "statement", "প্রশ্ন", "original_question"])));
+  const statements = rawRows.map((row) => normaliseStatement(pick(row, STATEMENT_ALIASES)));
   const uniqueStatements = [...new Set(statements.filter((statement) => statement.length >= 8))];
 
-  const byStatement = new Map<string, { id: string; source_type: string }>();
+  const byStatement = new Map<string, MatchedQuestion>();
   for (let i = 0; i < uniqueStatements.length; i += 100) {
     const slice = uniqueStatements.slice(i, i + 100);
     const { data } = await supabase
@@ -149,101 +151,11 @@ export async function POST(request: Request) {
       .eq("course_id", body.courseId)
       .in("statement", slice);
     for (const question of (data ?? []) as Array<{ id: string; statement: string; source_type: string }>) {
-      byStatement.set(normalise(question.statement), { id: question.id, source_type: question.source_type });
+      byStatement.set(normaliseStatement(question.statement), { id: question.id, source_type: question.source_type });
     }
   }
 
-  const evidenceInserts: Array<Record<string, unknown>> = [];
-  const draftInserts: Array<{ question: Record<string, unknown>; evidence: Record<string, unknown>; row: number }> = [];
-
-  rawRows.forEach((row, index) => {
-    const rowNumber = index + 2; // header is row 1
-    const examName = pick(row, ["exam_name", "পরীক্ষা", "exam"]);
-    const yearRaw = pick(row, ["exam_year", "year", "সাল"]);
-    const examYear = /^\d{4}$/.test(yearRaw) ? Number(yearRaw) : null;
-    const statement = statements[index];
-    const kindRaw = pick(row, ["match_kind", "kind"]).toLowerCase();
-    const kind = ["exact", "same_concept", "related"].includes(kindRaw) ? kindRaw : "exact";
-
-    const fail = (detail: string) =>
-      verdicts.push({ row: rowNumber, examName, examYear, statement: statement.slice(0, 80), outcome: "error", detail });
-
-    if (examName.length < 2) return fail("exam_name খালি — অনুমান করা হয় না, সারি বাতিল।");
-    if (examYear === null || examYear < 1971 || examYear > 2100) {
-      return fail("exam_year অনুপস্থিত/অবৈধ (১৯৭১–২১০০) — অনুমান করা হয় না, সারি বাতিল।");
-    }
-    if (statement.length < 8) return fail("question কলাম খালি বা খুব ছোট।");
-
-    const matched = byStatement.get(statement);
-    if (matched) {
-      verdicts.push({ row: rowNumber, examName, examYear, statement: statement.slice(0, 80), outcome: "match", detail: "বিদ্যমান প্রশ্নের সাথে মিলেছে — এভিডেন্স যুক্ত হবে।" });
-      evidenceInserts.push({
-        question_id: matched.id,
-        exam_name: examName,
-        exam_year: examYear,
-        match_kind: kind,
-        source_ref: pick(row, ["source_ref", "source", "উৎস"]) || null,
-        source_url: pick(row, ["source_url", "url"]) || null,
-        original_text: statement,
-        verified_by: user.id,
-      });
-      return;
-    }
-
-    // Unmatched: create a DRAFT question only when the row carries a full body.
-    const options = [
-      pick(row, ["option_a", "a", "ক"]),
-      pick(row, ["option_b", "b", "খ"]),
-      pick(row, ["option_c", "c", "গ"]),
-      pick(row, ["option_d", "d", "ঘ"]),
-    ];
-    const correctRaw = pick(row, ["correct_option", "correct", "answer", "সঠিক"]).toLowerCase();
-    const correct = CORRECT_MAP[correctRaw];
-
-    if (options.some((option) => !option) || correct === undefined) {
-      return fail("প্রশ্নব্যাংকে পাওয়া যায়নি এবং অপশন/সঠিক উত্তর অসম্পূর্ণ — আগে ইমপোর্ট করুন বা কলামগুলো পূরণ করুন।");
-    }
-
-    verdicts.push({ row: rowNumber, examName, examYear, statement: statement.slice(0, 80), outcome: "create_draft", detail: "নতুন খসড়া প্রশ্ন (অযাচাইকৃত, রিভিউ কিউতে যাবে) + এভিডেন্স।" });
-    draftInserts.push({
-      row: rowNumber,
-      question: {
-        course_id: body.courseId,
-        statement,
-        option_a: options[0],
-        option_b: options[1],
-        option_c: options[2],
-        option_d: options[3],
-        correct_option: correct,
-        explanation: pick(row, ["explanation", "ব্যাখ্যা"]),
-        source_type: "previous",
-        status: "draft",
-        is_verified: false,
-        year: examYear,
-        exam_name: examName,
-        source_title: pick(row, ["source_ref", "source", "উৎস"]) || null,
-        source_url: pick(row, ["source_url", "url"]) || null,
-        fingerprint: fingerprintOf(statement),
-        created_by: user.id,
-      },
-      evidence: {
-        exam_name: examName,
-        exam_year: examYear,
-        match_kind: kind,
-        source_ref: pick(row, ["source_ref", "source", "উৎস"]) || null,
-        source_url: pick(row, ["source_url", "url"]) || null,
-        original_text: statement,
-        verified_by: user.id,
-      },
-    });
-  });
-
-  const summary = {
-    total: rawRows.length,
-    matched: verdicts.filter((verdict) => verdict.outcome === "match").length,
-    drafts: verdicts.filter((verdict) => verdict.outcome === "create_draft").length,
-    errors: verdicts.filter((verdict) => verdict.outcome === "error").length,
-  };
+  const { verdicts, evidenceInserts, draftInserts, summary } = validateEvidenceCsv(rawRows, byStatement);
 
   if (body.dryRun) {
     return NextResponse.json({ ok: true, dryRun: true, summary, verdicts });
@@ -257,9 +169,10 @@ export async function POST(request: Request) {
   const failures: Array<{ row: number; reason: string }> = [];
 
   if (evidenceInserts.length > 0) {
+    const payload = evidenceInserts.map((record) => ({ ...record, verified_by: user.id }));
     const { error, count } = await supabase
       .from("evidence_records")
-      .upsert(evidenceInserts, { onConflict: "question_id,exam_name,exam_year", ignoreDuplicates: true, count: "exact" });
+      .upsert(payload, { onConflict: "question_id,exam_name,exam_year", ignoreDuplicates: true, count: "exact" });
     if (error) return NextResponse.json({ error: error.message, summary, verdicts }, { status: 500 });
     inserted = count ?? evidenceInserts.length;
   }
@@ -267,7 +180,7 @@ export async function POST(request: Request) {
   for (const draft of draftInserts) {
     const { data: question, error } = await supabase
       .from("questions")
-      .insert(draft.question)
+      .insert({ ...draft.question, course_id: body.courseId, created_by: user.id })
       .select("id")
       .single();
     if (error || !question) {
@@ -277,10 +190,18 @@ export async function POST(request: Request) {
     createdDrafts += 1;
     const { error: evidenceError } = await supabase
       .from("evidence_records")
-      .insert({ ...draft.evidence, question_id: (question as { id: string }).id });
+      .insert({ ...draft.evidence, question_id: (question as { id: string }).id, verified_by: user.id });
     if (evidenceError) failures.push({ row: draft.row, reason: `প্রশ্ন তৈরি হয়েছে কিন্তু এভিডেন্স ব্যর্থ: ${evidenceError.message}` });
   }
 
+  await audit("evidence.bulk_import", null, {
+    course_id: body.courseId,
+    total: summary.total,
+    evidence_inserted: inserted,
+    drafts_created: createdDrafts,
+    rejected: summary.errors,
+    failures,
+  });
   await supabase.rpc("jh_recompute_topic_priorities");
 
   return NextResponse.json({ ok: true, dryRun: false, summary, verdicts, inserted, createdDrafts, failures });

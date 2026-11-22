@@ -82,6 +82,42 @@ select q.id, q.course_id, q.subject_id, q.topic_id, q.subtopic_id, true
 from questions q
 on conflict do nothing;
 
+-- Every FUTURE question must get its primary link too, or it would be
+-- invisible to the evidence/frequency engine (QA finding).
+create or replace function jh_autolink_question()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  insert into question_topic_links (question_id, course_id, subject_id, topic_id, subtopic_id, is_primary)
+  values (new.id, new.course_id, new.subject_id, new.topic_id, new.subtopic_id, true)
+  on conflict do nothing;
+  return new;
+end $$;
+drop trigger if exists trg_qtl_autolink on questions;
+create trigger trg_qtl_autolink after insert on questions
+  for each row execute function jh_autolink_question();
+
+-- Keep the primary link in sync when a question's placement is edited.
+create or replace function jh_sync_primary_link()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  delete from question_topic_links
+   where question_id = new.id and not is_primary
+     and course_id = new.course_id and topic_id is not distinct from new.topic_id;
+  update question_topic_links
+     set course_id = new.course_id, subject_id = new.subject_id,
+         topic_id = new.topic_id, subtopic_id = new.subtopic_id
+   where question_id = new.id and is_primary;
+  if not found then
+    insert into question_topic_links (question_id, course_id, subject_id, topic_id, subtopic_id, is_primary)
+    values (new.id, new.course_id, new.subject_id, new.topic_id, new.subtopic_id, true)
+    on conflict do nothing;
+  end if;
+  return new;
+end $$;
+drop trigger if exists trg_qtl_sync on questions;
+create trigger trg_qtl_sync after update of course_id, subject_id, topic_id, subtopic_id on questions
+  for each row execute function jh_sync_primary_link();
+
 create extension if not exists pg_trgm;
 create index if not exists idx_questions_statement_trgm
   on questions using gin (lower(statement) gin_trgm_ops);
@@ -306,9 +342,66 @@ alter table evidence_records     enable row level security;
 alter table topic_priorities     enable row level security;
 alter table ai_generations       enable row level security;
 
+-- FORCE is the project invariant (tests/db/schema.test.ts): even the table
+-- owner is subject to RLS; postgres + service_role carry BYPASSRLS.
+alter table canonical_subjects   force row level security;
+alter table taxonomy_merges      force row level security;
+alter table question_topic_links force row level security;
+alter table question_similarity  force row level security;
+alter table evidence_records     force row level security;
+alter table topic_priorities     force row level security;
+alter table ai_generations       force row level security;
+alter table canonical_topics     force row level security;
+alter table micro_topics         force row level security;
+
+-- schema_migrations exists only where scripts/migrate.mjs created it.
+do $$ begin
+  if to_regclass('public.schema_migrations') is not null then
+    execute 'alter table public.schema_migrations enable row level security';
+    execute 'alter table public.schema_migrations force row level security';
+  end if;
+end $$;
+
+-- Kill Supabase's default table privileges first: they grant anon and
+-- authenticated FULL access (including TRUNCATE, which RLS does NOT cover).
+-- Grants decide whether a role may even attempt an operation; RLS then
+-- narrows rows. Writes go exclusively through the service role.
+revoke all on canonical_subjects, taxonomy_merges, question_topic_links,
+  question_similarity, evidence_records, topic_priorities, ai_generations
+  from anon, authenticated;
+grant select on question_topic_links, topic_priorities, canonical_subjects to authenticated;
+
+-- The server (service role) is the only writer.
+grant all on canonical_subjects, taxonomy_merges, question_topic_links,
+  question_similarity, evidence_records, topic_priorities, ai_generations to service_role;
+grant select on v_canonical_topic_members, v_topic_frequency, v_question_bank,
+  v_evidence_coverage to service_role;
+grant execute on function jh_detect_similar_questions(numeric) to service_role;
+grant execute on function jh_recompute_topic_priorities() to service_role;
+
+-- Admin-only read models must not be readable through the anon REST API:
+-- views run with OWNER rights, so a grant here would bypass table RLS
+-- (v_question_bank exposes correct answers — QA finding).
+revoke all on v_canonical_topic_members, v_topic_frequency, v_question_bank,
+  v_evidence_coverage from anon, authenticated;
+
+-- canonical_topics (from an earlier migration) had the same default-privilege
+-- exposure; staff read it via its RLS policy, nobody writes it as a client role.
+revoke all on canonical_topics from anon, authenticated;
+grant select on canonical_topics to authenticated;
+grant all on canonical_topics to service_role;
+
+-- Global hardening: TRUNCATE is NOT subject to RLS and nothing legitimate
+-- truncates as a client role; anon never writes anything.
+revoke truncate on all tables in schema public from anon, authenticated;
+revoke insert, update, delete on all tables in schema public from anon;
+
 -- Authenticated users may read links/priorities (needed for app pages).
+drop policy if exists qtl_read on question_topic_links;
 create policy qtl_read  on question_topic_links for select to authenticated using (true);
+drop policy if exists tp_read on topic_priorities;
 create policy tp_read   on topic_priorities     for select to authenticated using (true);
+drop policy if exists cs_read on canonical_subjects;
 create policy cs_read   on canonical_subjects   for select to authenticated using (true);
 
 -- ---------- F. APPLIED-STATE EXTRAS (ran live 2026-11-21) ----------
@@ -324,7 +417,6 @@ create unique index if not exists canonical_topics_slug_key on canonical_topics(
 -- (The exact seed SQL that ran is preserved in docs/architecture/rollback-20261124.sql
 --  header comments; it is data, not schema, so it is not repeated here verbatim.)
 
--- Record this migration in the app's migration ledger.
-insert into schema_migrations (filename, checksum)
-values ('20261124000000_question_intelligence.sql', 'applied-via-agent')
-on conflict do nothing;
+-- NOTE: this file does NOT insert into schema_migrations itself —
+-- scripts/migrate.mjs records the ledger row (and the test harness has no
+-- such table). Every statement above is idempotent, so a re-run is safe.

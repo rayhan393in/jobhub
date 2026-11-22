@@ -4,6 +4,10 @@
 
 drop trigger if exists trg_guard_previous on questions;
 drop function if exists jh_guard_previous_source();
+drop trigger if exists trg_qtl_autolink on questions;
+drop function if exists jh_autolink_question();
+drop trigger if exists trg_qtl_sync on questions;
+drop function if exists jh_sync_primary_link();
 drop table if exists ai_generations;
 
 drop function if exists jh_recompute_topic_priorities();

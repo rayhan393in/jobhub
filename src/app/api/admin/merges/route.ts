@@ -55,6 +55,16 @@ export async function POST(request: Request) {
   const record = merge as { id: string; kind: string; canonical_id: string | null; member_ids: string[]; status: string };
   const now = new Date().toISOString();
 
+  const audit = async (action: string, details: Record<string, unknown>) => {
+    await supabase.from("audit_logs").insert({
+      actor_id: user.id,
+      action,
+      entity_type: "taxonomy_merges",
+      entity_id: record.id,
+      details: { kind: record.kind, member_ids: record.member_ids, ...details },
+    });
+  };
+
   if (body.action === "reject") {
     if (record.status !== "proposed") {
       return NextResponse.json({ error: "শুধু প্রস্তাবিত রেকর্ড বাতিল করা যায়।" }, { status: 409 });
@@ -64,6 +74,7 @@ export async function POST(request: Request) {
       .update({ status: "rejected", decided_at: now, merged_by: user.id })
       .eq("id", body.id);
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    await audit("merge.reject", {});
     return NextResponse.json({ ok: true });
   }
 
@@ -89,6 +100,7 @@ export async function POST(request: Request) {
       .update({ status: "reverted", reverted_at: now, merged_by: user.id })
       .eq("id", body.id);
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    await audit("merge.revert", { canonical_id: record.canonical_id });
     await supabase.rpc("jh_recompute_topic_priorities");
     return NextResponse.json({ ok: true });
   }
@@ -127,6 +139,7 @@ export async function POST(request: Request) {
       .update({ status: "applied", canonical_id: canonicalId, decided_at: now, merged_by: user.id })
       .eq("id", body.id);
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    await audit("merge.approve", { canonical_id: canonicalId });
     await supabase.rpc("jh_recompute_topic_priorities");
     return NextResponse.json({ ok: true });
   }
@@ -157,5 +170,6 @@ export async function POST(request: Request) {
     .update({ status: "applied", canonical_id: canonicalId, decided_at: now, merged_by: user.id })
     .eq("id", body.id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  await audit("merge.approve", { canonical_id: canonicalId });
   return NextResponse.json({ ok: true });
 }
