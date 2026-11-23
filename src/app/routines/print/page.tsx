@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { listCourses, listRoutines, listStudyPlanTopicPairs } from "@/lib/queries";
 import { dhakaDateKey } from "@/lib/format";
+import { topicsForRoutine } from "@/lib/routine-day-lines";
 import { RoutinePrintSheet, type PrintCourse } from "./routine-print-sheet";
 
 export const dynamic = "force-dynamic";
@@ -83,15 +84,11 @@ export default async function RoutinePrintPage({
     routines: routines
       .filter((r) => r.course_id === courseId)
       .map((routine) => {
-        const assigned = pairsByRoutine.get(routine.id);
-        const topics = assigned
-          ? [...assigned.entries()].map(([topic, subtopics]) => ({ topic, subtopics }))
-          : (routine.topic_titles_bn ?? []).map((topic, i, arr) => ({
-              topic,
-              // Legacy rows without assignments: attach the row's subtopics to
-              // its single topic; with several topics the pairing is unknown.
-              subtopics: arr.length === 1 ? (routine.subtopic_titles_bn ?? []) : [],
-            }));
+        const topics = topicsForRoutine(
+          pairsByRoutine.get(routine.id),
+          routine.topic_titles_bn,
+          routine.subtopic_titles_bn,
+        );
         return {
           id: routine.id,
           routine_date: routine.routine_date,
