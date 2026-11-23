@@ -3,15 +3,18 @@ import { z } from "zod";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getCurrentUser } from "@/lib/auth";
 import { can } from "@/lib/permissions";
-import { getServerClient } from "@/lib/supabase/server";
+import { getAdminClient } from "@/lib/supabase/admin";
 import { fromDbError } from "@/lib/api";
 import {
   hasCriticalFailure,
   planSubject,
   resolveRotation,
   splitNinetyTen,
+  splitPyqAcrossSections,
+  strict7030Checks,
   validateDailyPlan,
   type DifficultyMix,
+  type PyqAvailability,
   type RotationSlot,
   type SubjectPlan,
   type ValidationCheck,
@@ -50,9 +53,25 @@ type DayContext = {
     difficulty_mix: DifficultyMix;
     cumulative_revision: boolean;
     allow_whole_subject_fallback: boolean;
+    pyq_count: number;
+    practice_count: number;
+    strict_pyq_validation: boolean;
   };
   slots: RotationSlot[];
 };
+
+/**
+ * The config/rotation tables are service-role-only by design (privilege
+ * lockdown), so this route talks to the DB through the admin client — AFTER
+ * the exam.publish permission check in each handler.
+ */
+function adminDb(): Supabase | null {
+  try {
+    return getAdminClient();
+  } catch {
+    return null;
+  }
+}
 
 async function loadContext(supabase: Supabase, courseId: string): Promise<DayContext | null> {
   const [{ data: config }, { data: slots }] = await Promise.all([
@@ -79,8 +98,38 @@ async function loadContext(supabase: Supabase, courseId: string): Promise<DayCon
       },
       cumulative_revision: config.cumulative_revision,
       allow_whole_subject_fallback: config.allow_whole_subject_fallback,
+      pyq_count: config.pyq_count ?? 70,
+      practice_count: config.practice_count ?? 30,
+      strict_pyq_validation: Boolean(config.strict_pyq_validation),
     },
     slots: (slots ?? []) as RotationSlot[],
+  };
+}
+
+const EMPTY_AVAILABILITY: PyqAvailability = {
+  pyq_total: 0, pyq_ready: 0, pyq_missing_meta: 0, practice_pool: 0, missing_explanation: 0,
+};
+
+/** Real pool counts for one section scope, from jh_pyq_availability. */
+async function sectionAvailability(
+  supabase: Supabase,
+  courseId: string,
+  subjectId: string,
+  topicIds: string[],
+): Promise<PyqAvailability> {
+  const { data } = await supabase.rpc("jh_pyq_availability", {
+    p_course_id: courseId,
+    p_subject_id: subjectId,
+    p_topic_ids: topicIds.length > 0 ? topicIds : null,
+  });
+  const row = Array.isArray(data) ? data[0] : data;
+  if (!row) return EMPTY_AVAILABILITY;
+  return {
+    pyq_total: Number(row.pyq_total ?? 0),
+    pyq_ready: Number(row.pyq_ready ?? 0),
+    pyq_missing_meta: Number(row.pyq_missing_meta ?? 0),
+    practice_pool: Number(row.practice_pool ?? 0),
+    missing_explanation: Number(row.missing_explanation ?? 0),
   };
 }
 
@@ -162,6 +211,15 @@ async function subjectPools(
   };
 }
 
+type StrictInfo = {
+  pyqCount: number;
+  practiceCount: number;
+  mainPyqNeed: number;
+  secondaryPyqNeed: number;
+  mainAvailability: PyqAvailability;
+  secondaryAvailability: PyqAvailability;
+};
+
 type DailyPlan = {
   kind: "daily";
   position: number;
@@ -173,6 +231,7 @@ type DailyPlan = {
   items: { subject_id?: string; topic_id?: string; subtopic_id?: string; count: number }[];
   checks: ValidationCheck[];
   blocked: boolean;
+  strict: StrictInfo | null;
 };
 
 async function buildDayPlan(
@@ -232,6 +291,43 @@ async function buildDayPlan(
     startsInFuture,
   });
 
+  // Strict 70:30 mode — the 8-point checklist with REAL pool counts. A PYQ
+  // shortfall blocks publishing; it is never patched over with practice
+  // questions (master-prompt core rule).
+  let strict: StrictInfo | null = null;
+  if (context.config.strict_pyq_validation) {
+    const [mainPyqNeed, secondaryPyqNeed] = splitPyqAcrossSections(
+      [main, secondary], context.config.pyq_count,
+    );
+    const mainScope = mainPlan.usedWholeSubjectFallback
+      ? [] : mainPlan.items.map((item) => item.topic_id).filter((id): id is string => Boolean(id));
+    const secondaryScope = secondaryPlan.usedWholeSubjectFallback
+      ? [] : secondaryPlan.items.map((item) => item.topic_id).filter((id): id is string => Boolean(id));
+    const [mainAvailability, secondaryAvailability] = await Promise.all([
+      sectionAvailability(supabase, courseId, day.mainSubjectId, mainScope),
+      sectionAvailability(supabase, courseId, day.secondarySubjectId, secondaryScope),
+    ]);
+    strict = {
+      pyqCount: context.config.pyq_count,
+      practiceCount: context.config.practice_count,
+      mainPyqNeed,
+      secondaryPyqNeed,
+      mainAvailability,
+      secondaryAvailability,
+    };
+    checks.push(
+      ...strict7030Checks({
+        questionCount: context.config.question_count,
+        pyqCount: context.config.pyq_count,
+        practiceCount: context.config.practice_count,
+        sections: [
+          { label: "মূল", count: main, pyqNeed: mainPyqNeed, availability: mainAvailability },
+          { label: "সহ", count: secondary, pyqNeed: secondaryPyqNeed, availability: secondaryAvailability },
+        ],
+      }),
+    );
+  }
+
   return {
     kind: "daily",
     position: day.position,
@@ -243,6 +339,7 @@ async function buildDayPlan(
     items: [...mainPlan.items, ...secondaryPlan.items],
     checks,
     blocked: hasCriticalFailure(checks),
+    strict,
   };
 }
 
@@ -265,7 +362,7 @@ export async function GET(request: Request) {
   });
   if (!parsed.success) return NextResponse.json({ error: "অবৈধ অনুরোধ।" }, { status: 400 });
 
-  const supabase = await getServerClient();
+  const supabase = adminDb();
   if (!supabase) return NextResponse.json({ error: "সার্ভার কনফিগারেশন নেই।" }, { status: 500 });
 
   const context = await loadContext(supabase, parsed.data.courseId);
@@ -371,7 +468,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "অবৈধ ডেটা।" }, { status: 422 });
   }
 
-  const supabase = await getServerClient();
+  const supabase = adminDb();
   if (!supabase) return NextResponse.json({ error: "সার্ভার কনফিগারেশন নেই।" }, { status: 500 });
 
   const context = await loadContext(supabase, body.courseId);
@@ -455,6 +552,9 @@ export async function POST(request: Request) {
       difficulty_mix: context.config.difficulty_mix,
       exam_date: body.date,
       source: "daily_rotation",
+      mode: plan.strict ? "70_30_strict" : "legacy",
+      pyq_total: plan.strict?.pyqCount ?? null,
+      practice_total: plan.strict?.practiceCount ?? null,
       rotation_position: plan.position,
       overridden: plan.overridden,
       main_subject_id: plan.mainSubjectId,
@@ -489,19 +589,36 @@ export async function POST(request: Request) {
         topic_ids: plan.secondaryPlan.items.map((item) => item.topic_id).filter(Boolean),
       },
     ];
-    const { data: paper, error } = await supabase.rpc("jh_build_paper_sectioned", {
-      p_course_id: body.courseId,
-      p_sections: sections,
-      p_title_en: titleBn,
-      p_title_bn: titleBn,
-      p_duration_minutes: context.config.duration_minutes,
-      p_total_marks: questionCount,
-      p_negative_marks: context.config.negative_marks,
-      p_created_by: user.id,
-      p_mix: context.config.difficulty_mix,
-      p_paper_type: "scheduled",
-      p_schedule_id: schedule.id,
-    });
+    // Strict mode uses the 70:30 builder: exact PYQ + practice totals, loud
+    // P0001 with the real pool counts on any shortfall — never substituted.
+    const { data: paper, error } = plan.strict
+      ? await supabase.rpc("jh_build_paper_7030", {
+          p_course_id: body.courseId,
+          p_sections: sections,
+          p_pyq_total: plan.strict.pyqCount,
+          p_practice_total: plan.strict.practiceCount,
+          p_title_en: titleBn,
+          p_title_bn: titleBn,
+          p_duration_minutes: context.config.duration_minutes,
+          p_total_marks: questionCount,
+          p_negative_marks: context.config.negative_marks,
+          p_created_by: user.id,
+          p_paper_type: "scheduled",
+          p_schedule_id: schedule.id,
+        })
+      : await supabase.rpc("jh_build_paper_sectioned", {
+          p_course_id: body.courseId,
+          p_sections: sections,
+          p_title_en: titleBn,
+          p_title_bn: titleBn,
+          p_duration_minutes: context.config.duration_minutes,
+          p_total_marks: questionCount,
+          p_negative_marks: context.config.negative_marks,
+          p_created_by: user.id,
+          p_mix: context.config.difficulty_mix,
+          p_paper_type: "scheduled",
+          p_schedule_id: schedule.id,
+        });
     if (error) {
       buildError = error.message;
     } else {
@@ -562,6 +679,9 @@ const patchSchema = z.discriminatedUnion("action", [
       .optional(),
     cumulativeRevision: z.boolean().optional(),
     allowWholeSubjectFallback: z.boolean().optional(),
+    pyqCount: z.number().int().min(0).max(200).optional(),
+    practiceCount: z.number().int().min(0).max(200).optional(),
+    strictPyqValidation: z.boolean().optional(),
   }),
   z.object({
     action: z.literal("override"),
@@ -591,7 +711,7 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: "অবৈধ ডেটা।" }, { status: 422 });
   }
 
-  const supabase = await getServerClient();
+  const supabase = adminDb();
   if (!supabase) return NextResponse.json({ error: "সার্ভার কনফিগারেশন নেই।" }, { status: 500 });
 
   if (body.action === "config") {
@@ -609,6 +729,33 @@ export async function PATCH(request: Request) {
     if (body.difficultyMix !== undefined) patch.difficulty_mix = body.difficultyMix;
     if (body.cumulativeRevision !== undefined) patch.cumulative_revision = body.cumulativeRevision;
     if (body.allowWholeSubjectFallback !== undefined) patch.allow_whole_subject_fallback = body.allowWholeSubjectFallback;
+    if (body.pyqCount !== undefined) patch.pyq_count = body.pyqCount;
+    if (body.practiceCount !== undefined) patch.practice_count = body.practiceCount;
+    if (body.strictPyqValidation !== undefined) patch.strict_pyq_validation = body.strictPyqValidation;
+
+    // Strict mode demands pyq + practice === total — verified on the MERGED
+    // config (DB CHECK daily_exam_config_strict_sum is the backstop).
+    const { data: current } = await supabase
+      .from("daily_exam_config")
+      .select("question_count, pyq_count, practice_count, strict_pyq_validation")
+      .eq("course_id", body.courseId)
+      .maybeSingle();
+    if (current) {
+      const merged = {
+        question_count: body.questionCount ?? current.question_count,
+        pyq_count: body.pyqCount ?? current.pyq_count ?? 70,
+        practice_count: body.practiceCount ?? current.practice_count ?? 30,
+        strict: body.strictPyqValidation ?? current.strict_pyq_validation ?? false,
+      };
+      if (merged.strict && merged.pyq_count + merged.practice_count !== merged.question_count) {
+        return NextResponse.json(
+          {
+            error: `Strict মোডে PYQ (${merged.pyq_count}) + practice (${merged.practice_count}) = মোট প্রশ্ন (${merged.question_count}) হতে হবে।`,
+          },
+          { status: 422 },
+        );
+      }
+    }
 
     const { error } = await supabase.from("daily_exam_config").update(patch).eq("course_id", body.courseId);
     if (error) return fromDbError(error);

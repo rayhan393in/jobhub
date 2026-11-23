@@ -14,6 +14,20 @@ type Subject = { id: string; title_bn: string };
 
 type Check = { rule: string; ok: boolean; critical: boolean; detail: string };
 
+type Availability = {
+  pyq_total: number; pyq_ready: number; pyq_missing_meta: number;
+  practice_pool: number; missing_explanation: number;
+};
+
+type StrictInfo = {
+  pyqCount: number;
+  practiceCount: number;
+  mainPyqNeed: number;
+  secondaryPyqNeed: number;
+  mainAvailability: Availability;
+  secondaryAvailability: Availability;
+};
+
 type DayPlan =
   | { kind: "grand"; position: number }
   | { kind: "none" }
@@ -29,6 +43,7 @@ type DayPlan =
       secondaryPlan: { planned: number; requested: number; availableTotal: number; usedWholeSubjectFallback: boolean };
       checks: Check[];
       blocked: boolean;
+      strict: StrictInfo | null;
     };
 
 type UpcomingDay =
@@ -47,6 +62,9 @@ type Config = {
   difficulty_mix: { previous: number; easy: number; medium: number; hard: number };
   cumulative_revision: boolean;
   allow_whole_subject_fallback: boolean;
+  pyq_count: number;
+  practice_count: number;
+  strict_pyq_validation: boolean;
 };
 
 type Preview = {
@@ -155,6 +173,9 @@ export function DailyExamPanel({ courses, today }: { courses: Course[]; today: s
           difficultyMix: configDraft.difficulty_mix,
           cumulativeRevision: configDraft.cumulative_revision,
           allowWholeSubjectFallback: configDraft.allow_whole_subject_fallback,
+          pyqCount: configDraft.pyq_count,
+          practiceCount: configDraft.practice_count,
+          strictPyqValidation: configDraft.strict_pyq_validation,
         }),
       });
       const payload = await response.json();
@@ -204,6 +225,10 @@ export function DailyExamPanel({ courses, today }: { courses: Course[]; today: s
     ? configDraft.difficulty_mix.previous + configDraft.difficulty_mix.easy +
       configDraft.difficulty_mix.medium + configDraft.difficulty_mix.hard
     : 100;
+  const strictSumBad = Boolean(
+    configDraft?.strict_pyq_validation &&
+      configDraft.pyq_count + configDraft.practice_count !== configDraft.question_count,
+  );
 
   return (
     <section className="jh-card p-4">
@@ -220,6 +245,9 @@ export function DailyExamPanel({ courses, today }: { courses: Course[]; today: s
         </div>
         <div className="flex items-center gap-1.5">
           <Badge tone="brand">৯০ + ১০</Badge>
+          {preview?.config.strict_pyq_validation ? (
+            <Badge tone="warning">PYQ {formatNumber(preview.config.pyq_count)} : practice {formatNumber(preview.config.practice_count)} (কঠোর)</Badge>
+          ) : null}
           <button
             type="button"
             onClick={() => setShowConfig((value) => !value)}
@@ -296,6 +324,35 @@ export function DailyExamPanel({ courses, today }: { courses: Course[]; today: s
               </label>
             ))}
           </div>
+          <div className="mt-2 rounded-md border border-dashed border-[var(--border)] p-2">
+            <p className="text-[0.625rem] font-semibold text-[var(--text)]">
+              PYQ : Practice অনুপাত (মাস্টার-স্পেক: ৭০ + ৩০ = ১০০, কঠোর)
+            </p>
+            <div className="mt-1.5 flex flex-wrap items-end gap-2">
+              <label className="block w-28">
+                <span className="mb-0.5 block text-[0.5625rem] text-[var(--text-subtle)]">যাচাইকৃত PYQ</span>
+                <input type="number" min={0} max={200} value={configDraft.pyq_count}
+                  onChange={(e) => setConfigDraft({ ...configDraft, pyq_count: Math.max(0, Number(e.target.value) || 0) })}
+                  className="jh-input h-8 text-[0.75rem]" />
+              </label>
+              <label className="block w-28">
+                <span className="mb-0.5 block text-[0.5625rem] text-[var(--text-subtle)]">Practice</span>
+                <input type="number" min={0} max={200} value={configDraft.practice_count}
+                  onChange={(e) => setConfigDraft({ ...configDraft, practice_count: Math.max(0, Number(e.target.value) || 0) })}
+                  className="jh-input h-8 text-[0.75rem]" />
+              </label>
+              <label className="flex items-center gap-1.5 pb-1.5 text-[0.625rem] text-[var(--text-muted)]">
+                <input type="checkbox" checked={configDraft.strict_pyq_validation}
+                  onChange={(e) => setConfigDraft({ ...configDraft, strict_pyq_validation: e.target.checked })} />
+                কঠোর যাচাই — PYQ ঘাটতিতে প্রকাশ বন্ধ, practice দিয়ে পূরণ কখনোই নয়
+              </label>
+            </div>
+            {strictSumBad ? (
+              <p className="mt-1 text-[0.625rem] font-semibold text-amber-700 dark:text-amber-400">
+                PYQ {configDraft.pyq_count} + practice {configDraft.practice_count} ≠ মোট প্রশ্ন {configDraft.question_count} — কঠোর মোডে যোগফল মিলতেই হবে।
+              </p>
+            ) : null}
+          </div>
           <div className="mt-1.5 flex flex-wrap gap-3">
             <label className="flex items-center gap-1.5 text-[0.625rem] text-[var(--text-muted)]">
               <input type="checkbox" checked={configDraft.cumulative_revision}
@@ -309,7 +366,7 @@ export function DailyExamPanel({ courses, today }: { courses: Course[]; today: s
             </label>
           </div>
           <div className="mt-2 flex items-center gap-2">
-            <Button size="sm" loading={busy === "config"} onClick={saveConfig} disabled={mixTotal !== 100}>
+            <Button size="sm" loading={busy === "config"} onClick={saveConfig} disabled={mixTotal !== 100 || strictSumBad}>
               কনফিগ সংরক্ষণ
             </Button>
             {mixTotal !== 100 ? (
@@ -371,7 +428,29 @@ export function DailyExamPanel({ courses, today }: { courses: Course[]; today: s
               {plan.overridden ? <Badge tone="warning">ম্যানুয়াল ওভাররাইড</Badge> : null}
               <Badge tone="success">মূল: {plan.mainTitle} — {formatNumber(plan.mainPlan.planned)}/{formatNumber(plan.mainPlan.requested)}</Badge>
               <Badge tone="neutral">সহ: {plan.secondaryTitle} — {formatNumber(plan.secondaryPlan.planned)}/{formatNumber(plan.secondaryPlan.requested)}</Badge>
+              {plan.strict ? (
+                <Badge
+                  tone={
+                    plan.strict.mainAvailability.pyq_ready >= plan.strict.mainPyqNeed &&
+                    plan.strict.secondaryAvailability.pyq_ready >= plan.strict.secondaryPyqNeed
+                      ? "success"
+                      : "danger"
+                  }
+                >
+                  PYQ প্রস্তুত: মূল {formatNumber(plan.strict.mainAvailability.pyq_ready)}/{formatNumber(plan.strict.mainPyqNeed)} · সহ{" "}
+                  {formatNumber(plan.strict.secondaryAvailability.pyq_ready)}/{formatNumber(plan.strict.secondaryPyqNeed)}
+                </Badge>
+              ) : null}
             </div>
+            {plan.strict &&
+            (plan.strict.mainAvailability.pyq_missing_meta > 0 ||
+              plan.strict.secondaryAvailability.pyq_missing_meta > 0) ? (
+              <p className="mt-1.5 rounded-md bg-amber-50 px-2 py-1.5 text-[0.625rem] font-medium text-amber-800 dark:bg-amber-500/10 dark:text-amber-300">
+                মেটাডাটা-অসম্পূর্ণ PYQ: মূল বিষয়ে {formatNumber(plan.strict.mainAvailability.pyq_missing_meta)}টি, সহ-বিষয়ে{" "}
+                {formatNumber(plan.strict.secondaryAvailability.pyq_missing_meta)}টি — পরীক্ষার নাম, সাল, ধরন ও উৎস পূরণ করলেই এগুলো PYQ কোটায় গণনা হবে।
+                এগুলো কখনো practice প্রশ্ন দিয়ে প্রতিস্থাপন করা হয় না।
+              </p>
+            ) : null}
             <ul className="mt-2 space-y-1">
               {plan.checks.map((check) => (
                 <li key={check.rule} className="flex items-start gap-1.5 text-[0.625rem] leading-relaxed">

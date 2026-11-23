@@ -249,3 +249,143 @@ export function validateDailyPlan(input: {
 export function hasCriticalFailure(checks: ValidationCheck[]): boolean {
   return checks.some((check) => check.critical && !check.ok);
 }
+
+// ---------------------------------------------------------------------------
+// Strict 70:30 (PYQ : practice) composition — master-prompt rules.
+// ---------------------------------------------------------------------------
+
+/**
+ * Largest-remainder split of the PYQ quota across subject sections. Mirrors
+ * the SQL in jh_build_paper_7030 exactly (ties resolve to the earlier
+ * section), so the preview the admin sees is the split the builder enforces.
+ * For the standard 90/10 paper at 70 PYQs this is exactly [63, 7].
+ */
+export function splitPyqAcrossSections(sectionCounts: number[], pyqTotal: number): number[] {
+  const total = sectionCounts.reduce((sum, count) => sum + count, 0);
+  if (total <= 0 || pyqTotal <= 0) return sectionCounts.map(() => 0);
+  const shares = sectionCounts.map((count) => (count * pyqTotal) / total);
+  const alloc = shares.map((share) => Math.floor(share));
+  const remainders = shares.map((share, index) => share - alloc[index]);
+  let left = pyqTotal - alloc.reduce((sum, value) => sum + value, 0);
+  while (left > 0) {
+    let best = 0;
+    for (let index = 1; index < remainders.length; index += 1) {
+      if (remainders[index] > remainders[best]) best = index;
+    }
+    alloc[best] += 1;
+    remainders[best] = -1;
+    left -= 1;
+  }
+  return alloc;
+}
+
+export type PyqAvailability = {
+  pyq_total: number;
+  pyq_ready: number;
+  pyq_missing_meta: number;
+  practice_pool: number;
+  missing_explanation: number;
+};
+
+export type StrictSectionInput = {
+  /** Admin-facing label, e.g. the subject's Bangla title. */
+  label: string;
+  count: number;
+  pyqNeed: number;
+  availability: PyqAvailability;
+};
+
+/**
+ * The master prompt's 8-point pre-publish validation for the strict
+ * PYQ:practice paper. Every number shown is a REAL pool count straight from
+ * jh_pyq_availability — a shortfall is displayed, never papered over.
+ */
+export function strict7030Checks(input: {
+  questionCount: number;
+  pyqCount: number;
+  practiceCount: number;
+  sections: StrictSectionInput[];
+}): ValidationCheck[] {
+  const sectionSum = input.sections.reduce((sum, section) => sum + section.count, 0);
+  const sumOk =
+    input.pyqCount + input.practiceCount === input.questionCount &&
+    sectionSum === input.questionCount;
+
+  const pyqDetail = input.sections
+    .map((s) => `${s.label}: প্রস্তুত PYQ ${s.availability.pyq_ready}/${s.pyqNeed}`)
+    .join(" · ");
+  const pyqOk = input.sections.every((s) => s.availability.pyq_ready >= s.pyqNeed);
+
+  const practiceDetail = input.sections
+    .map((s) => `${s.label}: practice ${s.availability.practice_pool}/${s.count - s.pyqNeed}`)
+    .join(" · ");
+  const practiceOk = input.sections.every(
+    (s) => s.availability.practice_pool >= s.count - s.pyqNeed,
+  );
+
+  const missingMeta = input.sections.reduce(
+    (sum, s) => sum + s.availability.pyq_missing_meta, 0,
+  );
+  const missingExplanation = input.sections.reduce(
+    (sum, s) => sum + s.availability.missing_explanation, 0,
+  );
+
+  return [
+    {
+      rule: "১) মোট প্রশ্ন (৭০+৩০)",
+      ok: sumOk,
+      critical: true,
+      detail: `PYQ ${input.pyqCount} + practice ${input.practiceCount} = ${input.pyqCount + input.practiceCount}, লক্ষ্য ${input.questionCount} (সেকশন যোগফল ${sectionSum})`,
+    },
+    {
+      rule: "২) যাচাইকৃত PYQ কোটা",
+      ok: pyqOk,
+      critical: true,
+      detail: pyqOk
+        ? pyqDetail
+        : `${pyqDetail} — ঘাটতি practice প্রশ্ন দিয়ে পূরণ করা হবে না, প্রকাশ বন্ধ থাকবে`,
+    },
+    {
+      rule: "৩) Practice কোটা",
+      ok: practiceOk,
+      critical: true,
+      detail: practiceDetail,
+    },
+    {
+      rule: "৪) PYQ মেটাডাটা (পরীক্ষার নাম, সাল, ধরন, উৎস)",
+      ok: missingMeta === 0,
+      critical: false,
+      detail:
+        missingMeta === 0
+          ? "স্কোপের সব PYQ-র পূর্ণ মেটাডাটা আছে"
+          : `${missingMeta}টি PYQ-র মেটাডাটা অসম্পূর্ণ — এগুলো PYQ কোটায় গণনা হয় না; অ্যাডমিন প্যানেল থেকে উৎসসহ পূরণ করুন`,
+    },
+    {
+      rule: "৫) শুধু অনুমোদিত + যাচাইকৃত প্রশ্ন",
+      ok: true,
+      critical: true,
+      detail: "jh_build_paper_7030 কেবল status=approved, is_verified=true, archived নয় এমন প্রশ্ন নেয়",
+    },
+    {
+      rule: "৬) ডুপ্লিকেট প্রশ্ন নেই",
+      ok: true,
+      critical: true,
+      detail: "বিল্ডার একই পেপারে একটি প্রশ্ন দ্বিতীয়বার নিতে পারে না (নির্বাচিত-তালিকা বর্জন)",
+    },
+    {
+      rule: "৭) উত্তর-কি উপস্থিত",
+      ok: true,
+      critical: true,
+      detail: "correct_option 0–3 DB CHECK-এ বাধ্যতামূলক — উত্তরবিহীন প্রশ্ন ঢুকতে পারে না",
+    },
+    {
+      rule: "৮) ব্যাখ্যা উপস্থিত",
+      ok: missingExplanation === 0,
+      critical: false,
+      detail:
+        missingExplanation === 0
+          ? "স্কোপের সব প্রশ্নে ব্যাখ্যা আছে"
+          : `${missingExplanation}টি প্রশ্নে ব্যাখ্যা নেই`,
+    },
+  ];
+}
