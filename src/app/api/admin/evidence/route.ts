@@ -103,6 +103,16 @@ export async function POST(request: Request) {
   }
 
   if (body.action === "add") {
+    // Link to the exam registry when a record with the SAME name+year already
+    // exists there — never created implicitly, so the registry stays curated.
+    const { data: registryMatch } = await supabase
+      .from("exam_registry")
+      .select("id")
+      .ilike("exam_name", body.examName)
+      .eq("exam_year", body.examYear)
+      .limit(1)
+      .maybeSingle();
+
     const { data: inserted, error } = await supabase
       .from("evidence_records")
       .insert({
@@ -114,6 +124,7 @@ export async function POST(request: Request) {
         source_url: body.sourceUrl || null,
         original_text: body.originalText || null,
         verified_by: user.id,
+        exam_id: (registryMatch as { id: string } | null)?.id ?? null,
       })
       .select("id")
       .single();
@@ -128,6 +139,7 @@ export async function POST(request: Request) {
       exam_name: body.examName,
       exam_year: body.examYear,
       match_kind: body.matchKind,
+      exam_id: (registryMatch as { id: string } | null)?.id ?? null,
     });
     await supabase.rpc("jh_recompute_topic_priorities");
     return NextResponse.json({ ok: true });
