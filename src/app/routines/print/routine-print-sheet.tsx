@@ -68,9 +68,17 @@ export function RoutinePrintSheet({
     return () => window.clearTimeout(timer);
   }, [routines.length]);
 
-  const dates = [...new Set(routines.map((r) => r.routine_date))].sort();
-  const courseTitles = [...new Set(routines.map((r) => r.course_title_bn).filter(Boolean))];
-  const usedKinds = [...new Set(routines.map((r) => r.task_kind))];
+  // The PDF shows the syllabus plan only: generic filler revision rows (no
+  // subject, no topics — e.g. "রিভিশন · ভিত্তি ও হাই-প্রায়োরিটি") are kept in
+  // the app for progress tracking but omitted here to keep the sheet compact.
+  // Targeted revision rows (with a subject/topic) still appear.
+  const visible = routines.filter(
+    (r) => !(r.task_kind === "revision" && !r.subject_title_bn && r.topic_titles_bn.length === 0),
+  );
+
+  const dates = [...new Set(visible.map((r) => r.routine_date))].sort();
+  const courseTitles = [...new Set(visible.map((r) => r.course_title_bn).filter(Boolean))];
+  const usedKinds = [...new Set(visible.map((r) => r.task_kind))];
   const legend = ["study", "practice", "revision", "exam", "rest"].filter((kind) => usedKinds.includes(kind));
 
   return (
@@ -164,8 +172,7 @@ export function RoutinePrintSheet({
           </thead>
           <tbody>
             {dates.map((date, index) => {
-              const items = routines.filter((r) => r.routine_date === date);
-              const totalMinutes = items.reduce((sum, r) => sum + r.minutes, 0);
+              const items = visible.filter((r) => r.routine_date === date);
               const hasExam = items.some((r) => r.task_kind === "exam");
               return (
                 <tr key={date} style={{ breakInside: "avoid" }}>
@@ -197,7 +204,6 @@ export function RoutinePrintSheet({
                         পরীক্ষা
                       </p>
                     ) : null}
-                    <p className="mt-0.5 text-[0.5625rem] text-neutral-600">{formatNumber(totalMinutes)} মিনিট</p>
                   </td>
                   <td className="px-2 py-1.5 align-middle" style={{ border: `1px solid ${NAVY}` }}>
                     <div className="flex flex-wrap gap-1">
@@ -223,7 +229,6 @@ export function RoutinePrintSheet({
                             {item.subtopic_titles_bn.length > 0 ? (
                               <span style={{ opacity: 0.8 }}> ({item.subtopic_titles_bn.join(", ")})</span>
                             ) : null}
-                            <span style={{ opacity: 0.75 }}> · {formatNumber(item.minutes)} মি</span>
                             {item.focus_note_bn ? (
                               <em className="block text-[0.5625rem]" style={{ opacity: 0.85 }}>
                                 {item.focus_note_bn}

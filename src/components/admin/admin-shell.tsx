@@ -44,6 +44,7 @@ export const ADMIN_NAV: AdminNavItem[] = [
   { href: "/admin/merges", label: "মার্জ রিভিউ", icon: GitMerge, permission: "taxonomy.manage", hint: "ক্যানোনিকাল লিংক" },
   { href: "/admin/exams", label: "পরীক্ষা প্রকাশ", icon: Radio, permission: "exam.publish", hint: "ভ্যালিডেশন সহ" },
   { href: "/admin/schedules", label: "পরীক্ষার সময়সূচি", icon: CalendarClock, permission: "exam.publish", hint: "ড্রাফট ও সময়" },
+  { href: "/admin/written-exams", label: "লিখিত পরীক্ষা", icon: ClipboardCheck, permission: "exam.publish", hint: "খাতা তৈরি · মূল্যায়ন" },
   { href: "/admin/attempts", label: "পরীক্ষার্থীর প্রচেষ্টা", icon: Upload, permission: "attempt.inspect", hint: "জমা ও ফলাফল" },
   { href: "/admin/students", label: "শিক্ষার্থী", icon: Users, permission: "student.manage", hint: "অ্যাকাউন্ট ও রোল" },
   { href: "/admin/analytics", label: "অ্যানালিটিক্স", icon: ChartNoAxesColumn, permission: "analytics.view", hint: "বাস্তব ডেটা" },
