@@ -24,20 +24,14 @@
 
 import * as React from "react";
 import { formatDate, formatNumber } from "@/lib/format";
+import {
+  buildDayLines,
+  dayNumber,
+  KIND_LABELS,
+  type RoutineLineInput,
+} from "@/lib/routine-day-lines";
 
-type TopicLine = { topic: string; subtopics: string[] };
-
-type PrintRoutine = {
-  id: string;
-  routine_date: string;
-  title_bn: string;
-  subject_title_bn: string | null;
-  minutes: number;
-  slot_label: string | null;
-  task_kind: string;
-  focus_note_bn: string | null;
-  topics: TopicLine[];
-};
+type PrintRoutine = RoutineLineInput;
 
 export type PrintCourse = {
   id: string;
@@ -47,83 +41,7 @@ export type PrintCourse = {
   routines: PrintRoutine[];
 };
 
-const KIND_LABELS: Record<string, string> = {
-  study: "পড়া",
-  practice: "প্র্যাকটিস",
-  revision: "রিভিশন",
-  exam: "পরীক্ষা",
-  rest: "বিশ্রাম",
-};
-
 const NAVY = "#232e7a";
-
-function dayNumber(date: string, planStart: string): number {
-  const ms = Date.parse(`${date}T00:00:00Z`) - Date.parse(`${planStart}T00:00:00Z`);
-  return Math.round(ms / 86_400_000) + 1;
-}
-
-/** One printable line of a day block. */
-type DayLine = {
-  key: string;
-  label: string; // subject name, or the activity title when no subject
-  kind: string;
-  minutes: number;
-  slots: string[];
-  topics: TopicLine[];
-  note: string | null;
-};
-
-function buildDayLines(items: PrintRoutine[]): DayLine[] {
-  const lines: DayLine[] = [];
-  const bySubject = new Map<string, DayLine>();
-
-  for (const item of items) {
-    // Nightly filler revision: no subject, no topics → app-only, not printed.
-    if (item.task_kind === "revision" && !item.subject_title_bn && item.topics.length === 0 && item.title_bn.startsWith("দৈনিক রিভিশন")) {
-      continue;
-    }
-
-    if (item.subject_title_bn) {
-      // Same subject, same kind, same day → one merged line (multi-slot deep work).
-      const mergeKey = `${item.task_kind}:${item.subject_title_bn}`;
-      const existing = bySubject.get(mergeKey);
-      if (existing) {
-        existing.minutes += item.minutes;
-        if (item.slot_label) existing.slots.push(item.slot_label);
-        for (const line of item.topics) {
-          const match = existing.topics.find((t) => t.topic === line.topic);
-          if (match) match.subtopics.push(...line.subtopics.filter((s) => !match.subtopics.includes(s)));
-          else existing.topics.push({ topic: line.topic, subtopics: [...line.subtopics] });
-        }
-        if (!existing.note && item.focus_note_bn) existing.note = item.focus_note_bn;
-        continue;
-      }
-      const line: DayLine = {
-        key: item.id,
-        label: item.subject_title_bn,
-        kind: item.task_kind,
-        minutes: item.minutes,
-        slots: item.slot_label ? [item.slot_label] : [],
-        topics: item.topics.map((t) => ({ topic: t.topic, subtopics: [...t.subtopics] })),
-        note: item.focus_note_bn,
-      };
-      bySubject.set(mergeKey, line);
-      lines.push(line);
-    } else {
-      // Course-level activity: weekly exam, weekly revision, mock, model test, rest.
-      lines.push({
-        key: item.id,
-        label: item.title_bn,
-        kind: item.task_kind,
-        minutes: item.minutes,
-        slots: item.slot_label ? [item.slot_label] : [],
-        topics: item.topics,
-        note: item.focus_note_bn,
-      });
-    }
-  }
-  return lines;
-}
 
 export function RoutinePrintSheet({
   courses,

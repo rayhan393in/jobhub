@@ -8,21 +8,25 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { StudyPlanner } from "@/components/routines/study-planner";
 import { WeeklyPlanner } from "@/components/routines/weekly-planner";
 import { RecommendationsPanel } from "@/components/routines/recommendations-panel";
+import {
+  PublishedRoutineViewer,
+  type ViewerCourse,
+} from "@/components/routines/published-routine-viewer";
 import { getCurrentUser } from "@/lib/auth";
-import { listCourses, listMyStudentRoutines, listRoutines, listSubjects, listTopicsWithSubtopics } from "@/lib/queries";
+import {
+  listCourses,
+  listMyStudentRoutines,
+  listRoutines,
+  listStudyPlanTopicPairs,
+  listSubjects,
+  listTopicsWithSubtopics,
+} from "@/lib/queries";
 import { dhakaDateKey, formatDate, formatNumber } from "@/lib/format";
+import { buildDayLines, dayNumber, topicsForRoutine } from "@/lib/routine-day-lines";
 import type { PlanTopic } from "@/lib/study-plan";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "স্টাডি রুটিন" };
-
-const TASK_KIND_META: Record<string, { label: string; tone: "brand" | "accent" | "info" | "warning" | "neutral" }> = {
-  study: { label: "পড়া", tone: "brand" },
-  practice: { label: "প্র্যাকটিস", tone: "accent" },
-  revision: { label: "রিভিশন", tone: "info" },
-  exam: { label: "পরীক্ষা", tone: "warning" },
-  rest: { label: "বিশ্রাম", tone: "neutral" },
-};
 
 export default async function RoutinesPage() {
   const user = await getCurrentUser();
@@ -31,7 +35,7 @@ export default async function RoutinesPage() {
   const today = dhakaDateKey();
   const [courses, routines] = await Promise.all([
     listCourses(),
-    listRoutines({ fromDate: today, limit: 60 }),
+    listRoutines({ fromDate: today, limit: 1000 }),
   ]);
 
   // The personal planner needs the real syllabus, and only for courses that have
@@ -65,19 +69,77 @@ export default async function RoutinesPage() {
   const myPlan = await listMyStudentRoutines(user.id);
 
   const courseById = new Map(courses.map((c) => [c.id, c]));
-  // Each program keeps its OWN independent routine: group course-first, then
-  // date — unrelated programs are never merged into one list.
-  const byCourse = new Map<string, Map<string, typeof routines>>();
-  for (const routine of routines) {
-    const byDate = byCourse.get(routine.course_id) ?? new Map<string, typeof routines>();
-    const list = byDate.get(routine.routine_date) ?? [];
-    list.push(routine);
-    byDate.set(routine.routine_date, list);
-    byCourse.set(routine.course_id, byDate);
+
+  // Each program keeps its OWN independent routine — the viewer shows one
+  // course at a time via the selector bar. BCS always comes first.
+  const isBcs = (title: string) => /বিসিএস|bcs/i.test(title);
+  const routineCourseIds = [...new Set(routines.map((r) => r.course_id))].sort((a, b) => {
+    const ta = courseById.get(a)?.title_bn ?? "";
+    const tb = courseById.get(b)?.title_bn ?? "";
+    if (isBcs(ta) !== isBcs(tb)) return isBcs(ta) ? -1 : 1;
+    return ta.localeCompare(tb, "bn");
+  });
+
+  // Same data pipeline as the PDF sheet: টপিক → সাবটপিক pairs come from
+  // study_plan_assignments, and day 1 is the earliest PUBLISHED date of the
+  // course — so the web view and the PDF always match exactly.
+  const [topicPairs, ...planStartRows] = await Promise.all([
+    listStudyPlanTopicPairs(routineCourseIds),
+    ...routineCourseIds.map((id) => listRoutines({ courseId: id, limit: 1 })),
+  ]);
+  const planStart: Record<string, string> = {};
+  routineCourseIds.forEach((id, i) => {
+    planStart[id] =
+      planStartRows[i]?.[0]?.routine_date ?? routines.find((r) => r.course_id === id)!.routine_date;
+  });
+
+  const pairsByRoutine = new Map<string, Map<string, string[]>>();
+  for (const pair of topicPairs) {
+    if (!pair.routine_id || !pair.topic_title_bn) continue;
+    const byTopic = pairsByRoutine.get(pair.routine_id) ?? new Map<string, string[]>();
+    const subs = byTopic.get(pair.topic_title_bn) ?? [];
+    if (pair.subtopic_title_bn) subs.push(pair.subtopic_title_bn);
+    byTopic.set(pair.topic_title_bn, subs);
+    pairsByRoutine.set(pair.routine_id, byTopic);
   }
-  const routineCourseIds = [...byCourse.keys()].sort(
-    (a, b) => (courseById.get(a)?.title_bn ?? "").localeCompare(courseById.get(b)?.title_bn ?? "", "bn"),
-  );
+
+  const viewerCourses: ViewerCourse[] = routineCourseIds.map((courseId) => {
+    const courseRoutines = routines
+      .filter((r) => r.course_id === courseId)
+      .map((routine) => ({
+        id: routine.id,
+        routine_date: routine.routine_date,
+        title_bn: routine.title_bn,
+        subject_title_bn: routine.subject_title_bn ?? null,
+        minutes: routine.minutes,
+        slot_label: routine.slot_label ?? null,
+        task_kind: routine.task_kind ?? "study",
+        focus_note_bn: routine.focus_note_bn ?? null,
+        topics: topicsForRoutine(
+          pairsByRoutine.get(routine.id),
+          routine.topic_titles_bn,
+          routine.subtopic_titles_bn,
+        ),
+      }));
+    const dates = [...new Set(courseRoutines.map((r) => r.routine_date))].sort();
+    const days = dates
+      .map((date) => {
+        const lines = buildDayLines(courseRoutines.filter((r) => r.routine_date === date));
+        return {
+          date,
+          day_number: dayNumber(date, planStart[courseId]),
+          total_minutes: lines.reduce((sum, line) => sum + line.minutes, 0),
+          lines,
+        };
+      })
+      .filter((day) => day.lines.length > 0);
+    return {
+      id: courseId,
+      title_bn: courseById.get(courseId)?.title_bn ?? "কোর্স",
+      total_days: days.length,
+      days,
+    };
+  });
 
   return (
     <div className="mx-auto w-full max-w-4xl">
@@ -200,97 +262,7 @@ export default async function RoutinesPage() {
           }
         />
       ) : (
-        <div className="space-y-6">
-          {routineCourseIds.map((routineCourseId) => {
-            const byDate = byCourse.get(routineCourseId)!;
-            const dates = [...byDate.keys()].sort();
-            const courseTitle = courseById.get(routineCourseId)?.title_bn ?? "কোর্স";
-            return (
-              <section key={routineCourseId} aria-label={courseTitle}>
-                <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                  <h3 className="text-[0.9375rem] font-bold tracking-[-0.02em] text-[var(--text)]">{courseTitle}</h3>
-                  <ButtonLink
-                    href={`/routines/print?course=${routineCourseId}`}
-                    variant="secondary"
-                    size="sm"
-                    target="_blank"
-                  >
-                    <FileDown className="size-3.5" aria-hidden />
-                    এই কোর্সের PDF
-                  </ButtonLink>
-                </div>
-                <div className="space-y-3">
-          {dates.map((date) => {
-            const items = byDate.get(date) ?? [];
-            const isToday = date === today;
-            return (
-              <section key={date} className="jh-card overflow-hidden">
-                <header className="flex items-center justify-between gap-2 border-b border-[var(--border)] bg-[var(--surface-muted)] px-4 py-2.5">
-                  <h4 className="text-[0.8125rem] font-semibold text-[var(--text)]">
-                    {formatDate(`${date}T12:00:00`, "bn", { weekday: "long", day: "numeric", month: "long" })}
-                  </h4>
-                  <div className="flex items-center gap-1.5">
-                    {isToday ? <Badge tone="brand">আজ</Badge> : null}
-                    <span className="text-[0.625rem] text-[var(--text-subtle)]">
-                      {formatNumber(items.reduce((sum, i) => sum + i.minutes, 0))} মিনিট
-                    </span>
-                  </div>
-                </header>
-                <ul className="divide-y divide-[var(--border)]">
-                  {items.map((routine) => {
-                    const taskMeta = TASK_KIND_META[routine.task_kind ?? "study"] ?? TASK_KIND_META.study;
-                    return (
-                      <li key={routine.id} className="flex items-start gap-3 px-4 py-2.5">
-                        <span className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-lg bg-[var(--brand-soft)] text-[0.625rem] font-bold text-[var(--brand)]">
-                          {formatNumber(routine.minutes)}
-                        </span>
-                        <div className="min-w-0 flex-1">
-                          <div className="flex flex-wrap items-center gap-1.5">
-                            <p className="text-[0.8125rem] font-semibold text-[var(--text)]">
-                              {routine.title_bn || routine.subject_title_bn || "পড়ার পরিকল্পনা"}
-                            </p>
-                            <Badge tone={taskMeta.tone}>{taskMeta.label}</Badge>
-                            {routine.slot_label ? (
-                              <span className="text-[0.625rem] text-[var(--text-subtle)]">{routine.slot_label}</span>
-                            ) : null}
-                          </div>
-                          <p className="text-[0.6875rem] text-[var(--text-subtle)]">
-                            {[
-                              routine.subject_title_bn,
-                              routine.topic_titles_bn && routine.topic_titles_bn.length > 0
-                                ? routine.topic_titles_bn.join(", ")
-                                : routine.topic_title_bn,
-                              routine.subtopic_titles_bn && routine.subtopic_titles_bn.length > 0
-                                ? routine.subtopic_titles_bn.join(", ")
-                                : routine.subtopic_title_bn,
-                            ]
-                              .filter(Boolean)
-                              .join(" › ") || (courseById.get(routine.course_id)?.title_bn ?? "")}
-                            {routine.kind === "weekly_special" ? " · সাপ্তাহিক" : ""}
-                          </p>
-                          {routine.target_bn && routine.target_bn.startsWith("সাবটপিক") ? (
-                            <p className="mt-1 text-[0.6875rem] leading-relaxed text-[var(--brand)]">
-                              {routine.target_bn}
-                            </p>
-                          ) : null}
-                          {routine.focus_note_bn ? (
-                            <p className="mt-1 text-[0.6875rem] leading-relaxed text-[var(--text-muted)]">
-                              {routine.focus_note_bn}
-                            </p>
-                          ) : null}
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </section>
-            );
-          })}
-                </div>
-              </section>
-            );
-          })}
-        </div>
+        <PublishedRoutineViewer courses={viewerCourses} today={today} />
       )}
     </div>
   );
