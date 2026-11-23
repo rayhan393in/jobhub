@@ -65,13 +65,19 @@ export default async function RoutinesPage() {
   const myPlan = await listMyStudentRoutines(user.id);
 
   const courseById = new Map(courses.map((c) => [c.id, c]));
-  const byDate = new Map<string, typeof routines>();
+  // Each program keeps its OWN independent routine: group course-first, then
+  // date — unrelated programs are never merged into one list.
+  const byCourse = new Map<string, Map<string, typeof routines>>();
   for (const routine of routines) {
+    const byDate = byCourse.get(routine.course_id) ?? new Map<string, typeof routines>();
     const list = byDate.get(routine.routine_date) ?? [];
     list.push(routine);
     byDate.set(routine.routine_date, list);
+    byCourse.set(routine.course_id, byDate);
   }
-  const dates = [...byDate.keys()].sort();
+  const routineCourseIds = [...byCourse.keys()].sort(
+    (a, b) => (courseById.get(a)?.title_bn ?? "").localeCompare(courseById.get(b)?.title_bn ?? "", "bn"),
+  );
 
   return (
     <div className="mx-auto w-full max-w-4xl">
@@ -181,7 +187,7 @@ export default async function RoutinesPage() {
 
       <h2 className="mb-3 text-[1rem] font-bold tracking-[-0.02em] text-[var(--text)]">প্রশাসকের দেওয়া রুটিন</h2>
 
-      {dates.length === 0 ? (
+      {routineCourseIds.length === 0 ? (
         <EmptyState
           icon={<CalendarDays className="size-5" />}
           title="এখনো কোনো প্রকাশিত রুটিন নেই"
@@ -194,16 +200,35 @@ export default async function RoutinesPage() {
           }
         />
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-6">
+          {routineCourseIds.map((routineCourseId) => {
+            const byDate = byCourse.get(routineCourseId)!;
+            const dates = [...byDate.keys()].sort();
+            const courseTitle = courseById.get(routineCourseId)?.title_bn ?? "কোর্স";
+            return (
+              <section key={routineCourseId} aria-label={courseTitle}>
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                  <h3 className="text-[0.9375rem] font-bold tracking-[-0.02em] text-[var(--text)]">{courseTitle}</h3>
+                  <ButtonLink
+                    href={`/routines/print?course=${routineCourseId}`}
+                    variant="secondary"
+                    size="sm"
+                    target="_blank"
+                  >
+                    <FileDown className="size-3.5" aria-hidden />
+                    এই কোর্সের PDF
+                  </ButtonLink>
+                </div>
+                <div className="space-y-3">
           {dates.map((date) => {
             const items = byDate.get(date) ?? [];
             const isToday = date === today;
             return (
               <section key={date} className="jh-card overflow-hidden">
                 <header className="flex items-center justify-between gap-2 border-b border-[var(--border)] bg-[var(--surface-muted)] px-4 py-2.5">
-                  <h2 className="text-[0.8125rem] font-semibold text-[var(--text)]">
+                  <h4 className="text-[0.8125rem] font-semibold text-[var(--text)]">
                     {formatDate(`${date}T12:00:00`, "bn", { weekday: "long", day: "numeric", month: "long" })}
-                  </h2>
+                  </h4>
                   <div className="flex items-center gap-1.5">
                     {isToday ? <Badge tone="brand">আজ</Badge> : null}
                     <span className="text-[0.625rem] text-[var(--text-subtle)]">
@@ -258,6 +283,10 @@ export default async function RoutinesPage() {
                     );
                   })}
                 </ul>
+              </section>
+            );
+          })}
+                </div>
               </section>
             );
           })}

@@ -72,6 +72,20 @@ export default async function StudyRoutineHubPage({
     routineDays = new Set(((routineRes.data ?? []) as { routine_date: string }[]).map((r) => r.routine_date)).size;
   }
 
+  // Courses eligible for the common-topic sync preview: those that already
+  // have first-study assignments (a plan to synchronize against).
+  let planCourseIds = new Set<string>();
+  if (supabase) {
+    const { data: planRows } = await supabase
+      .from("study_plan_assignments")
+      .select("course_id")
+      .limit(5000);
+    planCourseIds = new Set(((planRows ?? []) as { course_id: string }[]).map((r) => r.course_id));
+  }
+  const syncCourses = courses
+    .filter((c) => planCourseIds.has(c.id))
+    .map((c) => ({ id: c.id, title_bn: c.title_bn }));
+
   const totals = coverage.reduce(
     (acc, row) => ({
       units: acc.units + Number(row.units_total),
@@ -159,6 +173,7 @@ export default async function StudyRoutineHubPage({
           courseTitle={course.title_bn}
           initialCoverage={coverage}
           initialReadiness={readiness}
+          syncCourses={syncCourses}
         />
       ) : (
         <AdminNote tone="warning">কোনো কোর্স পাওয়া যায়নি।</AdminNote>
