@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
-import { formatNumber, toBengaliDigits } from "@/lib/format";
+import { formatDate, formatNumber, toBengaliDigits } from "@/lib/format";
 
 export type CoverageRow = {
   subject_id: string;
@@ -59,10 +59,32 @@ type PyqQuestion = {
 const TABS = [
   { id: "matrix", label: "কভারেজ ম্যাট্রিক্স" },
   { id: "mapping", label: "দিনভিত্তিক ম্যাপিং" },
+  { id: "sync", label: "কমন-টপিক সিঙ্ক" },
   { id: "pyq", label: "PYQ প্রস্তুতি (৭০:৩০)" },
   { id: "metadata", label: "PYQ মেটাডেটা ব্যাকফিল" },
 ] as const;
 type TabId = (typeof TABS)[number]["id"];
+
+type SharedTopic = {
+  canonical_id: string;
+  canonical_bn: string;
+  in_sync: boolean;
+  courses: { course_id: string; subject_bn: string; topic_bn: string; first_study_date: string }[];
+};
+type SyncMove = {
+  canonical_topic_bn: string;
+  course: string;
+  subject_bn: string;
+  from_date: string;
+  to_date: string;
+  can_apply: boolean;
+};
+type SyncDryRun = {
+  dry_run: boolean;
+  shared_topics_out_of_sync: number;
+  applied: number;
+  moves: SyncMove[];
+};
 
 function embeddedTitle(value: { title_bn: string } | { title_bn: string }[] | null): string {
   if (!value) return "—";
@@ -74,11 +96,14 @@ export function StudyRoutineHub({
   courseTitle,
   initialCoverage,
   initialReadiness,
+  syncCourses = [],
 }: {
   courseId: string;
   courseTitle: string;
   initialCoverage: CoverageRow[];
   initialReadiness: ReadinessRow[];
+  /** Courses that already have first-study assignments (sync candidates). */
+  syncCourses?: { id: string; title_bn: string }[];
 }) {
   const [tab, setTab] = useState<TabId>("matrix");
   const [plan, setPlan] = useState<PlanData | null>(null);
@@ -86,6 +111,76 @@ export function StudyRoutineHub({
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
   const [pyqQueue, setPyqQueue] = useState<PyqQuestion[] | null>(null);
+  const [syncSelection, setSyncSelection] = useState<string[]>(() => syncCourses.map((c) => c.id));
+  const [syncShared, setSyncShared] = useState<SharedTopic[] | null>(null);
+  const [syncDryRun, setSyncDryRun] = useState<SyncDryRun | null>(null);
+
+  const courseNameById = useMemo(() => new Map(syncCourses.map((c) => [c.id, c.title_bn])), [syncCourses]);
+
+  const loadSyncPreview = useCallback(async () => {
+    if (syncSelection.length < 2) {
+      setSyncShared([]);
+      setSyncDryRun(null);
+      return;
+    }
+    setBusy(true);
+    setMessage(null);
+    try {
+      const ids = [...syncSelection].sort().join(",");
+      const [overviewRes, dryRunRes] = await Promise.all([
+        fetch(`/api/admin/study-plan/sync-common?courseIds=${ids}`, { cache: "no-store" }),
+        fetch("/api/admin/study-plan/sync-common", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ courseIds: syncSelection, apply: false }),
+        }),
+      ]);
+      if (!overviewRes.ok || !dryRunRes.ok) {
+        setMessage({ tone: "error", text: "সিঙ্ক-প্রিভিউ লোড করা যায়নি।" });
+        return;
+      }
+      const overview = (await overviewRes.json()) as { shared: SharedTopic[] };
+      setSyncShared(overview.shared);
+      setSyncDryRun((await dryRunRes.json()) as SyncDryRun);
+    } finally {
+      setBusy(false);
+    }
+  }, [syncSelection]);
+
+  useEffect(() => {
+    if (tab === "sync" && syncShared === null) void loadSyncPreview();
+  }, [tab, syncShared, loadSyncPreview]);
+
+  async function applySync() {
+    if (syncSelection.length < 2) return;
+    if (
+      !window.confirm(
+        "আউট-অফ-সিঙ্ক কমন টপিকগুলোর first-study বরাদ্দ anchor (আগের) তারিখে সরানো হবে — শুধু যেখানে ওই তারিখে প্রকাশিত অধ্যয়ন-স্লট আছে। সম্পন্ন অগ্রগতি/পরীক্ষার ইতিহাস অপরিবর্তিত থাকবে। নিশ্চিত?",
+      )
+    )
+      return;
+    setBusy(true);
+    setMessage(null);
+    try {
+      const response = await fetch("/api/admin/study-plan/sync-common", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ courseIds: syncSelection, apply: true }),
+      });
+      const payload = await response.json();
+      if (!response.ok) {
+        setMessage({ tone: "error", text: payload.error ?? "সিঙ্ক প্রয়োগ ব্যর্থ।" });
+      } else {
+        setMessage({
+          tone: "ok",
+          text: `${formatNumber(Number(payload.applied ?? 0))}টি বরাদ্দ anchor তারিখে সরানো হয়েছে।`,
+        });
+        await Promise.all([loadSyncPreview(), loadPlan(selectedDate)]);
+      }
+    } finally {
+      setBusy(false);
+    }
+  }
 
   const loadPlan = useCallback(
     async (date?: string | null) => {
@@ -512,6 +607,160 @@ export function StudyRoutineHub({
               </ul>
             </div>
           ) : null}
+        </div>
+      ) : null}
+
+      {tab === "sync" ? (
+        <div className="space-y-4">
+          <div className="jh-card p-4">
+            <h3 className="text-[0.875rem] font-bold text-[var(--text)]">কমন-টপিক সিঙ্ক্রোনাইজেশন প্রিভিউ</h3>
+            <p className="mt-1 text-[0.6875rem] leading-relaxed text-[var(--text-muted)]">
+              কমনত্ব নির্ধারিত হয় শুধুই canonical taxonomy-লিংক দিয়ে — নামের মিল দিয়ে নয়। “একই কমন টপিক → একই
+              অধ্যয়ন-দিন; আলাদা বিশেষায়িত টপিক → আলাদা সূচি।” প্রয়োগ করলে শুধু আউট-অফ-সিঙ্ক first-study বরাদ্দ anchor
+              তারিখে সরে; সম্পন্ন অগ্রগতি, পরীক্ষার ইতিহাস ও বিশেষায়িত টপিক অপরিবর্তিত থাকে।
+            </p>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              {syncCourses.map((item) => (
+                <label
+                  key={item.id}
+                  className="flex items-center gap-1.5 rounded-full border border-[var(--border)] bg-[var(--surface)] px-3 py-1.5 text-[0.6875rem] font-medium text-[var(--text)]"
+                >
+                  <input
+                    type="checkbox"
+                    checked={syncSelection.includes(item.id)}
+                    onChange={(event) =>
+                      setSyncSelection((prev) =>
+                        event.target.checked ? [...prev, item.id] : prev.filter((id) => id !== item.id),
+                      )
+                    }
+                  />
+                  {item.title_bn}
+                </label>
+              ))}
+              <button
+                type="button"
+                onClick={() => void loadSyncPreview()}
+                disabled={busy || syncSelection.length < 2}
+                className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-2 text-[0.6875rem] font-semibold text-[var(--text)] disabled:opacity-50"
+              >
+                প্রিভিউ রিফ্রেশ
+              </button>
+              <button
+                type="button"
+                onClick={() => void applySync()}
+                disabled={busy || syncSelection.length < 2 || !syncDryRun || syncDryRun.moves.every((m) => !m.can_apply)}
+                className="rounded-xl bg-[var(--brand)] px-4 py-2 text-[0.6875rem] font-semibold text-white disabled:opacity-50"
+              >
+                সিঙ্ক প্রয়োগ করুন
+              </button>
+            </div>
+            {syncSelection.length < 2 ? (
+              <p className="mt-2 text-[0.6875rem] text-amber-700 dark:text-amber-300">
+                তুলনার জন্য কমপক্ষে ২টি প্রোগ্রাম নির্বাচন করুন।
+              </p>
+            ) : null}
+          </div>
+
+          {syncDryRun && syncDryRun.moves.length > 0 ? (
+            <div className="jh-card overflow-x-auto p-4">
+              <h4 className="mb-2 text-[0.8125rem] font-bold text-[var(--text)]">
+                প্রস্তাবিত পরিবর্তন ({formatNumber(syncDryRun.moves.length)}টি)
+              </h4>
+              <table className="w-full min-w-[560px] text-[0.6875rem]">
+                <thead>
+                  <tr className="border-b border-[var(--border)] text-left text-[var(--text-subtle)]">
+                    <th className="py-2 pr-2">কমন টপিক</th>
+                    <th className="py-2 pr-2">প্রোগ্রাম</th>
+                    <th className="py-2 pr-2">বিষয়</th>
+                    <th className="py-2 pr-2">বর্তমান দিন</th>
+                    <th className="py-2 pr-2">anchor দিন</th>
+                    <th className="py-2">অবস্থা</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {syncDryRun.moves.map((move, index) => (
+                    <tr key={`${move.canonical_topic_bn}-${move.course}-${index}`} className="border-b border-[var(--border)]/60">
+                      <td className="py-2 pr-2 font-medium text-[var(--text)]">{move.canonical_topic_bn}</td>
+                      <td className="py-2 pr-2">{move.course}</td>
+                      <td className="py-2 pr-2">{move.subject_bn}</td>
+                      <td className="py-2 pr-2">{formatDate(`${move.from_date}T12:00:00`, "bn", { day: "numeric", month: "short" })}</td>
+                      <td className="py-2 pr-2">{formatDate(`${move.to_date}T12:00:00`, "bn", { day: "numeric", month: "short" })}</td>
+                      <td className="py-2">
+                        {move.can_apply ? (
+                          <span className="font-semibold text-emerald-700 dark:text-emerald-300">সরানো যাবে</span>
+                        ) : (
+                          <span className="font-semibold text-amber-700 dark:text-amber-300">
+                            anchor দিনে প্রকাশিত স্লট নেই — রুটিনে দিন যোগ/সম্পাদনা করুন
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : null}
+
+          {syncShared !== null ? (
+            syncShared.length === 0 ? (
+              <p className="jh-card p-4 text-[0.75rem] text-[var(--text-muted)]">
+                নির্বাচিত প্রোগ্রামগুলোর মধ্যে canonical-লিংকযুক্ত কোনো কমন টপিক নেই — সব টপিক বিশেষায়িত, তাই সূচিও আলাদা
+                থাকবে।
+              </p>
+            ) : (
+              <div className="jh-card overflow-x-auto p-4">
+                <h4 className="mb-2 text-[0.8125rem] font-bold text-[var(--text)]">
+                  শনাক্তকৃত কমন টপিক ({formatNumber(syncShared.length)}টি
+                  {syncDryRun ? ` — আউট-অফ-সিঙ্ক ${formatNumber(syncDryRun.shared_topics_out_of_sync)}টি` : ""})
+                </h4>
+                <table className="w-full min-w-[560px] text-[0.6875rem]">
+                  <thead>
+                    <tr className="border-b border-[var(--border)] text-left text-[var(--text-subtle)]">
+                      <th className="py-2 pr-2">কমন টপিক (canonical)</th>
+                      <th className="py-2 pr-2">প্রোগ্রাম ও বিষয়</th>
+                      <th className="py-2 pr-2">first-study দিন</th>
+                      <th className="py-2">অবস্থা</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {syncShared.map((topic) => (
+                      <tr key={topic.canonical_id} className="border-b border-[var(--border)]/60 align-top">
+                        <td className="py-2 pr-2 font-medium text-[var(--text)]">{topic.canonical_bn}</td>
+                        <td className="py-2 pr-2">
+                          {topic.courses.map((entry) => (
+                            <p key={entry.course_id}>
+                              {courseNameById.get(entry.course_id) ?? entry.course_id} · {entry.subject_bn} →{" "}
+                              {entry.topic_bn}
+                            </p>
+                          ))}
+                        </td>
+                        <td className="py-2 pr-2">
+                          {topic.courses.map((entry) => (
+                            <p key={entry.course_id}>
+                              {formatDate(`${entry.first_study_date}T12:00:00`, "bn", {
+                                day: "numeric",
+                                month: "short",
+                                year: "numeric",
+                              })}
+                            </p>
+                          ))}
+                        </td>
+                        <td className="py-2">
+                          {topic.in_sync ? (
+                            <span className="font-semibold text-emerald-700 dark:text-emerald-300">সিঙ্কড</span>
+                          ) : (
+                            <span className="font-semibold text-rose-700 dark:text-rose-300">আউট-অফ-সিঙ্ক</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )
+          ) : (
+            <p className="jh-card p-4 text-[0.75rem] text-[var(--text-muted)]">প্রিভিউ লোড হচ্ছে…</p>
+          )}
         </div>
       ) : null}
 
