@@ -87,6 +87,34 @@ describe("migrations", () => {
     expect(unprotected.map((r) => r.relname)).toEqual([]);
   });
 
+  it("lets anon execute ONLY the two deliberately-public functions", async () => {
+    await actAsService(db);
+    const anonExecutable = await rows<{ proname: string }>(
+      db,
+      `select p.proname from pg_proc p join pg_namespace n on n.oid=p.pronamespace
+       where n.nspname='public' and p.proname like 'jh\\_%' escape '\\'
+         and has_function_privilege('anon', p.oid, 'execute')
+       order by 1`,
+    );
+    // The NULL-bypass in ownership guards (user_id <> NULL never fires) makes
+    // any wider anon surface dangerous — see 20261127000000.
+    expect(anonExecutable.map((r) => r.proname)).toEqual([
+      "jh_admin_seat_available",
+      "jh_public_question_count",
+    ]);
+  });
+
+  it("anon gets a real platform-wide question count (homepage stat)", async () => {
+    await actAsService(db);
+    await db.query(
+      `update public.questions set status='approved', is_verified=true
+       where id in (select id from public.questions limit 3)`,
+    );
+    await actAs(db, null, "anon");
+    const count = await scalar<number>(db, `select public.jh_public_question_count(null,null,null,null)`);
+    expect(count).toBeGreaterThanOrEqual(3);
+  });
+
   it("is idempotent when re-run", async () => {
     await migrate(db);
     const count = await scalar<number>(
