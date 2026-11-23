@@ -486,4 +486,6 @@ from (values
 cross join (select id from public.courses where slug = 'petrobangla-ae-eee') c
 left join public.subjects s on s.course_id = c.id and s.slug = v.sslug
 where v.sslug is null or s.id is not null
-on conflict (course_id, kind, routine_date, subject_id, topic_id) do nothing;
+-- Bare DO NOTHING (no explicit target): later migrations widen the routines
+-- uniqueness index, and naming the old column list here would break re-runs.
+on conflict do nothing;

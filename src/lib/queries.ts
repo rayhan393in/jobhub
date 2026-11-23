@@ -196,6 +196,40 @@ export async function listRoutines(options?: {
   })) as unknown as Routine[];
 }
 
+export type PlanTopicPair = {
+  routine_id: string | null;
+  course_id: string;
+  topic_title_bn: string | null;
+  subtopic_title_bn: string | null;
+};
+
+/**
+ * First-study assignments resolved to Bengali titles, keyed by routine row.
+ * This is the authoritative Topic → Subtopic pairing for the printable
+ * routine: the per-row id arrays on `routines` lose the association between
+ * a subtopic and its parent topic, while assignments keep it exact.
+ */
+export async function listStudyPlanTopicPairs(courseIds: string[]): Promise<PlanTopicPair[]> {
+  const supabase = await getServerClient();
+  if (!supabase || courseIds.length === 0) return [];
+  const { data } = await supabase
+    .from("study_plan_assignments")
+    .select(
+      "routine_id, course_id, topic_title_bn:topics(title_bn), subtopic_title_bn:subtopics(title_bn)",
+    )
+    .in("course_id", courseIds)
+    .not("routine_id", "is", null)
+    .order("first_study_date", { ascending: true })
+    .order("created_at", { ascending: true })
+    .limit(2000);
+  return (data ?? []).map((row) => ({
+    routine_id: row.routine_id as string | null,
+    course_id: row.course_id as string,
+    topic_title_bn: flattenEmbeddedTitle(row.topic_title_bn),
+    subtopic_title_bn: flattenEmbeddedTitle(row.subtopic_title_bn),
+  }));
+}
+
 export type StudentPlanRow = {
   id: string;
   course_id: string;

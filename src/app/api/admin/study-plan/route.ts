@@ -81,10 +81,34 @@ export async function GET(request: Request) {
   );
 
   // The master prompt's publish checklist — every number from live data.
+  // The BCS syllabus is pinned to its exact approved shape (10/137/366);
+  // every other course validates against its own registered syllabus, so the
+  // gate works per-course instead of assuming one program.
+  const { data: courseRow } = await supabase
+    .from("courses")
+    .select("slug")
+    .eq("id", courseId)
+    .maybeSingle();
+  const pinned =
+    courseRow?.slug === "bcs" ? { subjects: 10, topics: 137, subtopics: 366 } : null;
+
+  const structureChecks = pinned
+    ? [
+        { rule: "১০টি বিষয় অন্তর্ভুক্ত", ok: rows.length === pinned.subjects, detail: `${rows.length}/১০` },
+        { rule: "১৩৭টি টপিক অন্তর্ভুক্ত", ok: totals.topics === pinned.topics, detail: `${totals.topics}/১৩৭` },
+        { rule: "৩৬৬টি সাবটপিক অন্তর্ভুক্ত", ok: totals.subtopics === pinned.subtopics, detail: `${totals.subtopics}/৩৬৬` },
+      ]
+    : [
+        { rule: "সিলেবাসে বিষয় নিবন্ধিত", ok: rows.length > 0, detail: `${rows.length}টি বিষয়` },
+        {
+          rule: "সিলেবাসে টপিক/ইউনিট নিবন্ধিত",
+          ok: totals.units > 0,
+          detail: `${totals.topics}টি টপিক · ${totals.subtopics}টি সাবটপিক · ${totals.units}টি ইউনিট`,
+        },
+      ];
+
   const checklist = [
-    { rule: "১০টি বিষয় অন্তর্ভুক্ত", ok: rows.length === 10, detail: `${rows.length}/১০` },
-    { rule: "১৩৭টি টপিক অন্তর্ভুক্ত", ok: totals.topics === 137, detail: `${totals.topics}/১৩৭` },
-    { rule: "৩৬৬টি সাবটপিক অন্তর্ভুক্ত", ok: totals.subtopics === 366, detail: `${totals.subtopics}/৩৬৬` },
+    ...structureChecks,
     {
       rule: "প্রতিটি ইউনিটের first-study বরাদ্দ",
       ok: totals.unassigned === 0,

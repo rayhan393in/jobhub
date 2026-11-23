@@ -1,36 +1,53 @@
 "use client";
 
 /**
- * A4-ready study-routine sheet — "exam batch" layout.
+ * A4-ready study-routine sheet — compact course-wise day blocks.
  *
- * Presentation modelled on the classic coaching-batch routine PDF: a navy
- * banner title, a colour legend for task kinds, then ONE continuous table
- * (তারিখ | দিন নং | টপিকস) where every task of a day appears as a colour-coded
- * chip in the topics cell. The DATA is untouched — same published routine,
- * same dates, same topics; only the presentation is upgraded.
+ * Exactly the master format:
  *
- * Colours are forced through to the PDF with print-color-adjust: exact.
- * Rows never split across pages, Bengali text uses the app's own font stack,
- * and printing waits one beat so the Bengali face is loaded.
+ *   দিন N — তারিখ — বার
+ *   | বিষয় | টপিক → সাবটপিক |
+ *
+ * Rules enforced here:
+ *   * each course is its OWN routine — separate section, page break between
+ *     courses, subjects of different courses never share a block;
+ *   * study rows of the same subject on the same day merge into one line
+ *     (total minutes, united topic list — the deep-work slots stay one row);
+ *   * revision / exam / rest rows carry a small label so they are always
+ *     distinguishable from first-study rows;
+ *   * the nightly generic "দৈনিক রিভিশন" filler (no subject, no topics) is
+ *     kept in the app for tracking but omitted from the sheet by design;
+ *   * no decorative cards, timers or charts — just the schedule;
+ *   * day blocks never split across pages; Bengali text uses the app's own
+ *     font stack and printing waits one beat so the face is loaded.
  */
 
 import * as React from "react";
 import { formatDate, formatNumber } from "@/lib/format";
 
+type TopicLine = { topic: string; subtopics: string[] };
+
 type PrintRoutine = {
   id: string;
   routine_date: string;
   title_bn: string;
-  course_title_bn: string;
   subject_title_bn: string | null;
-  topic_titles_bn: string[];
-  subtopic_titles_bn: string[];
   minutes: number;
+  slot_label: string | null;
   task_kind: string;
   focus_note_bn: string | null;
+  topics: TopicLine[];
 };
 
-const TASK_LABELS: Record<string, string> = {
+export type PrintCourse = {
+  id: string;
+  title_bn: string;
+  /** ISO date of the course's day 1 (earliest published routine date). */
+  plan_start: string;
+  routines: PrintRoutine[];
+};
+
+const KIND_LABELS: Record<string, string> = {
   study: "পড়া",
   practice: "প্র্যাকটিস",
   revision: "রিভিশন",
@@ -38,48 +55,92 @@ const TASK_LABELS: Record<string, string> = {
   rest: "বিশ্রাম",
 };
 
-/** Chip + legend palette per task kind (background / border / text). */
-const TASK_STYLES: Record<string, { bg: string; border: string; text: string }> = {
-  study: { bg: "#c9f0ec", border: "#0d9488", text: "#0f3d3a" },
-  practice: { bg: "#e5e0fb", border: "#7c3aed", text: "#3b2b70" },
-  revision: { bg: "#fdeec3", border: "#d97706", text: "#6b4304" },
-  exam: { bg: "#fcd9e0", border: "#e11d48", text: "#73102a" },
-  rest: { bg: "#ececf0", border: "#9ca3af", text: "#374151" },
+const NAVY = "#232e7a";
+
+function dayNumber(date: string, planStart: string): number {
+  const ms = Date.parse(`${date}T00:00:00Z`) - Date.parse(`${planStart}T00:00:00Z`);
+  return Math.round(ms / 86_400_000) + 1;
+}
+
+/** One printable line of a day block. */
+type DayLine = {
+  key: string;
+  label: string; // subject name, or the activity title when no subject
+  kind: string;
+  minutes: number;
+  slots: string[];
+  topics: TopicLine[];
+  note: string | null;
 };
 
-const FALLBACK_STYLE = TASK_STYLES.rest;
+function buildDayLines(items: PrintRoutine[]): DayLine[] {
+  const lines: DayLine[] = [];
+  const bySubject = new Map<string, DayLine>();
 
-const NAVY = "#232e7a";
-const HEADER_YELLOW = "#f7d64a";
-const DATE_BLUE = "#dbeafe";
+  for (const item of items) {
+    // Nightly filler revision: no subject, no topics → app-only, not printed.
+    if (item.task_kind === "revision" && !item.subject_title_bn && item.topics.length === 0 && item.title_bn.startsWith("দৈনিক রিভিশন")) {
+      continue;
+    }
+
+    if (item.subject_title_bn) {
+      // Same subject, same kind, same day → one merged line (multi-slot deep work).
+      const mergeKey = `${item.task_kind}:${item.subject_title_bn}`;
+      const existing = bySubject.get(mergeKey);
+      if (existing) {
+        existing.minutes += item.minutes;
+        if (item.slot_label) existing.slots.push(item.slot_label);
+        for (const line of item.topics) {
+          const match = existing.topics.find((t) => t.topic === line.topic);
+          if (match) match.subtopics.push(...line.subtopics.filter((s) => !match.subtopics.includes(s)));
+          else existing.topics.push({ topic: line.topic, subtopics: [...line.subtopics] });
+        }
+        if (!existing.note && item.focus_note_bn) existing.note = item.focus_note_bn;
+        continue;
+      }
+      const line: DayLine = {
+        key: item.id,
+        label: item.subject_title_bn,
+        kind: item.task_kind,
+        minutes: item.minutes,
+        slots: item.slot_label ? [item.slot_label] : [],
+        topics: item.topics.map((t) => ({ topic: t.topic, subtopics: [...t.subtopics] })),
+        note: item.focus_note_bn,
+      };
+      bySubject.set(mergeKey, line);
+      lines.push(line);
+    } else {
+      // Course-level activity: weekly exam, weekly revision, mock, model test, rest.
+      lines.push({
+        key: item.id,
+        label: item.title_bn,
+        kind: item.task_kind,
+        minutes: item.minutes,
+        slots: item.slot_label ? [item.slot_label] : [],
+        topics: item.topics,
+        note: item.focus_note_bn,
+      });
+    }
+  }
+  return lines;
+}
 
 export function RoutinePrintSheet({
-  routines,
+  courses,
   studentName,
   generatedOn,
 }: {
-  routines: PrintRoutine[];
+  courses: PrintCourse[];
   studentName: string;
   generatedOn: string;
 }) {
+  const total = courses.reduce((a, c) => a + c.routines.length, 0);
+
   React.useEffect(() => {
-    if (routines.length === 0) return;
+    if (total === 0) return;
     const timer = window.setTimeout(() => window.print(), 600);
     return () => window.clearTimeout(timer);
-  }, [routines.length]);
-
-  // The PDF shows the syllabus plan only: generic filler revision rows (no
-  // subject, no topics — e.g. "রিভিশন · ভিত্তি ও হাই-প্রায়োরিটি") are kept in
-  // the app for progress tracking but omitted here to keep the sheet compact.
-  // Targeted revision rows (with a subject/topic) still appear.
-  const visible = routines.filter(
-    (r) => !(r.task_kind === "revision" && !r.subject_title_bn && r.topic_titles_bn.length === 0),
-  );
-
-  const dates = [...new Set(visible.map((r) => r.routine_date))].sort();
-  const courseTitles = [...new Set(visible.map((r) => r.course_title_bn).filter(Boolean))];
-  const usedKinds = [...new Set(visible.map((r) => r.task_kind))];
-  const legend = ["study", "practice", "revision", "exam", "rest"].filter((kind) => usedKinds.includes(kind));
+  }, [total]);
 
   return (
     <main
@@ -106,144 +167,94 @@ export function RoutinePrintSheet({
         </div>
       </div>
 
-      {/* Navy banner title */}
-      <header>
-        <div
-          className="rounded-t-lg px-4 py-2.5 text-center"
-          style={{ backgroundColor: NAVY, border: `2px solid ${NAVY}` }}
-        >
-          <p className="text-[1.125rem] font-bold tracking-tight text-white">
-            JobHub — প্রকাশিত স্টাডি রুটিন
-          </p>
-          {courseTitles.length > 0 ? (
-            <p className="text-[0.75rem] font-semibold text-indigo-100">{courseTitles.join(" · ")}</p>
-          ) : null}
-        </div>
-
-        {/* Legend + meta strip */}
-        <div
-          className="flex flex-wrap items-center justify-between gap-2 border-x-2 px-3 py-2"
-          style={{ borderColor: NAVY, backgroundColor: "#eef1fb" }}
-        >
-          <div className="flex flex-wrap gap-1.5">
-            {legend.map((kind) => {
-              const style = TASK_STYLES[kind] ?? FALLBACK_STYLE;
-              return (
-                <span
-                  key={kind}
-                  className="rounded-full px-2.5 py-0.5 text-[0.625rem] font-bold"
-                  style={{ backgroundColor: style.bg, border: `1.5px solid ${style.border}`, color: style.text }}
-                >
-                  {TASK_LABELS[kind] ?? kind}
-                </span>
-              );
-            })}
-          </div>
-          <div className="text-right text-[0.625rem] leading-snug text-neutral-600">
-            {studentName ? <span className="mr-2">শিক্ষার্থী: {studentName}</span> : null}
-            <span>
-              তৈরি: {formatDate(`${generatedOn}T12:00:00`, "bn", { day: "numeric", month: "long", year: "numeric" })}
-            </span>
-          </div>
-        </div>
-      </header>
-
-      {routines.length === 0 ? (
+      {total === 0 ? (
         <p className="mt-6 text-center text-[0.875rem] text-neutral-600">
           এখনো কোনো প্রকাশিত রুটিন নেই — প্রশাসক রুটিন প্রকাশ করলে এখানে দেখা যাবে।
         </p>
       ) : (
-        <table
-          className="w-full border-collapse text-[0.75rem]"
-          style={{ border: `2px solid ${NAVY}` }}
-        >
-          <thead>
-            <tr style={{ backgroundColor: HEADER_YELLOW }}>
-              <th className="w-[15%] px-2 py-1.5 text-center text-[0.6875rem] font-bold" style={{ border: `1px solid ${NAVY}` }}>
-                তারিখ
-              </th>
-              <th className="w-[13%] px-2 py-1.5 text-center text-[0.6875rem] font-bold" style={{ border: `1px solid ${NAVY}` }}>
-                দিন / পরীক্ষা
-              </th>
-              <th className="px-2 py-1.5 text-center text-[0.6875rem] font-bold" style={{ border: `1px solid ${NAVY}` }}>
-                টপিকস
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {dates.map((date, index) => {
-              const items = visible.filter((r) => r.routine_date === date);
-              const hasExam = items.some((r) => r.task_kind === "exam");
-              return (
-                <tr key={date} style={{ breakInside: "avoid" }}>
-                  <td
-                    className="px-2 py-1.5 text-center align-middle"
-                    style={{ border: `1px solid ${NAVY}`, backgroundColor: DATE_BLUE }}
-                  >
-                    <p className="text-[0.75rem] font-bold leading-tight">
-                      {formatDate(`${date}T12:00:00`, "bn", { day: "numeric", month: "numeric", year: "2-digit" })}
-                    </p>
-                    <p className="text-[0.5625rem] text-neutral-600">
-                      {formatDate(`${date}T12:00:00`, "bn", { weekday: "long" })}
-                    </p>
-                  </td>
-                  <td
-                    className="px-2 py-1.5 text-center align-middle"
-                    style={{ border: `1px solid ${NAVY}` }}
-                  >
-                    <p className="text-[0.75rem] font-bold leading-tight">D-{formatNumber(index + 1)}</p>
-                    {hasExam ? (
+        courses.map((course, courseIndex) => {
+          const dates = [...new Set(course.routines.map((r) => r.routine_date))].sort();
+          return (
+            <section
+              key={course.id}
+              style={courseIndex > 0 ? { breakBefore: "page" } : undefined}
+            >
+              {/* Course banner — one course per routine, never mixed. */}
+              <header
+                className="rounded-t-lg px-4 py-2.5 text-center"
+                style={{ backgroundColor: NAVY, border: `2px solid ${NAVY}` }}
+              >
+                <p className="text-[1.0625rem] font-bold tracking-tight text-white">
+                  {course.title_bn} — প্রকাশিত স্টাডি রুটিন
+                </p>
+                <p className="text-[0.6875rem] text-indigo-100">
+                  {studentName ? <>শিক্ষার্থী: {studentName} · </> : null}
+                  তৈরি: {formatDate(`${generatedOn}T12:00:00`, "bn", { day: "numeric", month: "long", year: "numeric" })}
+                </p>
+              </header>
+
+              <div
+                className="mb-5 border-x-2 border-b-2 px-2 py-2"
+                style={{ borderColor: NAVY }}
+              >
+                {dates.map((date) => {
+                  const lines = buildDayLines(course.routines.filter((r) => r.routine_date === date));
+                  if (lines.length === 0) return null;
+                  const n = dayNumber(date, course.plan_start);
+                  return (
+                    <div key={date} className="mb-2" style={{ breakInside: "avoid" }}>
+                      {/* দিন N — তারিখ — বার */}
                       <p
-                        className="mx-auto mt-0.5 w-fit rounded-full px-1.5 text-[0.5625rem] font-bold"
-                        style={{
-                          backgroundColor: TASK_STYLES.exam.bg,
-                          border: `1px solid ${TASK_STYLES.exam.border}`,
-                          color: TASK_STYLES.exam.text,
-                        }}
+                        className="rounded-sm px-2 py-1 text-[0.75rem] font-bold text-white"
+                        style={{ backgroundColor: NAVY }}
                       >
-                        পরীক্ষা
+                        দিন {formatNumber(n)} — {formatDate(`${date}T12:00:00`, "bn", { day: "numeric", month: "long", year: "numeric" })} — {formatDate(`${date}T12:00:00`, "bn", { weekday: "long" })}
                       </p>
-                    ) : null}
-                  </td>
-                  <td className="px-2 py-1.5 align-middle" style={{ border: `1px solid ${NAVY}` }}>
-                    <div className="flex flex-wrap gap-1">
-                      {items.map((item) => {
-                        const style = TASK_STYLES[item.task_kind] ?? FALLBACK_STYLE;
-                        const topicText =
-                          item.topic_titles_bn.length > 0 ? item.topic_titles_bn.join(", ") : item.title_bn;
-                        return (
-                          <span
-                            key={item.id}
-                            className="rounded-md px-2 py-1 text-[0.6875rem] leading-snug"
-                            style={{
-                              backgroundColor: style.bg,
-                              border: `1.5px solid ${style.border}`,
-                              color: style.text,
-                              breakInside: "avoid",
-                            }}
-                          >
-                            {item.subject_title_bn ? (
-                              <strong>{item.subject_title_bn}: </strong>
-                            ) : null}
-                            {topicText}
-                            {item.subtopic_titles_bn.length > 0 ? (
-                              <span style={{ opacity: 0.8 }}> ({item.subtopic_titles_bn.join(", ")})</span>
-                            ) : null}
-                            {item.focus_note_bn ? (
-                              <em className="block text-[0.5625rem]" style={{ opacity: 0.85 }}>
-                                {item.focus_note_bn}
-                              </em>
-                            ) : null}
-                          </span>
-                        );
-                      })}
+                      <table className="w-full border-collapse text-[0.6875rem]">
+                        <tbody>
+                          {lines.map((line) => (
+                            <tr key={line.key} style={{ breakInside: "avoid" }}>
+                              <td
+                                className="w-[26%] border border-neutral-400 px-2 py-1 align-top"
+                                style={{ backgroundColor: "#f3f4f8" }}
+                              >
+                                <span className="font-bold">{line.label}</span>
+                                {line.kind !== "study" ? (
+                                  <span className="ml-1 rounded-sm border border-neutral-500 px-1 text-[0.5625rem] font-semibold">
+                                    {KIND_LABELS[line.kind] ?? line.kind}
+                                  </span>
+                                ) : null}
+                                <span className="block text-[0.5625rem] text-neutral-600">
+                                  {line.slots.join(", ")}
+                                  {line.slots.length > 0 ? " · " : ""}
+                                  {formatNumber(line.minutes)} মিনিট
+                                </span>
+                              </td>
+                              <td className="border border-neutral-400 px-2 py-1 align-top leading-snug">
+                                {line.topics.length > 0 ? (
+                                  line.topics.map((t) => (
+                                    <p key={t.topic}>
+                                      <span className="font-semibold">{t.topic}</span>
+                                      {t.subtopics.length > 0 ? <> → {t.subtopics.join(", ")}</> : null}
+                                    </p>
+                                  ))
+                                ) : line.note ? (
+                                  <p>{line.note}</p>
+                                ) : (
+                                  <p className="text-neutral-600">ওই বিষয়ের চলমান অংশ অনুশীলন ও গভীরভাবে আয়ত্ত করা</p>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
                     </div>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+                  );
+                })}
+              </div>
+            </section>
+          );
+        })
       )}
 
       {/* div, not <footer>: the global print CSS hides footer elements. */}
