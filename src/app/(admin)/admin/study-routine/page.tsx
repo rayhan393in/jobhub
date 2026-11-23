@@ -21,11 +21,31 @@ export const metadata: Metadata = { title: "৬০ দিনের স্টা�
  * No hardcoded totals: 10/137/366 appear only as TARGETS in the checklist,
  * and the checklist fails loudly whenever live counts differ.
  */
-export default async function StudyRoutineHubPage() {
+export default async function StudyRoutineHubPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ course?: string }>;
+}) {
   await requirePermission("routine.manage");
   const supabase = await getServerClient();
   const courses = await listCourses();
-  const course = courses.find((c) => /বিসিএস|bcs/i.test(`${c.title_bn} ${c.title_en ?? ""}`)) ?? courses[0];
+  const requestedSlug = (await searchParams)?.course;
+  const course =
+    courses.find((c) => c.slug === requestedSlug) ??
+    courses.find((c) => /বিসিএস|bcs/i.test(`${c.title_bn} ${c.title_en ?? ""}`)) ??
+    courses[0];
+  let courseMeta: { provisional?: boolean; pattern_note?: string; program_kind?: string } = {};
+  if (supabase && course) {
+    const { data: metaRow } = await supabase
+      .from("courses")
+      .select("metadata, program_kind")
+      .eq("id", course.id)
+      .maybeSingle();
+    courseMeta = {
+      ...((metaRow?.metadata ?? {}) as { provisional?: boolean; pattern_note?: string }),
+      program_kind: (metaRow?.program_kind as string) ?? "course",
+    };
+  }
 
   type Availability = { pyq_total: number; pyq_ready: number; pyq_missing_meta: number; practice_pool: number };
   let coverage: CoverageRow[] = [];
@@ -65,10 +85,36 @@ export default async function StudyRoutineHubPage() {
   return (
     <div>
       <AdminPageHeader
-        eyebrow="৬০ দিনের মাস্টারপ্ল্যান"
-        title="স্টাডি-রুটিন হাব — কভারেজ ম্যাপিং ও ৭০:৩০ প্রস্তুতি"
+        eyebrow="স্টাডি-প্রোগ্রাম মাস্টারপ্ল্যান"
+        title="স্টাডি-রুটিন হাব — কভারেজ ম্যাপিং ও PYQ প্রস্তুতি"
         description="প্রতিটি সাবটপিকের individual first-study দিন, কভারেজ ম্যাট্রিক্স, PYQ-প্রস্তুতি ও মেটাডেটা ব্যাকফিল — সব সংখ্যা সরাসরি ডাটাবেস থেকে।"
       />
+
+      <div className="mb-4 flex flex-wrap items-center gap-1.5">
+        {courses.map((item) => (
+          <a
+            key={item.id}
+            href={`/admin/study-routine?course=${item.slug}`}
+            className={
+              item.id === course?.id
+                ? "rounded-full bg-[var(--brand)] px-3.5 py-1.5 text-[0.6875rem] font-semibold text-white"
+                : "rounded-full border border-[var(--border)] bg-[var(--surface)] px-3.5 py-1.5 text-[0.6875rem] font-medium text-[var(--text-muted)] hover:border-[var(--brand)]/40"
+            }
+          >
+            {item.title_bn}
+          </a>
+        ))}
+      </div>
+
+      {courseMeta.provisional ? (
+        <div className="mb-4">
+          <AdminNote tone="warning">
+            <strong>প্রভিশনাল প্রোগ্রাম:</strong>{" "}
+            {courseMeta.pattern_note ??
+              "এই সিলেবাস-কাঠামো অফিসিয়াল নয় — যাচাইকৃত নিয়োগ বিজ্ঞপ্তি/সিলেবাস পাওয়া গেলে সেটিই প্রাধান্য পাবে।"}
+          </AdminNote>
+        </div>
+      ) : null}
 
       <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <MiniStat
