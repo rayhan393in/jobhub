@@ -15,14 +15,30 @@ export const metadata: Metadata = { title: "স্টাডি রুটিন �
  * internal metadata — only the published study schedule, branded and
  * paginated for A4.
  */
-export default async function RoutinePrintPage() {
+export default async function RoutinePrintPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ range?: string }>;
+}) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
   const today = dhakaDateKey();
+
+  // ?range=week → only the current week (Dhaka Mon–Sun), for the weekly export.
+  let toDate: string | undefined;
+  const params = searchParams ? await searchParams : undefined;
+  if (params?.range === "week") {
+    const base = new Date(`${today}T00:00:00Z`);
+    const dow = (base.getUTCDay() + 6) % 7; // Monday = 0
+    const sunday = new Date(base);
+    sunday.setUTCDate(base.getUTCDate() + (6 - dow));
+    toDate = sunday.toISOString().slice(0, 10);
+  }
+
   const [courses, routines] = await Promise.all([
     listCourses(),
-    listRoutines({ fromDate: today, limit: 200 }),
+    listRoutines({ fromDate: today, toDate, limit: 200 }),
   ]);
 
   const courseNames: Record<string, string> = {};

@@ -83,7 +83,11 @@ export default async function RoutinesPage() {
           <div className="flex flex-wrap gap-2">
             <ButtonLink href="/routines/print" variant="secondary" size="md" target="_blank">
               <FileDown className="size-3.5" aria-hidden />
-              PDF ডাউনলোড
+              সম্পূর্ণ রুটিন PDF
+            </ButtonLink>
+            <ButtonLink href="/routines/print?range=week" variant="secondary" size="md" target="_blank">
+              <FileDown className="size-3.5" aria-hidden />
+              এই সপ্তাহের PDF
             </ButtonLink>
             <ButtonLink href="/practice" variant="secondary" size="md">
               <Sparkles className="size-3.5" aria-hidden />

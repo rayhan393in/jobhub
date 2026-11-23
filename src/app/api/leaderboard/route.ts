@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
-import { getLeaderboard } from "@/lib/queries";
+import { getLeaderboard, releaseDueResults } from "@/lib/queries";
 import { fromDbError } from "@/lib/api";
 
 export const dynamic = "force-dynamic";
@@ -34,6 +34,8 @@ export async function GET(request: Request) {
   }
 
   try {
+    // Flip any result whose publication time has passed (idempotent).
+    await releaseDueResults();
     const rows = await getLeaderboard({
       scope: scopeRaw as "daily" | "weekly" | "course" | "exam",
       courseId,

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   BookCopy, CalendarClock, CalendarDays, ChartNoAxesColumn, ChevronLeft, ClipboardCheck,
-  Columns3, FileUp, GraduationCap, Home, LayoutDashboard, Lock, Menu, Network, PenLine, Radio,
+  Columns3, FileCheck2, FileUp, GitMerge, GraduationCap, Home, LayoutDashboard, Lock, Menu, Network, PenLine, Radio,
   ScrollText, Settings, ShieldCheck, Sparkles, Upload, UserCog, Users, X,
 } from "lucide-react";
 import { Logo } from "@/components/ui/logo";
@@ -36,7 +36,10 @@ export const ADMIN_NAV: AdminNavItem[] = [
   { href: "/admin/courses", label: "কোর্স ও ট্যাক্সোনমি", icon: GraduationCap, permission: "taxonomy.manage", hint: "কোর্স · বিষয় · টপিক" },
   { href: "/admin/taxonomy", label: "টপিক ডাটাবেস", icon: Network, permission: "taxonomy.manage", hint: "অনুমোদন · বাল্ক · কমন লাইব্রেরি" },
   { href: "/admin/routines", label: "রুটিন ম্যানেজার", icon: CalendarDays, permission: "routine.manage", hint: "রুটিন তৈরি" },
+  { href: "/admin/study-routine", label: "৬০-দিন স্টাডি হাব", icon: CalendarDays, permission: "routine.manage", hint: "কভারেজ · ৭০:৩০ প্রস্তুতি" },
   { href: "/admin/frequency", label: "প্রশ্ন-ফ্রিকোয়েন্সি", icon: ChartNoAxesColumn, permission: "question.import", hint: "বিগত বছরের বিশ্লেষণ" },
+  { href: "/admin/evidence", label: "এভিডেন্স ভেরিফায়ার", icon: FileCheck2, permission: "question.review", hint: "বিগত-বছরের প্রমাণ" },
+  { href: "/admin/merges", label: "মার্জ রিভিউ", icon: GitMerge, permission: "taxonomy.manage", hint: "ক্যানোনিকাল লিংক" },
   { href: "/admin/exams", label: "পরীক্ষা প্রকাশ", icon: Radio, permission: "exam.publish", hint: "ভ্যালিডেশন সহ" },
   { href: "/admin/schedules", label: "পরীক্ষার সময়সূচি", icon: CalendarClock, permission: "exam.publish", hint: "ড্রাফট ও সময়" },
   { href: "/admin/attempts", label: "পরীক্ষার্থীর প্রচেষ্টা", icon: Upload, permission: "attempt.inspect", hint: "জমা ও ফলাফল" },

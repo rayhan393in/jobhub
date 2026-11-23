@@ -9,10 +9,15 @@ beforeAll(async () => {
 });
 
 describe("seed catalogue", () => {
-  it("creates 8 published courses", async () => {
+  it("creates 9 published courses (8 original + Petrobangla AE job-prep program)", async () => {
     await actAsService(db);
     const n = await scalar<number>(db, `select count(*)::int from public.courses where status='published'`);
-    expect(n).toBe(8);
+    expect(n).toBe(9);
+    const jobPrep = await scalar<number>(
+      db,
+      `select count(*)::int from public.courses where status='published' and program_kind = 'job_prep'`,
+    );
+    expect(jobPrep).toBe(1);
   });
 
   it("preserves the 10 BCS subjects in order", async () => {

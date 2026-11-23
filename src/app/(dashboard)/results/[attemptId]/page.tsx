@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import type { ReactNode } from "react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import {
@@ -10,7 +11,10 @@ import { Progress } from "@/components/ui/progress";
 import { getCurrentUser } from "@/lib/auth";
 import { getAttemptPaper, getAttemptReview } from "@/lib/exam-service";
 import { getSystemSettings } from "@/lib/admin-queries";
-import { formatDateTime, formatNumber, formatPercent } from "@/lib/format";
+import { getServerClient } from "@/lib/supabase/server";
+import { computeSubjectBreakdown, computeTopicBreakdown, weakTopics } from "@/lib/result-breakdown";
+import { SectionBreakdown } from "./section-breakdown";
+import { formatClock, formatDateTime, formatNumber, formatPercent } from "@/lib/format";
 import { MODE_LABELS, type AttemptMode } from "@/lib/types";
 import { cn } from "@/lib/cn";
 import { AnswerReview } from "./answer-review";
@@ -46,8 +50,77 @@ export default async function ResultPage({ params }: { params: Promise<{ attempt
   }
 
   const mode = (paper.attempt.mode as AttemptMode) ?? "custom";
+  // Phase 1: the student's own summary is visible the moment they submit.
+  // Phase 2: `released` additionally unlocks the answer key + leaderboard.
   const showKey = review.released;
+  const hasSummary = review.score !== null && review.score !== undefined;
   const answered = (review.correct ?? 0) + (review.wrong ?? 0);
+  const durationSeconds = review.duration_seconds ?? null;
+
+  // Subject (main 90 / secondary 10) + topic breakdown — only once the key is
+  // released, from exactly the same items the review shows.
+  let breakdown: ReactNode = null;
+  if (showKey && review.items.length > 0) {
+    const supabase = await getServerClient();
+    const subjectIds = [...new Set(review.items.map((item) => item.subject_id).filter(Boolean))] as string[];
+    const topicIds = [...new Set(review.items.map((item) => item.topic_id).filter(Boolean))] as string[];
+
+    let subjectTitles = new Map<string, string>();
+    let topicTitles = new Map<string, string>();
+    let positive = paper.attempt.total_questions
+      ? paper.attempt.total_marks / paper.attempt.total_questions
+      : 1;
+    let negative = 0;
+    let mainSubjectId: string | null = null;
+    let secondarySubjectId: string | null = null;
+
+    if (supabase) {
+      const [{ data: subjectRows }, { data: topicRows }, scheduleResult] = await Promise.all([
+        subjectIds.length
+          ? supabase.from("subjects").select("id, title_bn").in("id", subjectIds)
+          : Promise.resolve({ data: [] as { id: string; title_bn: string }[] }),
+        topicIds.length
+          ? supabase.from("topics").select("id, title_bn").in("id", topicIds)
+          : Promise.resolve({ data: [] as { id: string; title_bn: string }[] }),
+        paper.attempt.schedule_id
+          ? supabase
+              .from("exam_schedules")
+              .select("positive_marks, negative_marks, settings")
+              .eq("id", paper.attempt.schedule_id)
+              .maybeSingle()
+          : Promise.resolve({ data: null }),
+      ]);
+      subjectTitles = new Map((subjectRows ?? []).map((row) => [row.id, row.title_bn]));
+      topicTitles = new Map((topicRows ?? []).map((row) => [row.id, row.title_bn]));
+      const schedule = scheduleResult.data as
+        | { positive_marks: number | null; negative_marks: number | null; settings: Record<string, unknown> | null }
+        | null;
+      if (schedule) {
+        positive = Number(schedule.positive_marks ?? positive);
+        negative = Number(schedule.negative_marks ?? 0);
+        const scheduleSettings = schedule.settings ?? {};
+        mainSubjectId = (scheduleSettings.main_subject_id as string | undefined) ?? null;
+        secondarySubjectId = (scheduleSettings.secondary_subject_id as string | undefined) ?? null;
+      }
+    }
+
+    const sections = computeSubjectBreakdown(review.items, {
+      positiveMarks: positive,
+      negativeMarks: negative,
+      mainSubjectId,
+      secondarySubjectId,
+    });
+    const topics = computeTopicBreakdown(review.items);
+    breakdown = (
+      <SectionBreakdown
+        sections={sections}
+        topics={topics}
+        weak={weakTopics(topics)}
+        subjectTitles={subjectTitles}
+        topicTitles={topicTitles}
+      />
+    );
+  }
 
   return (
     <div className="mx-auto w-full max-w-4xl">
@@ -66,7 +139,7 @@ export default async function ResultPage({ params }: { params: Promise<{ attempt
             <div>
               <Badge tone="brand">{MODE_LABELS[mode]?.bn ?? "পরীক্ষা"}</Badge>
               <h1 className="mt-2.5 text-[1.375rem] font-bold tracking-[-0.03em] text-[var(--text)]">
-                {showKey ? "ফলাফল ও উত্তরপত্র" : "জমা সম্পন্ন হয়েছে"}
+                {showKey ? "ফলাফল ও উত্তরপত্র" : "আপনার ব্যক্তিগত ফলাফল"}
               </h1>
               <p className="mt-1 text-[0.75rem] text-[var(--text-muted)]">
                 {paper.attempt.submitted_at
@@ -74,7 +147,7 @@ export default async function ResultPage({ params }: { params: Promise<{ attempt
                   : "জমা দেওয়া হয়েছে"}
               </p>
             </div>
-            {showKey ? (
+            {hasSummary ? (
               <div className="text-right">
                 <p className="text-[0.625rem] font-medium uppercase tracking-[0.1em] text-[var(--text-subtle)]">
                   আপনার স্কোর
@@ -87,6 +160,7 @@ export default async function ResultPage({ params }: { params: Promise<{ attempt
                 </p>
                 <p className="mt-1 text-[0.6875rem] font-semibold text-[var(--brand)]">
                   {formatPercent(review.accuracy ?? 0)} নির্ভুলতা
+                  {durationSeconds !== null ? ` · সময় ${formatClock(durationSeconds)}` : ""}
                 </p>
               </div>
             ) : (
@@ -105,7 +179,7 @@ export default async function ResultPage({ params }: { params: Promise<{ attempt
           </div>
         </div>
 
-        {showKey ? (
+        {hasSummary ? (
           <div className="grid grid-cols-2 divide-x divide-y divide-[var(--border)] sm:grid-cols-4 sm:divide-y-0">
             {[
               { icon: <CircleCheck className="size-4" />, label: "সঠিক", value: review.correct ?? 0, tone: "text-mint-600 dark:text-mint-500" },
@@ -131,15 +205,21 @@ export default async function ResultPage({ params }: { params: Promise<{ attempt
         <div className="mt-4 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5">
           <h2 className="flex items-center gap-2 text-[0.9375rem] font-semibold text-[var(--text)]">
             <Clock3 className="size-4 text-[var(--brand)]" aria-hidden />
-            জমা সংক্রান্ত তথ্য
+            উত্তরপত্র ও লিডারবোর্ড প্রকাশের অপেক্ষায়
           </h2>
           <ul className="mt-2 space-y-1.5 text-[0.8125rem] leading-relaxed text-[var(--text-muted)]">
-            <li>আপনার উত্তর সংরক্ষিত আছে এবং স্কোর সার্ভারে নিরাপদে হিসাব করা হয়েছে।</li>
-            <li>ফলাফল প্রকাশের নির্ধারিত সময়ের আগে স্কোর বা সঠিক উত্তর কোথাও দেখানো হয় না।</li>
-            <li>প্রকাশের সময় এলে এই পাতাতেই বিস্তারিত ব্যাখ্যা দেখা যাবে।</li>
+            <li>আপনার ব্যক্তিগত স্কোর ওপরে দেখানো হয়েছে — এটি সার্ভারে নিরাপদে হিসাব করা হয়েছে।</li>
+            <li>
+              {review.result_release_at
+                ? `${formatDateTime(review.result_release_at)}-এ সঠিক উত্তর, ব্যাখ্যা ও লিডারবোর্ড (র‍্যাঙ্কসহ) প্রকাশিত হবে।`
+                : "নির্ধারিত সময়ে সঠিক উত্তর, ব্যাখ্যা ও লিডারবোর্ড প্রকাশিত হবে।"}
+            </li>
+            <li>লাইভ পরীক্ষার সময় অন্য কারও ফলাফল দেখা যায় না — সবাই একই নিয়মে ফল পায়।</li>
           </ul>
         </div>
       ) : null}
+
+      {breakdown}
 
       {/* Question review with "দেখান" filter dropdown */}
       {showKey && review.items.length > 0 ? (
@@ -156,6 +236,12 @@ export default async function ResultPage({ params }: { params: Promise<{ attempt
           <ButtonLink href={`/results/${attemptId}/sheet`} size="md">
             <FileDown className="size-3.5" aria-hidden />
             PDF ডাউনলোড
+          </ButtonLink>
+        ) : null}
+        {showKey ? (
+          <ButtonLink href="/leaderboard" size="md" variant="secondary">
+            <Trophy className="size-3.5" aria-hidden />
+            লিডারবোর্ড
           </ButtonLink>
         ) : null}
         <ButtonLink href="/practice" size="md">

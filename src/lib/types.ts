@@ -250,6 +250,8 @@ export type AttemptReview = {
   wrong?: number;
   unanswered?: number;
   accuracy?: number | null;
+  duration_seconds?: number | null;
+  submitted_at?: string | null;
   items: ReviewItem[];
 };
 
