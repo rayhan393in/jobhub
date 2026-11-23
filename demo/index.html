@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="bn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>JobHub — রুটিন PDF ডেমো (লাইভ ডেটা)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root { --navy:#232e7a; --yellow:#f7d64a; --dateblue:#dbeafe; }
+  * { box-sizing:border-box; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+  body { font-family:"Hind Siliguri",sans-serif; margin:0; background:#f1f2f6; color:#111; }
+  .sheet { max-width:820px; margin:0 auto; background:#fff; padding:24px; }
+  .toolbar { max-width:820px; margin:12px auto; display:flex; justify-content:space-between; align-items:center;
+    background:#fafafa; border:1px solid #ddd; border-radius:10px; padding:8px 12px; font-size:.75rem; }
+  .toolbar button { background:#111; color:#fff; border:0; border-radius:8px; padding:7px 14px; font-weight:700; cursor:pointer; font-family:inherit; }
+  .banner { background:var(--navy); border:2px solid var(--navy); border-radius:10px 10px 0 0; text-align:center; padding:10px 16px; }
+  .banner h1 { margin:0; color:#fff; font-size:1.125rem; }
+  .banner p { margin:2px 0 0; color:#c7d2fe; font-size:.75rem; font-weight:600; }
+  .meta { display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:8px;
+    border-left:2px solid var(--navy); border-right:2px solid var(--navy); background:#eef1fb; padding:8px 12px; }
+  .legend { display:flex; gap:6px; flex-wrap:wrap; }
+  .pill { border-radius:999px; padding:2px 10px; font-size:.625rem; font-weight:700; }
+  .meta small { color:#555; font-size:.625rem; }
+  table { width:100%; border-collapse:collapse; font-size:.75rem; border:2px solid var(--navy); }
+  th { background:var(--yellow); border:1px solid var(--navy); padding:6px 8px; font-size:.6875rem; }
+  td { border:1px solid var(--navy); padding:6px 8px; vertical-align:middle; }
+  tr { break-inside:avoid; }
+  td.date { background:var(--dateblue); text-align:center; width:15%; }
+  td.date b { font-size:.75rem; } td.date span { display:block; font-size:.5625rem; color:#555; }
+  td.dayno { text-align:center; width:12%; font-weight:700; }
+  .examtag { display:inline-block; margin-top:2px; background:#fcd9e0; border:1px solid #e11d48; color:#73102a;
+    border-radius:999px; padding:0 6px; font-size:.5625rem; font-weight:700; }
+  .chips { display:flex; flex-wrap:wrap; gap:4px; }
+  .chip { border-radius:6px; padding:4px 8px; font-size:.6875rem; line-height:1.35; border:1.5px solid; }
+  .chip b { font-weight:700; } .chip i { opacity:.8; font-style:normal; }
+  .study { background:#c9f0ec; border-color:#0d9488; color:#0f3d3a; }
+  .practice { background:#e5e0fb; border-color:#7c3aed; color:#3b2b70; }
+  .revision { background:#fdeec3; border-color:#d97706; color:#6b4304; }
+  .exam { background:#fcd9e0; border-color:#e11d48; color:#73102a; }
+  .section { margin-bottom:28px; }
+  .note { max-width:820px; margin:8px auto 24px; font-size:.625rem; color:#666; text-align:center; }
+  @media print { .toolbar,.note { display:none; } body { background:#fff; } .sheet { padding:0; max-width:none; } }
+</style>
+</head>
+<body>
+<div class="toolbar">
+  <span>এটি <b>লাইভ ডাটাবেসের আসল রুটিন ডেটা</b> দিয়ে বানানো PDF ডেমো — প্রিন্ট ডায়ালগে “Save as PDF” + “Background graphics” অন রাখুন।</span>
+  <button onclick="window.print()">PDF হিসেবে সেভ করুন</button>
+</div>
+
+<div class="sheet">
+  <div class="section" id="bcs"></div>
+  <div class="section" id="pb"></div>
+</div>
+<p class="note">ডেমোতে প্রতি কোর্সের প্রথম কয়েকদিন দেখানো হয়েছে — আসল PDF-এ পুরো মেয়াদ থাকে। কোনো সময়/মিনিট ও ফিলার-রিভিশন রো নেই (আপনার নির্দেশমতো)।</p>
+
+<script>
+const BCS = {
+  title: "JobHub — প্রকাশিত স্টাডি রুটিন",
+  course: "বিসিএস প্রস্তুতি · ৬০ দিনের প্ল্যান (২৩ নভেম্বর ২০২৬ → ২১ জানুয়ারি ২০২৭)",
+  days: [
+    { d:"2026-11-23", tasks:[
+      { s:"English Language & Literature", k:"study", t:"Parts of speech", x:"Noun, Pronoun, Adjective, Verb" },
+      { s:"সাধারণ বিজ্ঞান", k:"study", t:"পদার্থের অবস্থা, এটমের গঠন ও মৌলিক কণা | এসিড, ক্ষার, লবণ ও সাবানের কাজ | ধাতু-অধাতু, জৈব-অজৈব যৌগ ও জারণ-বিজারণ", x:"পদার্থের অবস্থা ও পরিবর্তন, ধাতব ও অধাতব পদার্থ, কার্বনের বহুমুখী ব্যবহার, পরমাণুর গঠন ও মৌলিক কণা, সাবানের কাজ ও পদার্থের ক্ষয়, এসিড, ক্ষার ও লবণ" },
+    ]},
+    { d:"2026-11-24", tasks:[
+      { s:"বাংলা ভাষা ও সাহিত্য", k:"study", t:"ধ্বনি ও বর্ণ | সন্ধি", x:"ধ্বনিবিজ্ঞান, ধ্বনির উচ্চারণ, ধ্বনি পরিবর্তন, ণ-ত্ব ও ষ-ত্ব বিধান, স্বরসন্ধি" },
+      { s:"আন্তর্জাতিক বিষয়াবলি", k:"study", t:"বিশ্ব ইতিহাস", x:"বিশ্ব সভ্যতা, ১ম ও ২য় বিশ্বযুদ্ধ, পৃথিবীর আলোচিত বিপ্লবসমূহ, স্নায়ুযুদ্ধ ও পরবর্তী ঘটনা" },
+    ]},
+    { d:"2026-11-25", tasks:[
+      { s:"কম্পিউটার ও তথ্যপ্রযুক্তি", k:"study", t:"কম্পিউটারের ইতিহাস, প্রকারভেদ ও পারঙ্গমতা | কম্পিউটার পেরিফেরালস", x:"ইনপুট ডিভাইস: কি-বোর্ড, মাউস, ওসিআর, স্ক্যানার; প্রকারভেদ ও পারঙ্গমতা; কম্পিউটারের ইতিহাস ও প্রজন্ম; আউটপুট ডিভাইস: মনিটর, প্রিন্টার" },
+      { s:"গাণিতিক যুক্তি", k:"study", t:"বাস্তব সংখ্যা", x:"জোড়-বিজোড়, মৌলিক সংখ্যা, মৌলিকতা পরীক্ষা, সহমৌলিক, মূলদ সংখ্যা, অমূলদ সংখ্যা, আবৃত্ত দশমিক" },
+    ]},
+    { d:"2026-11-26", tasks:[
+      { s:"নৈতিকতা, মূল্যবোধ ও সুশাসন", k:"study", t:"নৈতিকতার ধারণা | মূল্যবোধ | সততা ও জবাবদিহি", x:"তথ্যের দায়িত্বশীল ব্যবহার, সমতা ও ন্যায্যতা, জবাবদিহি, সততা, নীতিবিদ্যা ও দার্শনিকগণ" },
+      { s:"বাংলাদেশ বিষয়াবলি", k:"study", t:"প্রাচীন ও মধ্যযুগের ইতিহাস", x:"বাংলার প্রাচীন জনপদ, মৌর্য-গুপ্ত-পাল-সেন আমল, মধ্যযুগে বাংলা: সুলতানি ও মুঘল আমল, ইস্ট ইন্ডিয়া কোম্পানি ও ইংরেজ শাসন" },
+    ]},
+    { d:"2026-11-27", tasks:[
+      { s:"", k:"exam", t:"সাপ্তাহিক পরীক্ষা — ফেজ ১ · ভিত্তি ও হাই-প্রায়োরিটি", x:"" },
+    ]},
+    { d:"2026-11-28", tasks:[
+      { s:"বাংলা ভাষা ও সাহিত্য", k:"study", t:"সন্ধি | সমাস", x:"ব্যঞ্জনসন্ধি, বিসর্গ সন্ধি, দ্বন্দ্ব ও দ্বিগু সমাস, কর্মধারয় সমাস, তৎপুরুষ সমাস" },
+      { s:"English Language & Literature", k:"study", t:"Parts of speech", x:"Adverb, Conjunction & Linkers, Interjection, Gender" },
+    ]},
+    { d:"2026-11-29", tasks:[
+      { s:"বাংলাদেশ বিষয়াবলি", k:"study", t:"প্রাচীন ও মধ্যযুগের ইতিহাস | ভাষা আন্দোলন", x:"ইংরেজ আমলে বাংলার আন্দোলন ও প্রতিরোধ, বঙ্গভঙ্গ ও দেশভাগ (১৯০৫–১৯৪৭), ভাষা আন্দোলন ১৯৫২, যুক্তফ্রন্ট ও ৬ দফা" },
+      { s:"গাণিতিক যুক্তি", k:"study", t:"বাস্তব সংখ্যা", x:"অমূলদ রাশি, সংখ্যার শ্রেণি, ক্রমিক পূর্ণসংখ্যা, অঙ্কবিন্যাস, মৌলিক উৎপাদক, যৌগিক সংখ্যা" },
+    ]},
+  ],
+};
+
+const PB = {
+  title: "JobHub — প্রকাশিত স্টাডি রুটিন",
+  course: "পেট্রোবাংলা AE (EEE) · ৩০ দিনের ইনটেনসিভ (২৪ নভেম্বর → ২৩ ডিসেম্বর ২০২৬)",
+  days: [
+    { d:"2026-11-24", tasks:[
+      { s:"ইলেকট্রিক্যাল সার্কিট তত্ত্ব", k:"study", t:"ডিসি সার্কিট মৌলিক | নেটওয়ার্ক উপপাদ্য", x:"ও'মের সূত্র ও রোধের সংযোগ, KVL ও KCL, সোর্স ট্রান্সফরমেশন, থেভেনিন ও নর্টন উপপাদ্য" },
+      { s:"বাংলাদেশ বিষয়াবলি", k:"study", t:"ইতিহাস ও মুক্তিযুদ্ধ", x:"ভাষা আন্দোলন ও মুক্তিযুদ্ধ" },
+      { s:"গণিত", k:"study", t:"পাটিগণিত", x:"শতকরা, লাভ-ক্ষতি ও সুদ" },
+      { s:"বাংলা", k:"study", t:"বাংলা ব্যাকরণ", x:"ধ্বনি ও শব্দ" },
+      { s:"ইংরেজি", k:"study", t:"ইংরেজি গ্রামার", x:"Parts of Speech ও Agreement" },
+    ]},
+    { d:"2026-11-25", tasks:[
+      { s:"ইলেকট্রিক্যাল সার্কিট তত্ত্ব", k:"study", t:"নেটওয়ার্ক উপপাদ্য | সার্কিট ট্রানজিয়েন্ট", x:"সুপারপজিশন উপপাদ্য, সর্বোচ্চ পাওয়ার ট্রান্সফার, RL ও RC ট্রানজিয়েন্ট, RLC ট্রানজিয়েন্ট" },
+      { s:"আন্তর্জাতিক বিষয়াবলি", k:"study", t:"আন্তর্জাতিক সংস্থা", x:"জাতিসংঘ ও সংস্থাসমূহ" },
+      { s:"গণিত", k:"study", t:"গণিত অনুশীলন", x:"" },
+      { s:"বাংলা", k:"study", t:"বাংলা অনুশীলন (লিখিত অনুশীলনসহ)", x:"" },
+      { s:"ইংরেজি", k:"study", t:"ইংরেজি অনুশীলন (লিখিত অনুশীলনসহ)", x:"" },
+    ]},
+    { d:"2026-11-26", tasks:[
+      { s:"এসি সার্কিট বিশ্লেষণ", k:"study", t:"সাইনুসয়েডাল মৌলিক ও ফেজর | এসি পাওয়ার", x:"RMS ও গড় মান, ফেজর ও জটিল ইম্পিড্যান্স; অ্যাকটিভ, রিঅ্যাকটিভ ও আপাত পাওয়ার" },
+      { s:"সাধারণ বিজ্ঞান", k:"study", t:"ভৌত বিজ্ঞান", x:"বল ও শক্তি, তড়িৎ ও চুম্বকত্ব" },
+      { s:"গণিত", k:"study", t:"গণিত অনুশীলন", x:"" },
+      { s:"ইংরেজি", k:"study", t:"ইংরেজি অনুশীলন (লিখিত অনুশীলনসহ)", x:"" },
+      { s:"বাংলা", k:"study", t:"বাংলা অনুশীলন (লিখিত অনুশীলনসহ)", x:"" },
+    ]},
+  ],
+};
+
+const KIND_LABEL = { study:"পড়া", practice:"প্র্যাকটিস", revision:"রিভিশন", exam:"পরীক্ষা" };
+const bnDate = (d) => new Intl.DateTimeFormat("bn-BD",{day:"numeric",month:"numeric",year:"2-digit"}).format(new Date(d+"T12:00:00"));
+const bnDay  = (d) => new Intl.DateTimeFormat("bn-BD",{weekday:"long"}).format(new Date(d+"T12:00:00"));
+const bnNum  = (n) => new Intl.NumberFormat("bn-BD").format(n);
+
+function render(el, data) {
+  const kinds = [...new Set(data.days.flatMap(day => day.tasks.map(t => t.k)))];
+  let html = `
+    <div class="banner"><h1>${data.title}</h1><p>${data.course}</p></div>
+    <div class="meta">
+      <div class="legend">${kinds.map(k=>`<span class="pill ${k}">${KIND_LABEL[k]??k}</span>`).join("")}</div>
+      <small>ডেমো — লাইভ ডাটাবেস থেকে</small>
+    </div>
+    <table><thead><tr><th style="width:15%">তারিখ</th><th style="width:12%">দিন / পরীক্ষা</th><th>টপিকস</th></tr></thead><tbody>`;
+  data.days.forEach((day, i) => {
+    const hasExam = day.tasks.some(t => t.k === "exam");
+    html += `<tr>
+      <td class="date"><b>${bnDate(day.d)}</b><span>${bnDay(day.d)}</span></td>
+      <td class="dayno">D-${bnNum(i+1)}${hasExam ? '<br><span class="examtag">পরীক্ষা</span>' : ""}</td>
+      <td><div class="chips">${day.tasks.map(t =>
+        `<span class="chip ${t.k}">${t.s ? `<b>${t.s}: </b>` : ""}${t.t}${t.x ? ` <i>(${t.x})</i>` : ""}</span>`
+      ).join("")}</div></td>
+    </tr>`;
+  });
+  html += `</tbody></table>`;
+  el.innerHTML = html;
+}
+render(document.getElementById("bcs"), BCS);
+render(document.getElementById("pb"), PB);
+</script>
+</body>
+</html>

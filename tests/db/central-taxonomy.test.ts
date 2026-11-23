@@ -139,16 +139,33 @@ describe("canonical topic library", () => {
     expect(n).toBe(91);
   });
 
-  it("does NOT auto-link any course topic to the library", async () => {
+  it("links course topics to the library ONLY through the explicit curated whitelist", async () => {
+    // 20261201 must not auto-link by name similarity; the only lib-links
+    // allowed are the curated 1:1 matches of 20261202000001.
     await actAsService(db);
-    const n = await scalar<number>(
+    const curated = new Set([
+      "History, Types & Capability of Computers",
+      "Operating Systems & Embedded Computers",
+      "Computer Virus & Cyber Security",
+      "Internet, WWW & E-mail",
+      "Computer Networks",
+      "পদ ও পদপ্রকরণ",
+      "বাক্য",
+      "সমার্থক ও বিপরীত শব্দ",
+      "কবি ও সাহিত্যিক",
+      "Computer Basics",
+      "Bangla Literature",
+    ]);
+    const linked = await rows<{ title_en: string }>(
       db,
-      `select count(*)::int
+      `select t.title_en
          from public.topics t
          join public.canonical_topics ct on ct.id = t.canonical_id
         where ct.slug like 'lib-%'`,
     );
-    expect(n).toBe(0); // linking is an explicit admin decision
+    for (const row of linked) {
+      expect(curated.has(row.title_en)).toBe(true);
+    }
   });
 
   it("completes the hierarchy: canonical_subtopics insert + course subtopic link", async () => {
