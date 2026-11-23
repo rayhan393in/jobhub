@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   BookCopy, CalendarClock, CalendarDays, ChartNoAxesColumn, ChevronLeft, ClipboardCheck,
-  Columns3, FileCheck2, FileUp, GitMerge, GraduationCap, Home, LayoutDashboard, Lock, Menu, Network, PenLine, Radio,
+  Columns3, FileCheck2, FileUp, GitMerge, GraduationCap, Home, Landmark, LayoutDashboard, Lock, Menu, Network, PenLine, Radio,
   ScrollText, Settings, ShieldCheck, Sparkles, Upload, UserCog, Users, X,
 } from "lucide-react";
 import { Logo } from "@/components/ui/logo";
@@ -35,6 +35,8 @@ export const ADMIN_NAV: AdminNavItem[] = [
   { href: "/admin/bulk", label: "বাল্ক অ্যাকশন", icon: Columns3, permission: "question.review", hint: "ফিল্টার-স্কোপড" },
   { href: "/admin/courses", label: "কোর্স ও ট্যাক্সোনমি", icon: GraduationCap, permission: "taxonomy.manage", hint: "কোর্স · বিষয় · টপিক" },
   { href: "/admin/taxonomy", label: "টপিক ডাটাবেস", icon: Network, permission: "taxonomy.manage", hint: "অনুমোদন · বাল্ক · কমন লাইব্রেরি" },
+  { href: "/admin/canonical", label: "কেন্দ্রীয় বিষয়", icon: BookCopy, permission: "taxonomy.manage", hint: "একবার সংরক্ষণ · বহু কোর্সে" },
+  { href: "/admin/exam-registry", label: "পরীক্ষা রেজিস্ট্রি", icon: Landmark, permission: "question.review", hint: "নাম · সাল · ধাপ · পদ" },
   { href: "/admin/routines", label: "রুটিন ম্যানেজার", icon: CalendarDays, permission: "routine.manage", hint: "রুটিন তৈরি" },
   { href: "/admin/study-routine", label: "৬০-দিন স্টাডি হাব", icon: CalendarDays, permission: "routine.manage", hint: "কভারেজ · ৭০:৩০ প্রস্তুতি" },
   { href: "/admin/frequency", label: "প্রশ্ন-ফ্রিকোয়েন্সি", icon: ChartNoAxesColumn, permission: "question.import", hint: "বিগত বছরের বিশ্লেষণ" },
