@@ -107,3 +107,17 @@ Approved + verified প্রশ্ন (BCS কোর্স): মোট **৪৩
 - টেস্ট: **258/258** (নতুন ২১টি — 69-PYQ block, exact 70:30+ডুপ্লিকেট-শূন্য, মেটাডাটা-হীন PYQ বর্জন, রিভিশন কিউ, RLS, কনফিগ CHECK, largest-remainder স্প্লিট, ৮-দফা চেকলিস্ট); tsc ও production build সবুজ; anon fn-allowlist অপরিবর্তিত (২টি)।
 
 **পরবর্তী ফেজ:** Admin `/admin/study-routine` হাব (Coverage Mapping + Matrix, PYQ availability ড্যাশবোর্ড, মেটাডাটা backfill ফর্ম), student ড্যাশবোর্ড সেকশন, রেজাল্টে PYQ-vs-practice ব্রেকডাউন, PDF এক্সপোর্ট, বাকি টেস্ট-কেস ও ১১-দফা রিপোর্ট।
+
+## ৯. Phase 3–4 বাস্তবায়ন স্ট্যাটাস — কভারেজ ইঞ্জিন ও স্টাডি-রুটিন হাব (সম্পন্ন, লাইভ)
+
+- Migration `20261129000000_study_plan_assignments.sql` — **লাইভ প্রয়োগ + ledger-নিবন্ধিত (md5 27b1dd74cc1d19505cc1c6fd99c383fa, ledger 20/20)**:
+  - `study_plan_assignments` — প্রতি সাবটপিকের (বা সাবটপিকবিহীন টপিকের) **একটিমাত্র** first-study সারি; `(course, topic, subtopic) nulls not distinct` unique index-এ ডুপ্লিকেট কাঠামোগতভাবে অসম্ভব — রিভিশন কখনোই first-study গণনায় ঢুকতে পারে না। RLS enabled+forced; students read-only; লেখা শুধু `routine.manage`।
+  - `jh_coverage_summary` / `jh_coverage_unassigned` / `jh_coverage_integrity` — কভারেজ ম্যাট্রিক্স, অনুপস্থিত ইউনিটের **সঠিক তালিকা** (publish-block), সিলেবাস-রেফারেন্স যাচাই।
+  - `jh_generate_study_plan` — প্রতিটি অবরাদ্দ ইউনিটকে নিজ বিষয়ের **প্রকাশিত অধ্যয়ন-দিনে** (study/practice; revision/exam/rest/draft বাদ) সিলেবাস-ক্রমে সমবণ্টন; বিদ্যমান বরাদ্দ কখনো overwrite হয় না (re-run → inserted 0); slot-হীন বিষয় অনুমান না করে রিপোর্ট হয়।
+  - `jh_sync_routine_scope` — বরাদ্দ রুটিন-সারির `topic_ids`/`subtopic_ids`-এ মিরর হয়, তাই বিদ্যমান দৈনিক-পরীক্ষার taught-scope ফিল্টার অপরিবর্তিত কাজ করে (map_in_place সিদ্ধান্ত অনুযায়ী — ১৫৫টি রুটিন-সারির ID/প্রগ্রেস অক্ষত)।
+- **লাইভ জেনারেশন ফলাফল (যাচাইকৃত):** 10 বিষয় · 137 টপিক · 366 সাবটপিক · **382 ইউনিট (366 সাবটপিক + 16 সাবটপিকবিহীন টপিক) — 382/382 বরাদ্দ, 0 অবরাদ্দ, 0 integrity সমস্যা, 0 ভুল-স্থাপন, 0 unsynced রুটিন**; first-study বিস্তার 2026-11-23 → 2027-01-06 (39টি অধ্যয়ন-দিন; 78টি subject-day slot থেকে)।
+- নতুন রুট: `/admin/study-routine` হাব (কভারেজ ম্যাট্রিক্স + প্রকাশ-চেকলিস্ট, দিনভিত্তিক ম্যাপিং-ক্যালেন্ডার ও এডিটর, বিষয়ভিত্তিক PYQ ৭০:৩০ প্রস্তুতি, PYQ মেটাডেটা ব্যাকফিল ফর্ম); API: `/api/admin/study-plan` (generate/move/edit/delete — তারিখ বদলালে নতুন দিনটি বাস্তব প্রকাশিত অধ্যয়ন-দিন হতেই হবে), `/api/admin/pyq-metadata` (উৎস-রেফারেন্স ছাড়া সংরক্ষণ প্রত্যাখ্যাত; practice→PYQ রূপান্তর নিষিদ্ধ)। সব mutation audit_logs-এ।
+- টেস্ট: **271/271** (নতুন ১৩টি — ইউনিট-গণনা taxonomy থেকে, রুটিনহীন অবস্থায় P0001, student-নিষেধ, সম্পূর্ণ বণ্টন+ভুল-দিন-শূন্য, idempotent re-run, ডুপ্লিকেট-অসম্ভবতা, exact-missing-list, integrity-flag, routine-sync, RLS)। tsc/build/lint সবুজ।
+- সংশোধন: লাইভ ledger টেবিলটি `public.schema_migrations` (filename/checksum/applied_at) — `supabase_migrations.schema_migrations` নয় (সেটি CLI-র নিজস্ব, পুরোনো)।
+
+**পরবর্তী ফেজ:** student ড্যাশবোর্ড (আজকের first-study ইউনিট + রিভিশন + কভারেজ-ভিত্তিক প্রগ্রেস), রেজাল্টে PYQ-vs-practice ব্রেকডাউন, রিভিশন ক্যালেন্ডার UI, weekly grand exam blueprint UI, PDF এক্সপোর্ট, ১১-দফা রিপোর্ট।
