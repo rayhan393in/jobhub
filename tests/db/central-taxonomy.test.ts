@@ -223,15 +223,18 @@ describe("exam registry", () => {
   });
 
   it("hides drafts from non-staff; students see published exams only", async () => {
+    // The written-exam module seeds published written-stage rows
+    // (20261203000000); exclude them so this test stays about drafts.
+    const scope = `slug not like '%-written-stage'`;
     await actAs(db, STUDENT);
-    let n = await scalar<number>(db, `select count(*)::int from public.exam_registry`);
+    let n = await scalar<number>(db, `select count(*)::int from public.exam_registry where ${scope}`);
     expect(n).toBe(0); // the row above is still draft
 
     await actAsService(db);
     await db.query(`update public.exam_registry set status = 'published', year_verified = true where id = $1`, [examId]);
 
     await actAs(db, STUDENT);
-    n = await scalar<number>(db, `select count(*)::int from public.exam_registry`);
+    n = await scalar<number>(db, `select count(*)::int from public.exam_registry where ${scope}`);
     expect(n).toBe(1);
 
     await actAs(db, STUDENT);
