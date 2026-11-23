@@ -21,6 +21,15 @@ export type FrequencyRow = {
   source_title: string;
 };
 
+export type VerifiedExamStat = {
+  exam_id: string;
+  exam_name: string;
+  exam_year: number | null;
+  exam_stage: string;
+  question_count: number;
+  subject_count: number;
+};
+
 export type RankedTopic = {
   topic_id: string | null;
   subject_id: string | null;
@@ -40,8 +49,31 @@ export default async function FrequencyPage() {
   let rows: FrequencyRow[] = [];
   let ranked: RankedTopic[] = [];
   let totalPapers = 0;
+  let verifiedExams: VerifiedExamStat[] = [];
 
   if (supabase) {
+    // Registry-backed analytics: ONLY published exams with a verified year and
+    // human-verified evidence ever appear here (enforced by the view itself).
+    const { data: analyticsRows } = await supabase
+      .from("v_exam_question_analytics")
+      .select("exam_id, exam_name, exam_year, exam_stage, subject_id, question_count");
+    const perExam = new Map<string, VerifiedExamStat & { subjects: Set<string> }>();
+    for (const row of (analyticsRows ?? []) as Array<{
+      exam_id: string; exam_name: string; exam_year: number | null; exam_stage: string;
+      subject_id: string | null; question_count: number;
+    }>) {
+      const entry = perExam.get(row.exam_id) ?? {
+        exam_id: row.exam_id, exam_name: row.exam_name, exam_year: row.exam_year,
+        exam_stage: row.exam_stage, question_count: 0, subject_count: 0, subjects: new Set<string>(),
+      };
+      entry.question_count += Number(row.question_count) || 0;
+      if (row.subject_id) entry.subjects.add(row.subject_id);
+      perExam.set(row.exam_id, entry);
+    }
+    verifiedExams = [...perExam.values()]
+      .map(({ subjects, ...rest }) => ({ ...rest, subject_count: subjects.size }))
+      .sort((a, b) => (b.exam_year ?? 0) - (a.exam_year ?? 0));
+
     const { data } = await supabase
       .from("question_frequency")
       .select("id, subject_id, topic_id, exam_name, exam_year, question_count, source_title")
@@ -90,6 +122,39 @@ export default async function FrequencyPage() {
           </div>
         ))}
       </div>
+
+      <section className="mt-4" aria-labelledby="verified-exams-heading">
+        <h2 id="verified-exams-heading" className="mb-2 text-[0.875rem] font-bold text-[var(--text)]">
+          রেজিস্ট্রি-ভিত্তিক পরীক্ষা-বিশ্লেষণ (শুধু যাচাইকৃত এভিডেন্স)
+        </h2>
+        {verifiedExams.length === 0 ? (
+          <div className="jh-card px-4 py-5 text-center">
+            <p className="text-[0.8125rem] font-semibold text-[var(--text)]">যথেষ্ট যাচাইকৃত ঐতিহাসিক ডেটা নেই</p>
+            <p className="mt-1 text-[0.6875rem] leading-relaxed text-[var(--text-muted)]">
+              এই বিশ্লেষণ কেবল <strong>প্রকাশিত + যাচাইকৃত-সাল</strong> পরীক্ষার সাথে যুক্ত, মানুষ-যাচাইকৃত এভিডেন্স থেকে গণনা হয়।
+              ডেটা না থাকা মানে “শূন্য প্রশ্ন” নয় — পরীক্ষা রেজিস্ট্রিতে পরীক্ষা যোগ করে এভিডেন্স যাচাই করলে এখানে দেখা যাবে।
+            </p>
+          </div>
+        ) : (
+          <div className="jh-card overflow-hidden">
+            <ul className="divide-y divide-[var(--border)]">
+              {verifiedExams.slice(0, 20).map((exam) => (
+                <li key={exam.exam_id} className="flex items-center gap-2.5 px-3 py-2">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[0.75rem] font-medium text-[var(--text)]">{exam.exam_name}</p>
+                    <p className="text-[0.5625rem] text-[var(--text-subtle)]">
+                      {exam.exam_year ?? "—"} · {exam.exam_stage} · {formatNumber(exam.subject_count)} বিষয়
+                    </p>
+                  </div>
+                  <span className="shrink-0 text-[0.6875rem] font-semibold tabular-nums text-[var(--text)]">
+                    {formatNumber(exam.question_count)} যাচাইকৃত প্রশ্ন
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </section>
 
       {ranked.length > 0 ? (
         <section className="mt-4" aria-labelledby="priority-heading">
