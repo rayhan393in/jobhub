@@ -123,6 +123,8 @@ export type QuestionListRow = {
   source_type: string;
   is_verified: boolean;
   year: number | null;
+  exam_name: string | null;
+  question_type: string;
   created_at: string;
   course_id: string;
   subject_id: string | null;
@@ -141,7 +143,13 @@ export type QuestionFilters = {
   sourceType?: string;
   verified?: "yes" | "no";
   search?: string;
-  /** newest (default) | oldest | difficulty */
+  /** free-text filter on the original examination name (e.g. a BCS exam) */
+  examName?: string;
+  /** original examination year */
+  examYear?: string;
+  /** mcq | written */
+  questionType?: string;
+  /** newest (default) | oldest | difficulty | year */
   sort?: string;
   page?: number;
   pageSize?: number;
@@ -158,12 +166,14 @@ export async function listQuestions(filters: QuestionFilters): Promise<{ rows: Q
   let query = supabase
     .from("questions")
     .select(
-      "id, statement, statement_bn, option_a, option_b, option_c, option_d, correct_option, explanation, source, status, difficulty, source_type, is_verified, year, created_at, course_id, subject_id, topic_id, course:courses(title_bn, slug), subject:subjects(title_bn), topic:topics(title_bn)",
+      "id, statement, statement_bn, option_a, option_b, option_c, option_d, correct_option, explanation, source, status, difficulty, source_type, is_verified, year, exam_name, question_type, created_at, course_id, subject_id, topic_id, course:courses(title_bn, slug), subject:subjects(title_bn), topic:topics(title_bn)",
       { count: "exact" },
     );
 
   if (filters.sort === "oldest") {
     query = query.order("created_at", { ascending: true });
+  } else if (filters.sort === "year") {
+    query = query.order("year", { ascending: false, nullsFirst: false }).order("created_at", { ascending: false });
   } else if (filters.sort === "difficulty") {
     // easy < hard < medium alphabetically is useless, so order by mapped weight via status column trick is
     // not possible in PostgREST; order by difficulty text then recency keeps groups together predictably.
@@ -179,6 +189,17 @@ export async function listQuestions(filters: QuestionFilters): Promise<{ rows: Q
   if (filters.topicId) query = query.eq("topic_id", filters.topicId);
   if (filters.difficulty) query = query.eq("difficulty", filters.difficulty);
   if (filters.sourceType) query = query.eq("source_type", filters.sourceType);
+  if (filters.examName?.trim()) {
+    const needle = filters.examName.trim().replace(/[%,()]/g, " ");
+    query = query.ilike("exam_name", `%${needle}%`);
+  }
+  if (filters.examYear?.trim()) {
+    const year = Number.parseInt(filters.examYear.trim(), 10);
+    if (Number.isInteger(year) && year >= 1900 && year <= 2100) query = query.eq("year", year);
+  }
+  if (filters.questionType === "mcq" || filters.questionType === "written") {
+    query = query.eq("question_type", filters.questionType);
+  }
   if (filters.verified) query = query.eq("is_verified", filters.verified === "yes");
   if (filters.search?.trim()) {
     const needle = filters.search.trim().replace(/[%,()]/g, " ");

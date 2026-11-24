@@ -39,6 +39,9 @@ export const compositionItemSchema = z.object({
   subject_id: z.string().uuid().nullable().optional(),
   topic_id: z.string().uuid().nullable().optional(),
   subtopic_id: z.string().uuid().nullable().optional(),
+  /** Previous-year scope: pick from a specific examination (e.g. a BCS exam). */
+  exam_name: z.string().trim().min(1).max(160).nullable().optional(),
+  exam_year: z.number().int().min(1971).max(2100).nullable().optional(),
   count: z.number().int().min(1).max(200),
   label: z.string().max(160).optional(),
 });
