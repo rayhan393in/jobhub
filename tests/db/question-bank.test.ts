@@ -122,6 +122,10 @@ beforeAll(async () => {
   await addMcq("AI-সহায়তায় তৈরি প্রশ্ন — কিন্তু যাচাইকৃত, পূর্ববর্তী নয়", FP("ai-1"), {
     sourceType: "ai_assisted", status: "approved", verified: true, examName: null, year: null,
   });
+  await addMcq("যাচাইকৃত কিন্তু অচিহ্নিত পূর্ববর্তী প্রশ্ন — মূল পরীক্ষা-বছর নেই", FP("bcs-unlabeled-1"), {
+    sourceType: "previous", status: "approved", verified: true, examName: null, year: null,
+    subjectId: subjectB, topicId: topicB,
+  });
 
   // Students cannot read `questions` directly (RLS) — capture fixture ids now,
   // as the service role, for the practice tests below.
@@ -138,9 +142,9 @@ describe("collection counts", () => {
     }>;
     const bcs = rowsOut.find((r) => r.slug === "bcs");
     expect(bcs).toBeDefined();
-    // 3 PYQ + 1 practice + 1 AI = 5 approved+verified; only 3 are previous.
-    expect(bcs!.total_verified).toBe(5);
-    expect(bcs!.previous_verified).toBe(3);
+    // 4 PYQ + 1 practice + 1 AI + 1 unlabeled PYQ = 6 approved+verified; only 4 are previous.
+    expect(bcs!.total_verified).toBe(6);
+    expect(bcs!.previous_verified).toBe(4);
   });
 });
 
@@ -151,11 +155,13 @@ describe("exam-wise listing", () => {
     const exams = JSON.parse(raw) as Array<{ exam_name: string; year: number | null; question_count: number; subject_count: number }>;
     const bcs42 = exams.find((e) => e.exam_name === "৪২তম BCS (প্রিলিমিনারি)");
     const bcs43 = exams.find((e) => e.exam_name === "৪৩তম BCS (প্রিলিমিনারি)");
+    const bucket = exams.find((e) => e.exam_name === null);
     expect(bcs42?.question_count).toBe(2);
     expect(bcs42?.subject_count).toBe(2);
     expect(bcs43?.question_count).toBe(1);
-    // no other exam bucket may appear (pollution fixtures excluded)
-    expect(exams).toHaveLength(2);
+    // the unlabeled bucket surfaces the 254-style gap honestly instead of hiding it
+    expect(bucket?.question_count).toBe(1);
+    expect(exams).toHaveLength(3);
   });
 });
 
@@ -164,8 +170,8 @@ describe("PYQ browse list", () => {
     await actAs(db, STUDENT);
     const raw = await scalar<string>(db, `select public.jh_qb_pyq_list('bcs', null, null, null, null, null, null, null, null, 'year', 1, 10)::text`);
     const data = JSON.parse(raw) as { total: number; rows: Array<Record<string, unknown>> };
-    expect(data.total).toBe(3);
-    expect(data.rows).toHaveLength(3);
+    expect(data.total).toBe(4);
+    expect(data.rows).toHaveLength(4);
     for (const row of data.rows) {
       expect(row).not.toHaveProperty("correct_option");
       expect(row).not.toHaveProperty("explanation");
@@ -187,8 +193,8 @@ describe("PYQ browse list", () => {
       [subjectB],
     );
     const bySubject = JSON.parse(rawSubject) as { total: number; rows: Array<{ subject_id: string }> };
-    expect(bySubject.total).toBe(1);
-    expect(bySubject.rows[0].subject_id).toBe(subjectB);
+    expect(bySubject.total).toBe(2);
+    for (const row of bySubject.rows) expect(row.subject_id).toBe(subjectB);
   });
 
   it("search is wildcard-escaped and finds the matching statement only", async () => {
@@ -206,10 +212,10 @@ describe("PYQ browse list", () => {
     const raw = await scalar<string>(db, `select public.jh_qb_pyq_list('bcs', null, null, null, null, null, null, null, null, 'year', 1, 2)::text`);
     const page1 = JSON.parse(raw) as { total: number; total_pages: number; rows: unknown[] };
     expect(page1.rows).toHaveLength(2);
-    expect(page1.total).toBe(3);
+    expect(page1.total).toBe(4);
     expect(page1.total_pages).toBe(2);
     const raw2 = await scalar<string>(db, `select public.jh_qb_pyq_list('bcs', null, null, null, null, null, null, null, null, 'year', 2, 2)::text`);
-    expect(JSON.parse(raw2).rows).toHaveLength(1);
+    expect(JSON.parse(raw2).rows).toHaveLength(2);
   });
 });
 

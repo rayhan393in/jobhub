@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import {
   ArrowLeft, ArrowRight, CalendarClock, ChevronLeft, ChevronRight, Filter, GraduationCap, Layers,
-  Search, ShieldCheck, BookOpenText, X,
+  Search, ShieldCheck, BookOpenText, CircleHelp, X,
 } from "lucide-react";
 import { PageHeader } from "@/components/dashboard/dashboard-shell";
 import { Badge } from "@/components/ui/badge";
@@ -82,6 +82,8 @@ export default async function BcsPreviousYearPage({
   const selectedExam = exams.find(
     (exam) => examName !== null && exam.exam_name.toLowerCase() === examName.toLowerCase() && (examYear === null || exam.year === examYear),
   );
+  const labeledExams = exams.filter((exam) => exam.exam_name);
+  const unlabeledBucket = exams.find((exam) => !exam.exam_name);
   const totalPyq = exams.reduce((acc, exam) => acc + exam.question_count, 0);
   const latestYear = exams.reduce<number | null>((acc, exam) => (exam.year !== null && (acc === null || exam.year > acc) ? exam.year : acc), null);
 
@@ -125,7 +127,7 @@ export default async function BcsPreviousYearPage({
       {/* ------- stats strip (real counts) ------- */}
       <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-3">
         <StatCell icon={<BookOpenText className="size-4" />} label="মোট যাচাইকৃত PYQ" value={formatNumber(totalPyq)} />
-        <StatCell icon={<CalendarClock className="size-4" />} label="পরীক্ষা (বছরভিত্তিক)" value={formatNumber(exams.length)} />
+        <StatCell icon={<CalendarClock className="size-4" />} label="প্রকাশিত পরীক্ষা" value={formatNumber(labeledExams.length)} />
         <StatCell icon={<GraduationCap className="size-4" />} label="সর্বশেষ বছর" value={latestYear ? formatNumber(latestYear) : "—"} />
       </div>
 
@@ -152,10 +154,10 @@ export default async function BcsPreviousYearPage({
             />
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {exams.map((exam) => (
+              {labeledExams.map((exam) => (
                 <Link
                   key={`${exam.exam_name}-${exam.year ?? "na"}`}
-                  href={`/question-bank/bcs?exam=${encodeURIComponent(exam.exam_name)}${exam.year !== null ? `&year=${exam.year}` : ""}`}
+                  href={`/question-bank/bcs?exam=${encodeURIComponent(exam.exam_name ?? "")}${exam.year !== null ? `&year=${exam.year}` : ""}`}
                   className="jh-card jh-card-hover group flex flex-col p-5 focus-visible:outline-2 focus-visible:outline-[var(--brand)]"
                 >
                   <div className="flex items-center justify-between gap-2">
@@ -176,6 +178,32 @@ export default async function BcsPreviousYearPage({
                   </span>
                 </Link>
               ))}
+              {unlabeledBucket ? (
+                <Link
+                  href="/question-bank/bcs?all=1"
+                  className="jh-card jh-card-hover group flex flex-col border-dashed p-5 focus-visible:outline-2 focus-visible:outline-[var(--brand)]"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="flex size-10 items-center justify-center rounded-xl bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-300">
+                      <CircleHelp className="size-5" aria-hidden />
+                    </span>
+                    <Badge tone="warning">অচিহ্নিত</Badge>
+                  </div>
+                  <h3 className="mt-3 font-bangla text-[0.9375rem] font-bold leading-snug text-[var(--text)] group-hover:text-[var(--brand)]">
+                    অচিহ্নিত পূর্ববর্তী বছরের প্রশ্ন
+                  </h3>
+                  <p className="mt-1 text-[0.6875rem] leading-relaxed text-[var(--text-subtle)]">
+                    যাচাইকৃত, কিন্তু মূল পরীক্ষা ও বছর নথিভুক্ত নেই — প্রশাসকের কিউরেশনের অপেক্ষমান।
+                  </p>
+                  <p className="mt-1 text-[0.6875rem] text-[var(--text-subtle)]">
+                    {formatNumber(unlabeledBucket.question_count)}টি যাচাইকৃত প্রশ্ন
+                  </p>
+                  <span className="mt-3 inline-flex items-center gap-1.5 text-[0.75rem] font-semibold text-[var(--brand)]">
+                    প্রশ্ন দেখুন
+                    <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" aria-hidden />
+                  </span>
+                </Link>
+              ) : null}
             </div>
           )}
 

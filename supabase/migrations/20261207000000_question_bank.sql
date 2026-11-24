@@ -51,8 +51,9 @@ as $$
     'year', t.year,
     'question_count', t.question_count,
     'subject_count', t.subject_count
-  ) order by t.year desc nulls last, t.exam_name), '[]'::jsonb)
+  ) order by t.year desc nulls last, t.exam_name nulls last), '[]'::jsonb)
   from (
+    -- One bucket per labeled (exam_name, year) pair …
     select q.exam_name, q.year,
            count(*)::int as question_count,
            count(distinct q.subject_id)::int as subject_count
@@ -66,6 +67,21 @@ as $$
       and q.exam_name is not null
       and length(btrim(q.exam_name)) > 0
     group by q.exam_name, q.year
+    union all
+    -- … plus a single honest bucket for verified PYQs whose exam_name/year was
+    -- never recorded (never invented — the UI labels it as unlabeled).
+    select null::text as exam_name, null::smallint as year,
+           count(*)::int as question_count,
+           count(distinct q.subject_id)::int as subject_count
+    from public.questions q
+    join public.courses c on c.id = q.course_id
+    where c.slug = p_course_slug
+      and q.source_type = 'previous'
+      and q.status = 'approved'
+      and q.is_verified
+      and q.archived_at is null
+      and (q.exam_name is null or length(btrim(q.exam_name)) = 0)
+    having count(*) > 0
   ) t;
 $$;
 
