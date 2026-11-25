@@ -95,7 +95,7 @@ export function WeakTopicsCard({
 }) {
   return (
     <section className="jh-card p-5">
-      <h2 className="flex items-center gap-2 text-[0.875rem] font-semibold text-[var(--text)]">
+      <h2 className="flex items-center gap-2 text-[0.9375rem] font-bold text-[var(--text)]">
         <AlertCircle className="size-4 text-[var(--brand)]" aria-hidden />
         রিভিশন প্রস্তাব
       </h2>
@@ -139,7 +139,7 @@ export function WeakTopicsCard({
 export function UpcomingExamsCard({ exams }: { exams: ScheduleWithCourse[] }) {
   return (
     <section className="jh-card p-5">
-      <h2 className="flex items-center gap-2 text-[0.875rem] font-semibold text-[var(--text)]">
+      <h2 className="flex items-center gap-2 text-[0.9375rem] font-bold text-[var(--text)]">
         <Radio className="size-4 text-[var(--brand)]" aria-hidden />
         আসন্ন পরীক্ষা
       </h2>

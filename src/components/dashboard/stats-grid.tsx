@@ -90,15 +90,15 @@ export function StatsGrid({
         return (
           <div key={card.label} className={cn("rounded-2xl border bg-gradient-to-br p-3", card.tone)}>
             <div className="flex items-start justify-between gap-2">
-              <p className="text-[0.6875rem] font-semibold text-[var(--text-muted)]">{card.label}</p>
+              <p className="text-[0.75rem] font-semibold text-[var(--text-muted)]">{card.label}</p>
               <span className={cn("flex size-7 shrink-0 items-center justify-center rounded-lg text-white shadow-sm", card.iconBg)}>
                 <Icon className="size-3.5" aria-hidden />
               </span>
             </div>
-            <p className={cn("mt-1 text-[1.125rem] font-extrabold tabular-nums leading-tight", card.num)}>
+            <p className={cn("mt-1 text-[1.5rem] font-extrabold tabular-nums leading-tight xl:text-[1.75rem]", card.num)}>
               {card.value}
             </p>
-            <p className="mt-0.5 truncate text-[0.625rem] font-medium text-[var(--text-subtle)]">{card.hint}</p>
+            <p className="mt-0.5 truncate text-[0.6875rem] font-medium text-[var(--text-subtle)]">{card.hint}</p>
           </div>
         );
       })}

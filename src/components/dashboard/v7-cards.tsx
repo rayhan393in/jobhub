@@ -128,8 +128,10 @@ export function StudyCalendarCard({
 
   return (
     <section className="jh-card p-4" aria-label="স্টাডি ক্যালেন্ডার ও স্ট্রিক">
-      <h2 className="flex items-center gap-1.5 text-[0.75rem] font-bold text-[var(--text)]">
-        <CalendarDays className="size-3.5 text-[var(--brand)]" aria-hidden />
+      <h2 className="flex items-center gap-2 text-[0.9375rem] font-bold text-[var(--text)]">
+        <span className="flex size-7 items-center justify-center rounded-lg bg-emerald-100 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-300">
+          <CalendarDays className="size-4" aria-hidden />
+        </span>
         স্টাডি ক্যালেন্ডার ও স্ট্রিক
         <span className="font-medium text-[var(--text-subtle)]">— গত ১২ সপ্তাহের অনুশীলন</span>
       </h2>
@@ -144,7 +146,7 @@ export function StudyCalendarCard({
         ))}
       </div>
 
-      <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1.5 text-[0.6875rem] font-semibold text-[var(--text-muted)]">
+      <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1.5 text-[0.75rem] font-semibold text-[var(--text-muted)]">
         <span className="inline-flex items-center gap-1">
           <Flame className="size-3.5 text-orange-500" aria-hidden />
           {formatNumber(streak)} দিন বর্তমান স্ট্রিক
@@ -220,7 +222,7 @@ export function AiCoachCard({
       className="rounded-2xl border border-violet-200/70 bg-gradient-to-br from-violet-50 to-fuchsia-50/60 p-4 dark:border-violet-500/20 dark:from-violet-500/10 dark:to-fuchsia-500/5"
       aria-label="AI স্টাডি কোচ"
     >
-      <h2 className="flex items-center gap-1.5 text-[0.75rem] font-bold text-[var(--text)]">
+      <h2 className="flex items-center gap-1.5 text-[0.9375rem] font-bold text-[var(--text)]">
         <span className="flex size-6 items-center justify-center rounded-lg bg-violet-600 text-white">
           <Bot className="size-3.5" aria-hidden />
         </span>

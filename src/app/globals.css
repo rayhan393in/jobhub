@@ -116,7 +116,32 @@ body {
   font-family: var(--font-sans);
   font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   -webkit-font-smoothing: antialiased;
-  overflow-x: hidden;
+}
+
+/* Mobile viewport integrity: `clip` (unlike `hidden`) never creates a
+ * scrollable overflow region, so a single too-wide element can no longer
+ * widen the layout viewport and leave a blank strip on the right. Applied
+ * to BOTH html and body — iOS Safari propagates overflow differently. */
+html,
+body {
+  overflow-x: clip;
+  max-width: 100%;
+}
+
+/* Cards and dashboard sections may never force their grid/flex parents
+ * wider than the viewport (min-width:auto is the classic culprit). */
+.jh-card,
+main#main section,
+main#main > div {
+  min-width: 0;
+  max-width: 100%;
+}
+
+img,
+svg,
+video {
+  max-width: 100%;
+  height: auto;
 }
 
 :lang(bn),
