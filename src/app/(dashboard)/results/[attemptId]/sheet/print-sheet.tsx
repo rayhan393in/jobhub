@@ -310,12 +310,16 @@ export function PrintSheet({
               ) : (
                 <p className="mt-1 text-[0.5625rem] italic text-neutral-500">এই প্রশ্নের ব্যাখ্যা এখনো যোগ করা হয়নি।</p>
               )}
-              {item.examName || item.source || item.year || item.bookChapter ? (
+              {item.examName || item.year || item.bookChapter ? (
                 <p className="mt-0.5 text-[0.5625rem] text-neutral-500">
-                  উৎস: {item.examName || item.source || "—"}
-                  {item.year ? ` · ${formatNumber(item.year)}` : ""}
-                  {item.bookChapter ? ` · ${item.bookChapter}` : ""}
-                  {item.bookPage ? ` · পৃষ্ঠা ${formatNumber(item.bookPage)}` : ""}
+                  {[
+                    item.examName ? `পরীক্ষা: ${item.examName}` : null,
+                    item.year ? formatNumber(item.year) : null,
+                    item.bookChapter || null,
+                    item.bookPage ? `পৃষ্ঠা ${formatNumber(item.bookPage)}` : null,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
                 </p>
               ) : null}
             </div>

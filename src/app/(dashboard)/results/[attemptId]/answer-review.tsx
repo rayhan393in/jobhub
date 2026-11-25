@@ -152,12 +152,16 @@ export function AnswerReview({ items, flaggedIds }: { items: ReviewItem[]; flagg
                   </div>
                 ) : null}
 
-                {item.exam_name || item.source || item.year || item.book_chapter ? (
+                {item.exam_name || item.year || item.book_chapter ? (
                   <p className="mt-2 text-[0.625rem] text-[var(--text-subtle)]">
-                    উৎস: {item.exam_name || item.source}
-                    {item.year ? ` · ${formatNumber(item.year)}` : ""}
-                    {item.book_chapter ? ` · ${item.book_chapter}` : ""}
-                    {item.book_page ? ` · পৃষ্ঠা ${formatNumber(item.book_page)}` : ""}
+                    {[
+                      item.exam_name ? `পরীক্ষা: ${item.exam_name}` : null,
+                      item.year ? formatNumber(item.year) : null,
+                      item.book_chapter || null,
+                      item.book_page ? `পৃষ্ঠা ${formatNumber(item.book_page)}` : null,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
                   </p>
                 ) : null}
               </li>

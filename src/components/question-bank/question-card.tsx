@@ -63,7 +63,12 @@ export function QuestionCard({ question, number }: { question: PyqQuestion; numb
             {question.subject_title ? <span>বিষয়: <span className="font-semibold text-[var(--text-muted)]">{question.subject_title}</span></span> : null}
             {question.topic_title ? <span>টপিক: <span className="font-semibold text-[var(--text-muted)]">{question.topic_title}</span></span> : null}
             {question.subtopic_title ? <span>সাবটপিক: <span className="font-semibold text-[var(--text-muted)]">{question.subtopic_title}</span></span> : null}
-            {question.source_title ? <span>উৎস: {question.source_title}</span> : question.source ? <span>উৎস: {question.source}</span> : null}
+            {question.exam_name ? (
+              <span>
+                পরীক্ষা: <span className="font-semibold text-[var(--text-muted)]">{question.exam_name}</span>
+                {question.year ? ` (${question.year})` : ""}
+              </span>
+            ) : null}
           </div>
 
           <div className="mt-3 flex items-center justify-between gap-2 border-t border-[var(--border)] pt-3">

@@ -38,8 +38,7 @@ export type PyqQuestion = {
   exam_name: string | null;
   year: number | null;
   question_type: string;
-  source: string;
-  source_title: string | null;
+  /** Provenance is admin-only; the student payload carries exam attribution only. */
   has_explanation: boolean;
   classification: "pyq";
 };
