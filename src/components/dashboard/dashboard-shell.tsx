@@ -253,9 +253,40 @@ export function DashboardShell({
           </nav>
         ) : null}
 
-        <main id="main" className="min-w-0 flex-1 px-4 py-6 sm:px-5 lg:px-6 lg:py-7">
+        <main id="main" className="w-full min-w-0 max-w-full flex-1 px-4 pb-24 pt-5 sm:px-5 lg:px-6 lg:py-7">
           {children}
         </main>
+
+        {/* Mobile bottom navigation — app-like, never covers content (main has pb-24) */}
+        <nav
+          className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t border-[var(--border)] bg-[var(--surface)]/95 pb-[max(env(safe-area-inset-bottom),0.25rem)] pt-1.5 backdrop-blur lg:hidden"
+          aria-label="মোবাইল দ্রুত নেভিগেশন"
+        >
+          {([
+            { href: "/dashboard", label: "হোম", icon: Home },
+            { href: "/my-courses", label: "কোর্স", icon: GraduationCap },
+            { href: "/practice", label: "প্র্যাকটিস", icon: BookOpenCheck },
+            { href: "/exams", label: "পরীক্ষা", icon: Radio },
+            { href: "/account", label: "প্রোফাইল", icon: Settings },
+          ] as const).map((item) => {
+            const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
+            const Icon = item.icon;
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={cn(
+                  "flex flex-col items-center gap-0.5 py-1 text-[0.6875rem] font-semibold",
+                  active ? "text-[var(--brand)]" : "text-[var(--text-subtle)]",
+                )}
+                aria-current={active ? "page" : undefined}
+              >
+                <Icon className="size-5" aria-hidden />
+                {item.label}
+              </Link>
+            );
+          })}
+        </nav>
       </div>
     </div>
   );

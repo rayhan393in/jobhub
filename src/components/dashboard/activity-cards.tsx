@@ -189,7 +189,7 @@ export function RecentResultsCard({
   return (
     <section className="jh-card" aria-labelledby="recent-h">
       <div className="flex items-center justify-between gap-3 border-b border-[var(--border)] px-5 py-3.5">
-        <h2 id="recent-h" className="flex items-center gap-2 text-[0.875rem] font-semibold text-[var(--text)]">
+        <h2 id="recent-h" className="flex items-center gap-2 text-[0.9375rem] font-bold text-[var(--text)]">
           <Trophy className="size-4 text-[var(--brand)]" aria-hidden />
           সাম্প্রতিক ফলাফল
         </h2>

@@ -51,7 +51,7 @@ export function HeroSection({
         className="pointer-events-none absolute -bottom-32 left-1/4 size-[22rem] rounded-full bg-[radial-gradient(circle,rgba(99,102,241,0.3),transparent_65%)]"
       />
 
-      <div className="relative z-10 flex flex-col items-stretch gap-4 p-4 sm:p-5 xl:flex-row xl:items-center">
+      <div className="relative z-10 flex flex-col items-stretch gap-3.5 p-4 sm:gap-4 sm:p-5 xl:flex-row xl:items-center">
         {/* বাঁ — ডেস্ক ইলাস্ট্রেশন: হিরোর পুরো উচ্চতা জুড়ে */}
         <div className="relative hidden min-h-[13rem] w-[19rem] shrink-0 self-stretch overflow-hidden rounded-xl shadow-[0_12px_30px_-12px_rgba(0,0,0,0.45)] lg:block 2xl:w-[22rem]">
           <Image
@@ -69,10 +69,10 @@ export function HeroSection({
           <p className="inline-flex items-center gap-1.5 rounded-full border border-white/25 bg-white/15 px-3.5 py-1 text-[0.6875rem] font-bold text-white">
             📅 JobHub — Your Multi-Course Preparation Hub
           </p>
-          <h1 id="hero-h" className="font-bangla text-[1.5rem] font-extrabold leading-snug sm:text-[1.75rem]">
+          <h1 id="hero-h" className="font-bangla text-[1.5rem] font-extrabold leading-snug sm:text-[1.75rem] xl:text-[2rem]">
             আজকের প্রস্তুতি সম্পন্ন করুন
           </h1>
-          <p className="font-bangla text-[0.8125rem] leading-relaxed text-violet-100">
+          <p className="font-bangla text-[0.875rem] leading-relaxed text-violet-100">
             একাধিক কোর্সের প্রস্তুতি, প্র্যাকটিস, পরীক্ষা ও বিশ্লেষণ — সব এক জায়গায়।
           </p>
 
@@ -145,10 +145,10 @@ export function HeroSection({
 
         {/* ডান — সবুজ অগ্রগতি রিং + Daily Goals (mockup-এর দুই প্যানেল) */}
         {goals.length > 0 ? (
-          <div className="flex shrink-0 flex-col items-stretch gap-3 sm:flex-row xl:items-center">
+          <div className="flex shrink-0 flex-row items-center gap-3 xl:items-center">
             <div className="flex items-center justify-center">
               <div
-                className="relative flex size-32 shrink-0 items-center justify-center rounded-full sm:size-36"
+                className="relative flex size-24 shrink-0 items-center justify-center rounded-full sm:size-36"
                 style={{
                   background: `conic-gradient(#22c55e ${progressPct * 3.6}deg, rgba(255,255,255,0.16) 0deg)`,
                 }}
@@ -156,17 +156,17 @@ export function HeroSection({
                 aria-label={`আজকের অগ্রগতি ${progressPct}%`}
               >
                 <div className="absolute inset-[10%] flex flex-col items-center justify-center rounded-full bg-[#4c1d95]">
-                  <span className="text-[1.625rem] font-extrabold tabular-nums leading-none text-white">
+                  <span className="text-[1.25rem] font-extrabold tabular-nums leading-none text-white sm:text-[1.625rem]">
                     {formatNumber(progressPct)}%
                   </span>
-                  <span className="mt-1 text-[0.625rem] font-semibold text-violet-200">আজকের অগ্রগতি</span>
-                  <span className="text-[0.625rem] font-bold text-emerald-300">
+                  <span className="mt-0.5 text-[0.5625rem] font-semibold text-violet-200 sm:text-[0.625rem]">আজকের অগ্রগতি</span>
+                  <span className="text-[0.5625rem] font-bold text-emerald-300 sm:text-[0.625rem]">
                     {formatNumber(doneCount)}/{formatNumber(goals.length)} টাস্কে
                   </span>
                 </div>
               </div>
             </div>
-            <div className="min-w-0 rounded-2xl border border-white/20 bg-white/[0.08] p-4 backdrop-blur-sm sm:w-[16.5rem]">
+            <div className="min-w-0 flex-1 rounded-2xl border border-white/20 bg-white/[0.08] p-3 backdrop-blur-sm sm:flex-none sm:p-4 sm:w-[16.5rem]">
               <p className="text-[0.8125rem] font-bold text-white">আজকের লক্ষ্য (Daily Goals)</p>
               <ul className="mt-2.5 space-y-2">
                 {goals.slice(0, 3).map((goal) => (

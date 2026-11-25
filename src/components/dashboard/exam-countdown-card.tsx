@@ -42,7 +42,7 @@ export function ExamCountdownCard({
 
   return (
     <section className="jh-card p-4" aria-labelledby="countdown-h">
-      <h2 id="countdown-h" className="flex items-center gap-1.5 text-[0.8125rem] font-semibold text-[var(--text)]">
+      <h2 id="countdown-h" className="flex items-center gap-1.5 text-[0.9375rem] font-bold text-[var(--text)]">
         <CalendarClock className="size-4 text-[var(--brand)]" aria-hidden />
         পরবর্তী গুরুত্বপূর্ণ পরীক্ষা
       </h2>

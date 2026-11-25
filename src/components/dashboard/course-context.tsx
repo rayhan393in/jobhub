@@ -94,7 +94,7 @@ export function QuickActions({ compact = false }: { compact?: boolean }) {
   if (compact) {
     return (
       <section className="jh-card p-4" aria-label="দ্রুত প্রবেশ">
-        <h2 className="mb-2.5 text-[0.8125rem] font-bold text-[var(--text)]">⚡ দ্রুত প্রবেশ (Quick Actions)</h2>
+        <h2 className="mb-2.5 text-[0.9375rem] font-bold text-[var(--text)]">⚡ দ্রুত প্রবেশ (Quick Actions)</h2>
         <div className="grid grid-cols-4 gap-2">
           {QUICK_ACTIONS.map((action) => {
             const Icon = action.icon;
