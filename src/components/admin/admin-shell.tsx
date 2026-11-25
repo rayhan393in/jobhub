@@ -74,10 +74,10 @@ function NavLink({ item, active, onNavigate }: { item: AdminNavItem; active: boo
       title={item.hint}
       aria-current={active ? "page" : undefined}
       className={cn(
-        "group flex min-h-10 items-center gap-3 rounded-xl px-3 py-2 text-[0.8125rem] font-medium transition-colors",
+        "group flex min-h-10 items-center gap-3 rounded-xl px-3 py-2 text-[0.8125rem] font-medium transition-all duration-200",
         active
-          ? "bg-[var(--brand-soft)] text-[var(--brand)] shadow-[inset_2px_0_0_var(--brand)]"
-          : "text-[var(--text-muted)] hover:bg-[var(--surface-muted)] hover:text-[var(--text)]",
+          ? "bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-lg shadow-violet-950/25"
+          : "text-violet-100/75 hover:bg-white/10 hover:text-white",
       )}
     >
       <Icon className="size-4 shrink-0" aria-hidden />
@@ -111,21 +111,21 @@ export function AdminShell({
   const activeItem = items.find((item) => isActivePath(pathname, item.href)) ?? items[0];
 
   return (
-    <div className="flex min-h-dvh bg-[var(--surface-muted)]">
-      <aside className="sticky top-0 hidden h-dvh w-[17rem] shrink-0 flex-col border-r border-[var(--border)] bg-[var(--surface)] lg:flex">
-        <div className="flex h-[4.25rem] items-center gap-3 border-b border-[var(--border)] px-5">
+    <div className="admin-workspace flex min-h-dvh bg-[var(--surface-muted)]">
+      <aside className="admin-sidebar sticky top-0 hidden h-dvh w-[17rem] shrink-0 flex-col border-r border-[#30246f] bg-[#171044] text-white lg:flex">
+        <div className="flex h-[4.25rem] items-center gap-3 border-b border-white/10 px-5">
           <Logo size={32} showTagline={false} />
           <div className="min-w-0">
-            <p className="text-sm font-bold tracking-tight text-[var(--text)]">JobHub</p>
-            <p className="text-[0.6875rem] text-[var(--text-subtle)]">Administration</p>
+            <p className="text-sm font-bold tracking-tight text-white">JobHub</p>
+            <p className="text-[0.6875rem] text-violet-200/70">Learn · Practice · Excel</p>
           </div>
-          <span className="ml-auto rounded-md bg-[var(--brand-soft)] px-2 py-1 text-[0.625rem] font-bold uppercase tracking-wider text-[var(--brand)]">Admin</span>
+          <span className="ml-auto rounded-md bg-violet-300/15 px-2 py-1 text-[0.625rem] font-bold uppercase tracking-wider text-violet-200">Admin</span>
         </div>
         <div className="px-3 pb-2 pt-4">
           <label htmlFor="admin-nav-search" className="sr-only">অ্যাডমিন মেনু খুঁজুন</label>
           <div className="relative">
             <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[var(--text-subtle)]" aria-hidden />
-            <input id="admin-nav-search" type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="মেনু খুঁজুন..." className="h-10 w-full rounded-xl border border-[var(--border)] bg-[var(--surface-muted)] pl-9 pr-3 text-[0.8125rem] text-[var(--text)] outline-none transition focus:border-[var(--brand)] focus:ring-2 focus:ring-[var(--brand)]/15" />
+            <input id="admin-nav-search" type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="মেনু খুঁজুন..." className="h-10 w-full rounded-xl border border-white/10 bg-white/8 pl-9 pr-3 text-[0.8125rem] text-white placeholder:text-violet-200/55 outline-none transition focus:border-violet-300/60 focus:ring-2 focus:ring-violet-300/15" />
           </div>
         </div>
         <nav className="min-h-0 flex-1 space-y-4 overflow-y-auto px-3 pb-4" aria-label="অ্যাডমিন নেভিগেশন">
@@ -133,24 +133,24 @@ export function AdminShell({
             <p className="px-3 py-5 text-center text-xs text-[var(--text-subtle)]">কোনো মেনু পাওয়া যায়নি</p>
           ) : navGroups.map((group) => (
             <section key={group.label} aria-label={group.label}>
-              <h2 className="mb-1.5 px-3 text-[0.625rem] font-bold uppercase tracking-[0.12em] text-[var(--text-subtle)]">{group.label}</h2>
+              <h2 className="mb-1.5 px-3 text-[0.625rem] font-bold uppercase tracking-[0.12em] text-violet-200/55">{group.label}</h2>
               <div className="space-y-0.5">
                 {group.items.map((item) => <NavLink key={item.href} item={item} active={isActivePath(pathname, item.href)} />)}
               </div>
             </section>
           ))}
         </nav>
-        <div className="border-t border-[var(--border)] p-3">
-          <Link href="/dashboard" className="flex min-h-10 items-center gap-2 rounded-xl px-3 text-xs font-semibold text-[var(--text-muted)] transition hover:bg-[var(--surface-muted)] hover:text-[var(--brand)]">
+        <div className="border-t border-white/10 p-3">
+          <Link href="/dashboard" className="flex min-h-10 items-center gap-2 rounded-xl px-3 text-xs font-semibold text-violet-100/75 transition hover:bg-white/10 hover:text-white">
             <ChevronLeft className="size-4" aria-hidden /> শিক্ষার্থী ড্যাশবোর্ড
           </Link>
-          <div className="mt-2 flex items-center gap-3 rounded-xl bg-[var(--surface-muted)] p-3">
-            <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-[var(--brand-soft)] text-sm font-bold text-[var(--brand)]">{user.name.trim().charAt(0)}</span>
+          <div className="mt-2 flex items-center gap-3 rounded-xl border border-white/10 bg-white/8 p-3">
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-violet-300/20 text-sm font-bold text-white">{user.name.trim().charAt(0)}</span>
             <div className="min-w-0 flex-1">
-              <p className="truncate text-xs font-semibold text-[var(--text)]">{user.name}</p>
-              <p className="truncate text-[0.6875rem] text-[var(--text-subtle)]">{ROLE_LABELS[user.role].bn}</p>
+              <p className="truncate text-xs font-semibold text-white">{user.name}</p>
+              <p className="truncate text-[0.6875rem] text-violet-200/60">{ROLE_LABELS[user.role].bn}</p>
             </div>
-            <ShieldCheck className="size-4 text-[var(--success)]" aria-label="Staff account" />
+            <ShieldCheck className="size-4 text-emerald-300" aria-label="Staff account" />
           </div>
         </div>
       </aside>
