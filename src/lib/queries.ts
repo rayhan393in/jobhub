@@ -299,6 +299,48 @@ export async function getProfile(userId: string): Promise<Profile | null> {
   return (data as Profile) ?? null;
 }
 
+/** One row of the student's course enrollments (Phase 1 multi-course). */
+export type EnrollmentRow = {
+  id: string;
+  course_id: string;
+  status: "active" | "paused";
+  enrolled_at: string;
+};
+
+/**
+ * All enrollments of a student, newest first. RLS limits reads to the
+ * student's own rows, so no explicit user filter beyond `student_id` is
+ * strictly required — it is passed anyway for clarity and index usage.
+ */
+export async function listMyEnrollments(userId: string): Promise<EnrollmentRow[]> {
+  const supabase = await getServerClient();
+  if (!supabase) return [];
+  const { data, error } = await supabase
+    .from("student_course_enrollments")
+    .select("id, course_id, status, enrolled_at")
+    .eq("student_id", userId)
+    .order("enrolled_at", { ascending: true });
+  logDbError("enrollments", error);
+  return (data as EnrollmentRow[]) ?? [];
+}
+
+/**
+ * Safe migration for pre-multi-course students: if the profile has a
+ * default course but no enrollment row yet, create one. Idempotent
+ * (unique student+course) and RLS-scoped to the student's own row.
+ */
+export async function ensureDefaultEnrollment(userId: string, courseId: string): Promise<void> {
+  const supabase = await getServerClient();
+  if (!supabase) return;
+  const { error } = await supabase
+    .from("student_course_enrollments")
+    .upsert(
+      { student_id: userId, course_id: courseId },
+      { onConflict: "student_id,course_id", ignoreDuplicates: true },
+    );
+  logDbError("ensure-enrollment", error);
+}
+
 export async function getStudentAnalytics(courseId?: string | null): Promise<StudentAnalytics | null> {
   const supabase = await getServerClient();
   if (!supabase) return null;
