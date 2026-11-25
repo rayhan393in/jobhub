@@ -389,3 +389,69 @@ input[type="number"] {
     margin: 12mm;
   }
 }
+
+
+/* Admin workspace visual system: deep violet navigation + lavender canvas. */
+.admin-workspace {
+  min-height: 100dvh;
+  background:
+    radial-gradient(52rem 24rem at 90% -8%, rgb(139 92 246 / .10), transparent 62%),
+    linear-gradient(180deg, #f7f5ff 0%, #f8f9ff 48%, #f7f8fc 100%);
+}
+.admin-workspace .admin-sidebar {
+  box-shadow: 10px 0 36px -28px rgb(24 16 68 / .65);
+}
+.admin-workspace main {
+  background-image: radial-gradient(rgb(99 83 190 / .09) .75px, transparent .75px);
+  background-size: 18px 18px;
+  background-position: right top;
+}
+.admin-workspace .jh-card {
+  border-color: #e7e2fb;
+  border-radius: 1rem;
+  background: rgb(255 255 255 / .94);
+  box-shadow: 0 2px 5px rgb(31 24 82 / .035), 0 12px 26px -22px rgb(79 66 228 / .34);
+}
+.admin-workspace .jh-card-hover:hover {
+  border-color: #cfc5fb;
+  box-shadow: 0 12px 28px -18px rgb(79 66 228 / .28);
+}
+.admin-workspace .jh-input,
+.admin-workspace .jh-select {
+  border-color: #ddd8f5;
+  border-radius: .75rem;
+  background-color: #fff;
+}
+.admin-workspace table {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+.admin-workspace table thead th {
+  background: #f4f2ff;
+  color: #37306e;
+  font-weight: 700;
+}
+.admin-workspace table tbody tr {
+  transition: background-color 140ms ease;
+}
+.admin-workspace table tbody tr:hover {
+  background: #f8f6ff;
+}
+.admin-workspace button:not(:disabled),
+.admin-workspace [role="button"] {
+  transition: transform 150ms ease, box-shadow 150ms ease, background-color 150ms ease;
+}
+.admin-workspace button:active:not(:disabled) {
+  transform: translateY(1px);
+}
+@media (max-width: 1023px) {
+  .admin-workspace main {
+    background-size: 22px 22px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .admin-workspace button,
+  .admin-workspace table tbody tr {
+    transition: none !important;
+  }
+}
