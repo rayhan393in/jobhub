@@ -28,6 +28,8 @@ export const signUpSchema = z.object({
     .optional()
     .or(z.literal("")),
   targetCourse: z.string().trim().max(80).optional().or(z.literal("")),
+  // V7 multi-course onboarding: course slugs picked at registration.
+  courses: z.array(z.string().trim().min(1).max(80)).max(12).optional(),
 });
 
 export const signInSchema = z.object({
