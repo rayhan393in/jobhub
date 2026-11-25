@@ -12,9 +12,11 @@ import {
   AccuracyCard, SubjectPerformanceCard, WeakTopicsCard, UpcomingExamsCard, TargetCourseCard,
 } from "@/components/dashboard/insight-cards";
 import { CourseContextBar, QuickActions } from "@/components/dashboard/course-context";
+import { AiCoachCard, StudyCalendarCard } from "@/components/dashboard/v7-cards";
 import {
   ensureDefaultEnrollment, getStudentAnalytics, isFirstAdminSeatOpen, listCourses,
-  listMyEnrollments, listMyResults, listPublishedSchedules, listRoutines, getOpenAttempts,
+  listMyActivityDays, listMyEnrollments, listMyResults, listPublishedSchedules,
+  listRoutines, getOpenAttempts,
 } from "@/lib/queries";
 import { dhakaDateKey } from "@/lib/format";
 
@@ -53,7 +55,7 @@ export default async function DashboardPage({
     await ensureDefaultEnrollment(user.id, defaultCourseId);
     enrollments = await listMyEnrollments(user.id);
   }
-  const [courseList, targetAnalytics, results, schedules, routines, openAttempts, adminSeatOpen] = await Promise.all([
+  const [courseList, targetAnalytics, results, schedules, routines, openAttempts, adminSeatOpen, activityDays] = await Promise.all([
     listCourses(),
     // Scope analytics to the student's target course so BCS and Petrobangla
     // numbers never blend into one misleading average.
@@ -69,6 +71,7 @@ export default async function DashboardPage({
     getOpenAttempts(user.id),
     // Only query this for non-staff: it is a cheap check but pointless for staff.
     isStaff(user.role) ? Promise.resolve(false) : isFirstAdminSeatOpen(),
+    listMyActivityDays(user.id),
   ]);
 
   // Fallback: a student whose attempts all live outside the target course
@@ -160,6 +163,12 @@ export default async function DashboardPage({
       </div>
 
       <LearningActivityCard todayRoutineCount={todayRoutines.length} summary={summary} />
+
+      {/* V7: real-data study calendar + AI study coach */}
+      <div className="mt-5 grid gap-5 lg:grid-cols-[1.5fr_1fr]">
+        <StudyCalendarCard activity={activityDays} today={today} />
+        <AiCoachCard weakTopics={weakTopics} summary={summary} todayRoutineCount={todayStudy.length} />
+      </div>
 
       <QuickActions />
     </div>

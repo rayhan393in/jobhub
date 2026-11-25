@@ -3,8 +3,9 @@ import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { fromZodError, fail } from "@/lib/api";
 import { signUpSchema } from "@/lib/validation";
-import { isSupabaseConfigured, supabaseEnv } from "@/lib/supabase/env";
+import { isSupabaseConfigured, supabaseEnv, hasServiceRole } from "@/lib/supabase/env";
 import { getServerClient } from "@/lib/supabase/server";
+import { getAdminClient } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
 
@@ -55,6 +56,36 @@ export async function POST(request: Request) {
     const supabase = await getServerClient();
     if (supabase) {
       await supabase.from("profiles").update({ phone: body.phone || null }).eq("id", data.user.id);
+    }
+  }
+
+  // V7 multi-course onboarding: resolve the selected slugs to published
+  // courses and enroll the new account server-side. The caller has no
+  // session yet (email confirmation may be pending), so this uses the
+  // service-role client — inputs are validated and scoped to the new user.
+  const requestedSlugs = [...new Set([...(body.courses ?? []), body.targetCourse].filter(Boolean))] as string[];
+  if (data.user && requestedSlugs.length > 0 && hasServiceRole) {
+    try {
+      const admin = getAdminClient();
+      const { data: courseRows } = await admin
+        .from("courses")
+        .select("id, slug")
+        .eq("status", "published")
+        .in("slug", requestedSlugs);
+      const ids = (courseRows ?? []).map((c: { id: string }) => c.id);
+      if (ids.length > 0) {
+        await admin.from("student_course_enrollments").upsert(
+          ids.map((courseId) => ({ student_id: data.user!.id, course_id: courseId })),
+          { onConflict: "student_id,course_id", ignoreDuplicates: true },
+        );
+        // Default course = the first slug the student picked.
+        const firstSlug = requestedSlugs[0];
+        const firstId = (courseRows ?? []).find((c: { slug: string }) => c.slug === firstSlug)?.id ?? ids[0];
+        await admin.from("profiles").update({ target_course_id: firstId }).eq("id", data.user.id);
+      }
+    } catch (error) {
+      // Enrollment is best-effort at sign-up; the dashboard self-heals later.
+      console.error("[auth] sign-up enrollment failed:", error);
     }
   }
 

@@ -441,6 +441,38 @@ export async function getCourseTaxonomy(): Promise<CourseTaxonomy> {
   return (data as CourseTaxonomy) ?? {};
 }
 
+/**
+ * Study-activity days for the calendar/streak card: Dhaka-local date keys
+ * of every exam attempt in the last `days` days, with a per-day count.
+ */
+export async function listMyActivityDays(
+  userId: string,
+  days = 84,
+): Promise<Map<string, number>> {
+  const supabase = await getServerClient();
+  const result = new Map<string, number>();
+  if (!supabase) return result;
+  const since = new Date(Date.now() - days * 86_400_000).toISOString();
+  const { data, error } = await supabase
+    .from("exam_attempts")
+    .select("started_at")
+    .eq("user_id", userId)
+    .gte("started_at", since)
+    .order("started_at", { ascending: true })
+    .limit(2000);
+  logDbError("activity-days", error);
+  for (const row of (data as { started_at: string }[]) ?? []) {
+    const key = dhakaDateKeyOf(new Date(row.started_at));
+    result.set(key, (result.get(key) ?? 0) + 1);
+  }
+  return result;
+}
+
+/** Dhaka-local YYYY-MM-DD for a Date (queries-local copy to avoid a cycle). */
+function dhakaDateKeyOf(date: Date): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Dhaka" }).format(date);
+}
+
 export async function listMyAttempts(userId: string, limit = 20) {
   const supabase = await getServerClient();
   if (!supabase) return [];

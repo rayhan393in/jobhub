@@ -3,9 +3,10 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Eye, EyeOff, TriangleAlert, CheckCircle2, UserPlus } from "lucide-react";
+import { Eye, EyeOff, TriangleAlert, CheckCircle2, UserPlus, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Field, Input, Select } from "@/components/ui/field";
+import { Field, Input } from "@/components/ui/field";
+import { cn } from "@/lib/cn";
 import { getBrowserClient } from "@/lib/supabase/browser";
 
 const passwordChecks = [
@@ -21,8 +22,13 @@ export function RegisterForm({ courses }: { courses: { slug: string; title: stri
     email: "",
     phone: "",
     password: "",
-    targetCourse: courses[0]?.slug ?? "bcs",
   });
+  // V7 multi-course onboarding: a student can start with several courses.
+  const [selectedCourses, setSelectedCourses] = React.useState<string[]>([]);
+  const toggleCourse = (slug: string) =>
+    setSelectedCourses((prev) =>
+      prev.includes(slug) ? prev.filter((s) => s !== slug) : [...prev, slug],
+    );
   const [showPassword, setShowPassword] = React.useState(false);
   const catalogueReady = courses.length > 0;
   const [error, setError] = React.useState<string | null>(null);
@@ -59,7 +65,8 @@ export function RegisterForm({ courses }: { courses: { slug: string; title: stri
           email: form.email.trim(),
           password: form.password,
           phone: form.phone.trim() || undefined,
-          targetCourse: form.targetCourse,
+          targetCourse: selectedCourses[0] ?? "",
+          courses: selectedCourses,
         }),
       });
       const payload = (await response.json()) as {
@@ -153,44 +160,73 @@ export function RegisterForm({ courses }: { courses: { slug: string; title: stri
         />
       </Field>
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="মোবাইল" htmlFor="phone" hint="ঐচ্ছিক">
-          <Input
-            id="phone"
-            name="phone"
-            type="tel"
-            inputMode="tel"
-            autoComplete="tel"
-            placeholder="01XXXXXXXXX"
-            value={form.phone}
-            onChange={set("phone")}
-          />
-        </Field>
+      <Field label="মোবাইল" htmlFor="phone" hint="ঐচ্ছিক">
+        <Input
+          id="phone"
+          name="phone"
+          type="tel"
+          inputMode="tel"
+          autoComplete="tel"
+          placeholder="01XXXXXXXXX"
+          value={form.phone}
+          onChange={set("phone")}
+        />
+      </Field>
 
-        <Field
-          label="লক্ষ্য কোর্স"
-          htmlFor="targetCourse"
-          hint={catalogueReady ? undefined : "কোর্স তালিকা লোড হয়নি — পরে অ্যাকাউন্ট সেটিংস থেকে বেছে নিতে পারবেন।"}
-        >
-          <Select
-            id="targetCourse"
-            name="targetCourse"
-            value={form.targetCourse}
-            onChange={set("targetCourse")}
-            disabled={!catalogueReady}
-          >
-            {catalogueReady ? (
-              courses.map((course) => (
-                <option key={course.slug} value={course.slug}>
+      <fieldset>
+        <legend className="flex w-full items-center justify-between text-[0.8125rem] font-semibold text-[var(--text)]">
+          <span>
+            আপনার প্রস্তুতির কোর্স বেছে নিন{" "}
+            <span className="font-normal text-[var(--text-subtle)]">(একাধিক নির্বাচন করা যাবে)</span>
+          </span>
+          {selectedCourses.length > 0 ? (
+            <span className="rounded-full bg-[var(--brand-soft)] px-2 py-0.5 text-[0.6875rem] font-bold text-[var(--brand)]">
+              {selectedCourses.length}টি নির্বাচিত
+            </span>
+          ) : null}
+        </legend>
+        {catalogueReady ? (
+          <div className="mt-2 grid grid-cols-2 gap-2">
+            {courses.map((course) => {
+              const selected = selectedCourses.includes(course.slug);
+              return (
+                <button
+                  key={course.slug}
+                  type="button"
+                  onClick={() => toggleCourse(course.slug)}
+                  aria-pressed={selected}
+                  className={cn(
+                    "flex items-center gap-2 rounded-xl border px-3 py-2.5 text-left text-[0.75rem] font-semibold transition",
+                    selected
+                      ? "border-[var(--brand)] bg-[var(--brand-soft)] text-[var(--brand)]"
+                      : "border-[var(--border)] text-[var(--text-muted)] hover:border-[var(--brand)]/40",
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "flex size-4 shrink-0 items-center justify-center rounded border",
+                      selected
+                        ? "border-[var(--brand)] bg-[var(--brand)] text-white"
+                        : "border-[var(--border-strong)]",
+                    )}
+                    aria-hidden
+                  >
+                    {selected ? <Check className="size-3" /> : null}
+                  </span>
                   {course.title}
-                </option>
-              ))
-            ) : (
-              <option value="">কোর্স লোড হচ্ছে…</option>
-            )}
-          </Select>
-        </Field>
-      </div>
+                </button>
+              );
+            })}
+          </div>
+        ) : (
+          <p className="mt-2 text-[0.75rem] text-[var(--text-subtle)]">
+            কোর্স তালিকা লোড হয়নি — পরে “আমার কোর্স” পেজ থেকে ভর্তি হতে পারবেন।
+          </p>
+        )}
+        <p className="mt-1.5 text-[0.6875rem] text-[var(--text-subtle)]">
+          প্রথম নির্বাচিত কোর্সটি ডিফল্ট হবে; পরে যেকোনো সময় কোর্স যোগ বা পরিবর্তন করা যাবে।
+        </p>
+      </fieldset>
 
       <Field label="পাসওয়ার্ড" htmlFor="password" required>
         <div className="relative">
