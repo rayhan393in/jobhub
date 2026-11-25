@@ -134,7 +134,9 @@ export function DashboardShell({
             aria-label="Mobile dashboard"
           >
             {nav.map((item) => {
-              const active = pathname === item.href;
+              // Match nested routes too (e.g. /results/123) so the tab stays
+              // highlighted — mirrors the desktop sidebar behaviour above.
+              const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
               const Icon = item.icon;
               return (
                 <Link

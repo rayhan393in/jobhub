@@ -11,6 +11,7 @@ import { Progress, Ring } from "@/components/ui/progress";
 import { StatCard } from "@/components/ui/stat";
 import { getCurrentUser, displayName, isStaff } from "@/lib/auth";
 import { FirstAdminBanner } from "@/components/dashboard/first-admin-banner";
+import { AttemptCountdown } from "@/components/dashboard/attempt-countdown";
 import {
   getStudentAnalytics, isFirstAdminSeatOpen, listCourses, listMyResults, listPublishedSchedules,
   listRoutines, getOpenAttempts,
@@ -29,16 +30,32 @@ export default async function DashboardPage() {
   if (!user) redirect("/login");
 
   const today = dhakaDateKey();
-  const [courseList, analytics, results, schedules, routines, openAttempts, adminSeatOpen] = await Promise.all([
+  const targetCourseId = user.profile?.target_course_id ?? null;
+  const [courseList, targetAnalytics, results, schedules, routines, openAttempts, adminSeatOpen] = await Promise.all([
     listCourses(),
-    getStudentAnalytics(null),
+    // Scope analytics to the student's target course so BCS and Petrobangla
+    // numbers never blend into one misleading average.
+    getStudentAnalytics(targetCourseId),
     listMyResults(user.id, 5),
-    listPublishedSchedules({ userId: user.id, limit: 20 }),
-    listRoutines({ fromDate: today, limit: 10 }),
+    // Server-side date filter: only exams that have not ended yet. Without it
+    // the ascending limit-20 window fills with past schedules late in a season
+    // and today's live exam silently drops off the dashboard.
+    listPublishedSchedules({ userId: user.id, limit: 20, from: new Date().toISOString() }),
+    // Routines scoped to the target course so another course's plan never
+    // leaks into this student's hero chips.
+    listRoutines({ fromDate: today, courseId: targetCourseId ?? undefined, limit: 10 }),
     getOpenAttempts(user.id),
     // Only query this for non-staff: it is a cheap check but pointless for staff.
     isStaff(user.role) ? Promise.resolve(false) : isFirstAdminSeatOpen(),
   ]);
+
+  // Fallback: a student whose attempts all live outside the target course
+  // (or who has no target set) should still see their real history rather
+  // than an empty dashboard. Only costs a second RPC in that edge case.
+  const analytics =
+    targetCourseId && (targetAnalytics?.summary?.attempts ?? 0) === 0
+      ? ((await getStudentAnalytics(null)) ?? targetAnalytics)
+      : targetAnalytics;
 
   const names = displayName(user);
   const courseById = new Map(courseList.map((c) => [c.id, c]));
@@ -60,7 +77,17 @@ export default async function DashboardPage() {
     null;
 
   const summary = analytics?.summary;
-  const weakTopics = (analytics?.topics ?? []).filter((t) => t.attempted >= 1).slice(0, 3);
+  // A topic only counts as "weak" with at least 3 attempted questions —
+  // one wrong answer out of one question is noise, not a diagnosis. Topics
+  // already arrive sorted by accuracy ascending from the RPC.
+  const WEAK_TOPIC_MIN_ATTEMPTS = 3;
+  const weakTopics = (analytics?.topics ?? [])
+    .filter((t) => t.attempted >= WEAK_TOPIC_MIN_ATTEMPTS && t.accuracy < 80)
+    .slice(0, 3);
+  // How many more answers until the suggestion engine has enough signal.
+  const almostThere = (analytics?.topics ?? []).some(
+    (t) => t.attempted >= 1 && t.attempted < WEAK_TOPIC_MIN_ATTEMPTS,
+  );
   const subjects = analytics?.subjects ?? [];
   const hasData = Boolean(summary && summary.attempts > 0);
   const weekly = analytics?.weekly ?? [];
@@ -195,15 +222,7 @@ export default async function DashboardPage() {
                     </p>
                     <p className="mt-0.5 text-[0.75rem] text-[var(--text-muted)]">
                       {course?.title_bn ?? "পরীক্ষা"} · {formatNumber(attempt.total_questions as number)} প্রশ্ন ·{" "}
-                      {alive ? (
-                        <>
-                          <span className="font-semibold text-[var(--text)]">
-                            {formatNumber(Math.ceil(remaining / 60))} মিনিট বাকি
-                          </span>
-                        </>
-                      ) : (
-                        "সময় শেষ — জমা দিন"
-                      )}
+                      <AttemptCountdown deadline={attempt.deadline_at as string} />
                     </p>
                   </div>
                 </div>
@@ -513,8 +532,11 @@ export default async function DashboardPage() {
             </h2>
             {weakTopics.length === 0 ? (
               <p className="mt-2 text-[0.75rem] leading-relaxed text-[var(--text-subtle)]">
-                আরও প্রশ্নের উত্তর দিলে আপনার দুর্বল টপিকগুলো এখানে দেখা যাবে — কোনো অনুমান নয়, শুধু
-                আপনার নিজের ফলাফলের ভিত্তিতে।
+                {almostThere
+                  ? "প্রতি টপিকে অন্তত ৩টি প্রশ্নের উত্তর দিলে নির্ভরযোগ্য দুর্বলতা-বিশ্লেষণ এখানে দেখা যাবে — আর অল্প কিছু প্রশ্ন বাকি!"
+                  : hasData
+                    ? "দারুণ! এখন পর্যন্ত কোনো টপিকে উল্লেখযোগ্য দুর্বলতা ধরা পড়েনি। অনুশীলন চালিয়ে যান।"
+                    : "আরও প্রশ্নের উত্তর দিলে আপনার দুর্বল টপিকগুলো এখানে দেখা যাবে — কোনো অনুমান নয়, শুধু আপনার নিজের ফলাফলের ভিত্তিতে।"}
               </p>
             ) : (
               <>
@@ -523,7 +545,8 @@ export default async function DashboardPage() {
                     <li key={topic.topic_id} className="rounded-xl bg-[var(--surface-muted)] px-3 py-2">
                       <p className="truncate text-[0.75rem] font-semibold text-[var(--text)]">{topic.title_bn}</p>
                       <p className="text-[0.625rem] text-[var(--text-subtle)]">
-                        {topic.subject_bn} · {formatNumber(topic.attempted)} প্রশ্নে {formatPercent(topic.accuracy)}
+                        {topic.subject_bn} · {formatNumber(topic.attempted)}টির মধ্যে{" "}
+                        {formatNumber(topic.correct)}টি সঠিক ({formatPercent(topic.accuracy)})
                       </p>
                     </li>
                   ))}
