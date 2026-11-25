@@ -132,6 +132,33 @@ export type QuestionListRow = {
   topic?: { title_bn: string } | null;
 };
 
+/** Headline numbers for the question-bank page's stat cards. */
+export type QuestionBankStats = {
+  total: number;
+  approved: number;
+  pending: number;
+  exams: number;
+};
+
+export async function getQuestionBankStats(): Promise<QuestionBankStats> {
+  const supabase = await getServerClient();
+  if (!supabase) return { total: 0, approved: 0, pending: 0, exams: 0 };
+  const head = { count: "exact" as const, head: true };
+  const [total, approved, pending, draft, exams] = await Promise.all([
+    supabase.from("questions").select("id", head),
+    supabase.from("questions").select("id", head).eq("status", "approved"),
+    supabase.from("questions").select("id", head).eq("status", "pending_review"),
+    supabase.from("questions").select("id", head).eq("status", "draft"),
+    supabase.from("exam_schedules").select("id", head).in("status", ["published", "completed"]),
+  ]);
+  return {
+    total: total.count ?? 0,
+    approved: approved.count ?? 0,
+    pending: (pending.count ?? 0) + (draft.count ?? 0),
+    exams: exams.count ?? 0,
+  };
+}
+
 export type QuestionFilters = {
   status?: string;
   courseId?: string;
@@ -140,6 +167,7 @@ export type QuestionFilters = {
   difficulty?: string;
   sourceType?: string;
   verified?: "yes" | "no";
+  year?: string;
   search?: string;
   /** newest (default) | oldest | difficulty */
   sort?: string;
@@ -180,6 +208,7 @@ export async function listQuestions(filters: QuestionFilters): Promise<{ rows: Q
   if (filters.difficulty) query = query.eq("difficulty", filters.difficulty);
   if (filters.sourceType) query = query.eq("source_type", filters.sourceType);
   if (filters.verified) query = query.eq("is_verified", filters.verified === "yes");
+  if (filters.year && /^\d{4}$/.test(filters.year)) query = query.eq("year", Number(filters.year));
   if (filters.search?.trim()) {
     const needle = filters.search.trim().replace(/[%,()]/g, " ");
     query = query.or(`statement.ilike.%${needle}%,statement_bn.ilike.%${needle}%`);
