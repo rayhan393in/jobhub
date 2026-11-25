@@ -1,6 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
-import { BookOpenCheck, CheckCircle2, Play, Radio } from "lucide-react";
+import { BookOpenCheck, CheckCircle2, Radio } from "lucide-react";
 import { formatNumber, formatTime } from "@/lib/format";
 import type { Routine, StudentAnalytics } from "@/lib/types";
 import type { ScheduleWithCourse } from "@/lib/queries";
@@ -39,7 +39,7 @@ export function HeroSection({
   return (
     <section
       aria-labelledby="hero-h"
-      className="relative mb-5 overflow-hidden rounded-2xl bg-gradient-to-br from-[#7c3aed] via-[#6d28d9] to-[#5b21b6] text-white shadow-[0_24px_50px_-20px_rgba(91,33,182,0.65)]"
+      className="relative mb-5 overflow-hidden rounded-2xl bg-gradient-to-br from-[#6d28d9] via-[#4c2bb3] to-[#241b63] text-white shadow-[0_24px_50px_-20px_rgba(36,27,99,0.7)]"
     >
       {/* soft radial light accents */}
       <div
@@ -98,13 +98,6 @@ export function HeroSection({
 
           {/* Action buttons */}
           <div className="mt-1 flex flex-wrap items-center gap-2.5 xl:justify-center">
-            <Link
-              href="/routines"
-              className="inline-flex items-center gap-1.5 rounded-xl bg-white px-4 py-2.5 text-[0.8125rem] font-bold text-[#5b21b6] xl:px-5 xl:py-3 xl:text-[0.9375rem] shadow-[0_8px_20px_-8px_rgba(255,255,255,0.5)] transition hover:-translate-y-0.5 hover:bg-violet-50"
-            >
-              <Play className="size-3.5 fill-[#5b21b6]" aria-hidden />
-              পড়াশোনা চালিয়ে যান
-            </Link>
             {liveExam ? (
               <Link
                 href={liveExam.my_attempt_id ? `/exam/${liveExam.my_attempt_id}` : `/exams/${liveExam.id}`}
@@ -127,7 +120,7 @@ export function HeroSection({
             ) : (
               <Link
                 href="/exams"
-                className="inline-flex items-center gap-1.5 rounded-xl border border-white/30 bg-white/[0.12] px-4 py-2.5 text-[0.8125rem] font-bold text-white backdrop-blur-sm xl:px-5 xl:py-3 xl:text-[0.9375rem] transition hover:-translate-y-0.5 hover:bg-white/20"
+                className="inline-flex items-center gap-1.5 rounded-xl bg-white px-4 py-2.5 text-[0.8125rem] font-bold text-[#312e81] shadow-[0_8px_20px_-8px_rgba(255,255,255,0.5)] transition hover:-translate-y-0.5 hover:bg-violet-50 xl:px-5 xl:py-3 xl:text-[0.9375rem]"
               >
                 <Radio className="size-3.5" aria-hidden />
                 লাইভ পরীক্ষা
@@ -155,7 +148,7 @@ export function HeroSection({
                 role="img"
                 aria-label={`আজকের অগ্রগতি ${progressPct}%`}
               >
-                <div className="absolute inset-[10%] flex flex-col items-center justify-center rounded-full bg-[#4c1d95]">
+                <div className="absolute inset-[10%] flex flex-col items-center justify-center rounded-full bg-[#312370]">
                   <span className="text-[1.25rem] font-extrabold tabular-nums leading-none text-white sm:text-[1.625rem] 2xl:text-[1.875rem]">
                     {formatNumber(progressPct)}%
                   </span>
