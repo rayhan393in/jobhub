@@ -455,3 +455,28 @@ input[type="number"] {
     transition: none !important;
   }
 }
+
+
+.dark .admin-workspace {
+  background:
+    radial-gradient(52rem 24rem at 90% -8%, rgb(139 92 246 / .12), transparent 62%),
+    linear-gradient(180deg, #111126 0%, #15172d 48%, #171a30 100%);
+}
+.dark .admin-workspace .jh-card,
+.dark .admin-workspace .admin-page-header {
+  border-color: #302b58;
+  background: rgb(25 27 52 / .94);
+  box-shadow: 0 2px 8px rgb(0 0 0 / .16), 0 12px 26px -22px rgb(139 92 246 / .25);
+}
+.dark .admin-workspace .jh-input,
+.dark .admin-workspace .jh-select {
+  border-color: #39345f;
+  background-color: #191b34;
+}
+.dark .admin-workspace table thead th {
+  background: #211e43;
+  color: #e7e3ff;
+}
+.dark .admin-workspace table tbody tr:hover {
+  background: #211e43;
+}
