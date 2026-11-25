@@ -72,25 +72,25 @@ export function DashboardShell({
   return (
     <div className="jh-app-bg flex min-h-dvh">
       {/* Desktop sidebar — dark violet, matching the admin design system */}
-      <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col bg-gradient-to-b from-[#241b63] via-[#1e1856] to-[#120e38] text-white lg:flex">
-        <div className="flex items-center gap-2.5 px-4 pb-3 pt-4">
-          <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-500 text-white shadow-[0_8px_18px_-6px_rgba(168,85,247,0.7)]">
-            <GraduationCap className="size-5" aria-hidden />
+      <aside className="sticky top-0 hidden h-dvh w-64 shrink-0 flex-col bg-gradient-to-b from-[#241b63] via-[#1e1856] to-[#120e38] text-white lg:flex 2xl:w-72">
+        <div className="flex items-center gap-3 px-4 pb-3 pt-5">
+          <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-500 text-white shadow-[0_8px_18px_-6px_rgba(168,85,247,0.7)]">
+            <GraduationCap className="size-6" aria-hidden />
           </span>
           <div className="min-w-0">
-            <p className="text-[0.9375rem] font-extrabold leading-tight tracking-tight">JobHub</p>
-            <p className="text-[0.5625rem] font-medium text-violet-200/80">Learn · Practice · Excel</p>
+            <p className="text-[1.125rem] font-extrabold leading-tight tracking-tight">JobHub</p>
+            <p className="text-[0.625rem] font-medium text-violet-200/80">Learn · Practice · Excel</p>
           </div>
         </div>
 
         {/* Signed-in student chip */}
         <div className="mx-3 mb-2 flex items-center gap-2.5 rounded-2xl border border-white/10 bg-white/[0.07] px-2.5 py-2">
-          <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-white/15 text-[0.75rem] font-bold text-white">
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-white/15 text-[0.8125rem] font-bold text-white">
             {user.name.trim().charAt(0) || "শ"}
           </span>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-[0.75rem] font-semibold text-white">{user.name}</p>
-            <p className="flex items-center gap-1 text-[0.5625rem] text-violet-200/80">
+            <p className="truncate text-[0.8125rem] font-semibold text-white">{user.name}</p>
+            <p className="flex items-center gap-1 text-[0.625rem] text-violet-200/80">
               <span className="size-1.5 rounded-full bg-emerald-400" aria-hidden />
               {ROLE_LABELS[user.role].bn}
             </p>
@@ -117,19 +117,19 @@ export function DashboardShell({
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  "flex items-center gap-2.5 rounded-xl px-3 py-2 text-[0.8125rem] font-medium transition-colors",
+                  "flex items-center gap-3 rounded-xl px-3 py-2.5 text-[0.875rem] font-medium transition-colors",
                   active
                     ? "bg-white/15 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.12)]"
                     : "text-violet-100/70 hover:bg-white/[0.08] hover:text-white",
                 )}
                 aria-current={active ? "page" : undefined}
               >
-                <Icon className="size-4 shrink-0" aria-hidden />
+                <Icon className="size-[1.125rem] shrink-0" aria-hidden />
                 <span className="min-w-0 flex-1 truncate">{item.label}</span>
                 {item.badge ? (
                   <span
                     className={cn(
-                      "rounded-md px-1.5 py-0.5 text-[0.5rem] font-extrabold tracking-wide",
+                      "rounded-md px-1.5 py-0.5 text-[0.5625rem] font-extrabold tracking-wide",
                       item.badge.tone === "live" ? "bg-red-500 text-white" : "bg-fuchsia-500 text-white",
                     )}
                   >
@@ -146,8 +146,8 @@ export function DashboardShell({
             <span className="mx-auto flex size-8 items-center justify-center rounded-full bg-white/15 text-white">
               <Rocket className="size-4" aria-hidden />
             </span>
-            <p className="mt-1.5 text-[0.6875rem] font-bold leading-snug text-white">Build a Better Future</p>
-            <p className="text-[0.5625rem] text-violet-200/80">with JobHub</p>
+            <p className="mt-1.5 text-[0.75rem] font-bold leading-snug text-white">Build a Better Future</p>
+            <p className="text-[0.625rem] text-violet-200/80">with JobHub</p>
             <Link
               href="/practice"
               className="mt-2 inline-flex items-center gap-1 rounded-lg bg-white px-2.5 py-1 text-[0.625rem] font-bold text-[#241b63] transition hover:bg-violet-50"
@@ -248,7 +248,7 @@ export function DashboardShell({
           </nav>
         ) : null}
 
-        <main id="main" className="min-w-0 flex-1 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+        <main id="main" className="min-w-0 flex-1 px-4 py-6 sm:px-5 lg:px-6 lg:py-7">
           {children}
         </main>
       </div>
