@@ -121,16 +121,23 @@ export type QuestionListRow = {
   status: string;
   difficulty: string;
   source_type: string;
+  question_kind: string | null;
+  exam_name: string | null;
   is_verified: boolean;
   year: number | null;
   created_at: string;
   course_id: string;
   subject_id: string | null;
   topic_id: string | null;
+  subtopic_id: string | null;
   course?: { title_bn: string; slug: string } | null;
   subject?: { title_bn: string } | null;
   topic?: { title_bn: string } | null;
+  subtopic?: { title_bn: string } | null;
 };
+
+const QUESTION_ROW_SELECT =
+  "id, statement, statement_bn, option_a, option_b, option_c, option_d, correct_option, explanation, source, status, difficulty, source_type, question_kind, exam_name, is_verified, year, created_at, course_id, subject_id, topic_id, subtopic_id, course:courses(title_bn, slug), subject:subjects(title_bn), topic:topics(title_bn), subtopic:subtopics(title_bn)";
 
 /** Headline numbers for the question-bank page's stat cards and tabs. */
 export type QuestionBankStats = {
@@ -147,18 +154,20 @@ export type QuestionBankStats = {
   ai: number;
   /** source_type = 'manual' */
   manual: number;
+  /** source_type = csv_import / json_import */
+  imported: number;
 };
 
 const EMPTY_QB_STATS: QuestionBankStats = {
   total: 0, approved: 0, pending: 0, rejected: 0, exams: 0,
-  previous: 0, practice: 0, ai: 0, manual: 0,
+  previous: 0, practice: 0, ai: 0, manual: 0, imported: 0,
 };
 
 export async function getQuestionBankStats(): Promise<QuestionBankStats> {
   const supabase = await getServerClient();
   if (!supabase) return EMPTY_QB_STATS;
   const head = { count: "exact" as const, head: true };
-  const [total, approved, pending, draft, rejected, exams, previous, practice, ai, manual] =
+  const [total, approved, pending, draft, rejected, exams, previous, practice, ai, manual, imported] =
     await Promise.all([
       supabase.from("questions").select("id", head),
       supabase.from("questions").select("id", head).eq("status", "approved"),
@@ -170,6 +179,7 @@ export async function getQuestionBankStats(): Promise<QuestionBankStats> {
       supabase.from("questions").select("id", head).eq("question_kind", "practice"),
       supabase.from("questions").select("id", head).eq("source_type", "ai_assisted"),
       supabase.from("questions").select("id", head).eq("source_type", "manual"),
+      supabase.from("questions").select("id", head).in("source_type", ["csv_import", "json_import"]),
     ]);
   return {
     total: total.count ?? 0,
@@ -181,6 +191,7 @@ export async function getQuestionBankStats(): Promise<QuestionBankStats> {
     practice: practice.count ?? 0,
     ai: ai.count ?? 0,
     manual: manual.count ?? 0,
+    imported: imported.count ?? 0,
   };
 }
 
@@ -228,15 +239,35 @@ export async function getQuestionBankInsights(courseIds: string[]): Promise<Ques
   };
 }
 
+/** Recent audit entries for one question — powers the version-history panel. */
+export type QuestionAuditEntry = {
+  id: string;
+  action: string;
+  actor_role: string | null;
+  details: Record<string, unknown> | null;
+  created_at: string;
+};
+
+export async function getQuestionAudit(questionId: string): Promise<QuestionAuditEntry[]> {
+  const supabase = await getServerClient();
+  if (!supabase) return [];
+  const { data } = await supabase
+    .from("audit_logs")
+    .select("id, action, actor_role, details, created_at")
+    .eq("entity_type", "question")
+    .eq("entity_id", questionId)
+    .order("created_at", { ascending: false })
+    .limit(8);
+  return (data ?? []) as QuestionAuditEntry[];
+}
+
 /** Fetch a single question (same shape as the list rows) for the detail panel. */
 export async function getQuestionById(id: string): Promise<QuestionListRow | null> {
   const supabase = await getServerClient();
   if (!supabase) return null;
   const { data } = await supabase
     .from("questions")
-    .select(
-      "id, statement, statement_bn, option_a, option_b, option_c, option_d, correct_option, explanation, source, status, difficulty, source_type, is_verified, year, created_at, course_id, subject_id, topic_id, course:courses(title_bn, slug), subject:subjects(title_bn), topic:topics(title_bn)",
-    )
+    .select(QUESTION_ROW_SELECT)
     .eq("id", id)
     .maybeSingle();
   return (data as unknown as QuestionListRow) ?? null;
@@ -251,6 +282,9 @@ export type QuestionFilters = {
   sourceType?: string;
   /** question_kind filter: exact_pyq | practice | ai_generated */
   kind?: string;
+  subtopicId?: string;
+  /** Matches questions.exam_name with ilike. */
+  examName?: string;
   verified?: "yes" | "no";
   year?: string;
   search?: string;
@@ -270,10 +304,7 @@ export async function listQuestions(filters: QuestionFilters): Promise<{ rows: Q
 
   let query = supabase
     .from("questions")
-    .select(
-      "id, statement, statement_bn, option_a, option_b, option_c, option_d, correct_option, explanation, source, status, difficulty, source_type, is_verified, year, created_at, course_id, subject_id, topic_id, course:courses(title_bn, slug), subject:subjects(title_bn), topic:topics(title_bn)",
-      { count: "exact" },
-    );
+    .select(QUESTION_ROW_SELECT, { count: "exact" });
 
   if (filters.sort === "oldest") {
     query = query.order("created_at", { ascending: true });
@@ -290,6 +321,10 @@ export async function listQuestions(filters: QuestionFilters): Promise<{ rows: Q
   if (filters.courseId) query = query.eq("course_id", filters.courseId);
   if (filters.subjectId) query = query.eq("subject_id", filters.subjectId);
   if (filters.topicId) query = query.eq("topic_id", filters.topicId);
+  if (filters.subtopicId) query = query.eq("subtopic_id", filters.subtopicId);
+  if (filters.examName?.trim()) {
+    query = query.ilike("exam_name", `%${filters.examName.trim().replace(/[%,()]/g, " ")}%`);
+  }
   if (filters.difficulty) query = query.eq("difficulty", filters.difficulty);
   if (filters.sourceType) query = query.eq("source_type", filters.sourceType);
   if (filters.kind && ["exact_pyq", "practice", "ai_generated"].includes(filters.kind)) {

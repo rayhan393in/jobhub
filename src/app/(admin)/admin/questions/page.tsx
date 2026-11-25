@@ -1,19 +1,20 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import {
-  BookCopy, BookOpenCheck, CheckCircle2, ChartPie, Clock3, Eye, GraduationCap,
-  Landmark, Layers, List, Pencil, PenLine, RotateCcw, Search, SlidersHorizontal,
-  Sparkles, TrendingUp, X, XCircle, Zap,
+  BookCopy, BookOpenCheck, CheckCircle2, ChartPie, Clock3, Download, Eye,
+  GraduationCap, History, Landmark, Layers, List, Pencil, PenLine, RotateCcw,
+  Search, SlidersHorizontal, Sparkles, TrendingUp, X, XCircle, Zap,
 } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/field";
 import {
   listQuestions, getQuestionBankStats, getQuestionBankInsights, getQuestionById,
-  type QuestionFilters, type QuestionListRow,
+  getQuestionAudit, type QuestionAuditEntry, type QuestionFilters, type QuestionListRow,
 } from "@/lib/admin-queries";
 import { listCourses, listSubjects, listTopicsWithSubtopics } from "@/lib/queries";
 import { requirePermission } from "@/lib/permissions";
-import { formatDate, formatNumber, formatPercent } from "@/lib/format";
+import { formatDate, formatDateTime, formatNumber, formatPercent } from "@/lib/format";
+import { BulkBar, SelectAllBox } from "./bulk-controls";
 import { cn } from "@/lib/cn";
 import { NewQuestionDialog } from "./new-question-dialog";
 
@@ -52,6 +53,23 @@ const SOURCE_LABELS: Record<string, string> = {
   ai_assisted: "AI",
 };
 
+const KIND_LABELS: Record<string, string> = {
+  exact_pyq: "পূর্ববর্তী",
+  practice: "প্র্যাকটিস",
+  ai_generated: "AI",
+};
+const KIND_CHIP: Record<string, string> = {
+  exact_pyq: "bg-indigo-100 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300",
+  practice: "bg-teal-100 text-teal-700 dark:bg-teal-500/15 dark:text-teal-300",
+  ai_generated: "bg-fuchsia-100 text-fuchsia-700 dark:bg-fuchsia-500/15 dark:text-fuchsia-300",
+};
+
+const BULK_ACTION_LABELS: Record<string, string> = {
+  approve: "অনুমোদিত হয়েছে",
+  reject: "প্রত্যাখ্যাত হয়েছে",
+  archive: "আর্কাইভ হয়েছে",
+};
+
 /** Course chip palette — cycled by index so every course gets a stable hue. */
 const COURSE_CHIP = [
   "bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300",
@@ -77,6 +95,7 @@ export default async function QuestionBankPage({
   const subjectParam = params.subject && UUID.test(params.subject) ? params.subject : undefined;
   const topicParam = params.topic && UUID.test(params.topic) ? params.topic : undefined;
   const viewParam = params.view && UUID.test(params.view) ? params.view : undefined;
+  const subtopicParam = params.subtopic && UUID.test(params.subtopic) ? params.subtopic : undefined;
   const kindParam =
     params.kind && ["exact_pyq", "practice", "ai_generated"].includes(params.kind)
       ? params.kind
@@ -90,6 +109,8 @@ export default async function QuestionBankPage({
     difficulty: params.difficulty,
     sourceType: params.source,
     kind: kindParam,
+    subtopicId: subtopicParam,
+    examName: params.exam,
     verified: params.verified === "yes" || params.verified === "no" ? params.verified : undefined,
     year: params.year,
     search: params.q,
@@ -107,6 +128,7 @@ export default async function QuestionBankPage({
     courseParam && subjectParam ? listTopicsWithSubtopics(courseParam) : Promise.resolve([]),
   ]);
   const topics = allTopics.filter((t) => t.subject_id === subjectParam);
+  const subtopics = topicParam ? allTopics.find((t) => t.id === topicParam)?.subtopics ?? [] : [];
   const page = filters.page ?? 1;
   const pages = Math.max(1, Math.ceil(result.total / pageSize));
   const rangeFrom = result.total === 0 ? 0 : (page - 1) * pageSize + 1;
@@ -114,7 +136,7 @@ export default async function QuestionBankPage({
   const courseById = new Map(courses.map((c) => [c.id, c]));
   const courseTone = new Map(courses.map((c, i) => [c.id, COURSE_CHIP[i % COURSE_CHIP.length]]));
   const query = new URLSearchParams(
-    Object.entries(params).filter(([, value]) => Boolean(value)) as [string, string][],
+    Object.entries(params).filter(([key, value]) => Boolean(value) && key !== "bulk") as [string, string][],
   );
   const yearOptions = Array.from({ length: 27 }, (_, i) => 2026 - i);
 
@@ -148,6 +170,12 @@ export default async function QuestionBankPage({
       tone: "border-teal-200/70 from-teal-50 to-teal-100/60 dark:border-teal-500/20 dark:from-teal-500/10 dark:to-teal-500/5",
       text: "text-teal-700/80 dark:text-teal-300/80", num: "text-teal-900 dark:text-teal-200",
       iconBg: "bg-teal-600", badge: "bg-teal-600/10 text-teal-700 dark:bg-teal-400/10 dark:text-teal-300",
+    },
+    {
+      label: "AI প্রশ্ন", value: stats.ai, icon: Sparkles, note: null, pctOf: pct(stats.ai),
+      tone: "border-fuchsia-200/70 from-fuchsia-50 to-fuchsia-100/60 dark:border-fuchsia-500/20 dark:from-fuchsia-500/10 dark:to-fuchsia-500/5",
+      text: "text-fuchsia-700/80 dark:text-fuchsia-300/80", num: "text-fuchsia-900 dark:text-fuchsia-200",
+      iconBg: "bg-fuchsia-600", badge: "bg-fuchsia-600/10 text-fuchsia-700 dark:bg-fuchsia-400/10 dark:text-fuchsia-300",
     },
     {
       label: "অনুমোদিত", value: stats.approved, icon: CheckCircle2, note: null, pctOf: pct(stats.approved),
@@ -195,11 +223,15 @@ export default async function QuestionBankPage({
   const monthMax = Math.max(1, ...insights.byMonth.map((m) => m.count));
 
   // ---- Source breakdown rows
-  const otherSources = Math.max(0, stats.total - stats.previous - stats.manual - stats.ai);
+  const otherSources = Math.max(
+    0,
+    stats.total - stats.previous - stats.manual - stats.ai - stats.imported,
+  );
   const sourceRows = [
     { label: "পূর্ববর্তী পরীক্ষা (Actual)", count: stats.previous },
     { label: "ম্যানুয়াল (Admin)", count: stats.manual },
     { label: "AI Generated", count: stats.ai },
+    { label: "ইমপোর্টেড (Bulk)", count: stats.imported },
     { label: "অন্যান্য", count: otherSources },
   ];
 
@@ -236,6 +268,9 @@ export default async function QuestionBankPage({
   const viewQuestion: QuestionListRow | null = viewParam
     ? result.rows.find((r) => r.id === viewParam) ?? (await getQuestionById(viewParam))
     : null;
+  const viewHistory: QuestionAuditEntry[] = viewQuestion ? await getQuestionAudit(viewQuestion.id) : [];
+  const bulkFlag = params.bulk;
+  const [bulkAction, bulkCount] = bulkFlag?.includes(":") ? bulkFlag.split(":") : [undefined, undefined];
 
   return (
     <div
@@ -250,6 +285,7 @@ export default async function QuestionBankPage({
           question={viewQuestion}
           closeHref={hrefWith({ view: undefined })}
           courseTitle={courseById.get(viewQuestion.course_id)?.title_bn ?? "—"}
+          history={viewHistory}
         />
       ) : null}
 
@@ -281,13 +317,36 @@ export default async function QuestionBankPage({
               className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3.5 text-[0.75rem] font-semibold text-[var(--text-muted)] transition hover:border-[var(--brand)]/40 hover:text-[var(--brand)]"
             >
               <Zap className="size-3.5" aria-hidden />
-              ইমপোর্ট
+              বাল্ক ইমপোর্ট
             </Link>
+            <a
+              href={`/api/admin/questions/export${query.toString() ? `?${query}` : ""}`}
+              className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3.5 text-[0.75rem] font-semibold text-[var(--text-muted)] transition hover:border-[var(--brand)]/40 hover:text-[var(--brand)]"
+            >
+              <Download className="size-3.5" aria-hidden />
+              এক্সপোর্ট (CSV)
+            </a>
           </div>
         </div>
 
-        {/* Stat cards — ৬টি, mockup-এর মতো (মোট / পূর্ববর্তী / প্র্যাকটিস / অনুমোদিত / পেন্ডিং / প্রত্যাখ্যাত) */}
-        <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-3 2xl:grid-cols-6">
+        {bulkFlag ? (
+          <div
+            className={cn(
+              "mb-4 rounded-xl border px-3.5 py-2.5 text-[0.75rem] font-semibold",
+              bulkAction && BULK_ACTION_LABELS[bulkAction]
+                ? "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-200"
+                : "border-red-200 bg-red-50 text-red-800 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-200",
+            )}
+            role="status"
+          >
+            {bulkAction && BULK_ACTION_LABELS[bulkAction]
+              ? `${formatNumber(Number(bulkCount) || 0)}টি প্রশ্ন ${BULK_ACTION_LABELS[bulkAction]}।`
+              : "বাল্ক অ্যাকশন সম্পন্ন করা যায়নি — আবার চেষ্টা করুন।"}
+          </div>
+        ) : null}
+
+        {/* Stat cards — mockup-এর মতো (মোট / পূর্ববর্তী / প্র্যাকটিস / AI / অনুমোদিত / পেন্ডিং / প্রত্যাখ্যাত) */}
+        <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-7">
           {statCards.map((card) => {
             const Icon = card.icon;
             return (
@@ -485,7 +544,6 @@ export default async function QuestionBankPage({
         {/* Advanced filters */}
         <form method="get" className="jh-card mb-4 overflow-hidden">
           {courseParam ? <input type="hidden" name="course" value={courseParam} /> : null}
-          {kindParam ? <input type="hidden" name="kind" value={kindParam} /> : null}
           {pageSize !== 20 ? <input type="hidden" name="ps" value={pageSize} /> : null}
           <div className="flex items-center justify-between gap-3 border-b border-[var(--border)] px-4 py-3">
             <p className="flex items-center gap-2 text-[0.8125rem] font-semibold text-[var(--text)]">
@@ -532,8 +590,32 @@ export default async function QuestionBankPage({
                 </select>
               </div>
             ) : null}
+            {topicParam && subtopics.length > 0 ? (
+              <div>
+                <label htmlFor="subtopic" className="jh-label">সাবটপিক</label>
+                <select id="subtopic" name="subtopic" defaultValue={subtopicParam ?? ""} className="jh-select h-9 text-[0.75rem]">
+                  <option value="">সব সাবটপিক</option>
+                  {subtopics.map((subtopic) => (
+                    <option key={subtopic.id} value={subtopic.id}>{subtopic.title_bn}</option>
+                  ))}
+                </select>
+              </div>
+            ) : null}
             <div>
-              <label htmlFor="source" className="jh-label">উৎস</label>
+              <label htmlFor="kind" className="jh-label">প্রশ্নের ধরন</label>
+              <select id="kind" name="kind" defaultValue={kindParam ?? ""} className="jh-select h-9 text-[0.75rem]">
+                <option value="">সব ধরন</option>
+                <option value="exact_pyq">পূর্ববর্তী (PYQ)</option>
+                <option value="practice">প্র্যাকটিস</option>
+                <option value="ai_generated">AI জেনারেটেড</option>
+              </select>
+            </div>
+            <div>
+              <label htmlFor="exam" className="jh-label">পরীক্ষার নাম</label>
+              <Input id="exam" name="exam" defaultValue={params.exam} placeholder="যেমন: ৪৬তম BCS" className="h-9 text-[0.75rem]" />
+            </div>
+            <div>
+              <label htmlFor="source" className="jh-label">উৎস (Source)</label>
               <select id="source" name="source" defaultValue={params.source ?? ""} className="jh-select h-9 text-[0.75rem]">
                 <option value="">সব উৎস</option>
                 <option value="manual">ম্যানুয়াল</option>
@@ -622,15 +704,24 @@ export default async function QuestionBankPage({
             description="ফিল্টার পরিবর্তন করুন, নতুন প্রশ্ন যোগ করুন, অথবা CSV/JSON ইমপোর্ট করুন।"
           />
         ) : (
-          <div className="jh-card overflow-hidden">
+          <form method="post" action="/api/admin/questions/table-bulk" className="jh-card overflow-hidden">
+            <input type="hidden" name="back" value={hrefWith({})} />
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--border)] bg-[var(--surface-muted)]/60 px-3 py-2">
+              <BulkBar />
+              <p className="text-[0.625rem] text-[var(--text-subtle)]">
+                বাল্ক অ্যাকশন অডিট লগসহ এক লেনদেনে চলে — আর্কাইভ পরে পুনরুদ্ধারযোগ্য
+              </p>
+            </div>
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[56rem] border-collapse text-left">
+              <table className="w-full min-w-[64rem] border-collapse text-left">
                 <thead>
                   <tr className="border-b border-[var(--border)] bg-[var(--surface-muted)] text-[0.5625rem] font-semibold uppercase tracking-[0.08em] text-[var(--text-subtle)]">
+                    <th scope="col" className="w-8 px-3 py-2.5 text-center"><SelectAllBox /></th>
                     <th scope="col" className="px-3 py-2.5 text-center">#</th>
                     <th scope="col" className="px-3 py-2.5">প্রশ্ন</th>
                     <th scope="col" className="px-3 py-2.5">কোর্স</th>
                     <th scope="col" className="px-3 py-2.5">বিষয় / টপিক</th>
+                    <th scope="col" className="px-3 py-2.5">ধরন</th>
                     <th scope="col" className="px-3 py-2.5">উৎস</th>
                     <th scope="col" className="px-3 py-2.5">কঠিনতা</th>
                     <th scope="col" className="px-3 py-2.5">বছর</th>
@@ -647,6 +738,15 @@ export default async function QuestionBankPage({
                         viewParam === question.id && "bg-[var(--brand-soft)]/50",
                       )}
                     >
+                      <td className="px-3 py-3 text-center">
+                        <input
+                          type="checkbox"
+                          name="ids"
+                          value={question.id}
+                          aria-label="প্রশ্ন নির্বাচন করুন"
+                          className="size-3.5 accent-[var(--brand)]"
+                        />
+                      </td>
                       <td className="px-3 py-3 text-center">
                         <p className="text-[0.6875rem] font-semibold tabular-nums text-[var(--text-subtle)]">
                           {formatNumber(rangeFrom + index)}
@@ -676,6 +776,14 @@ export default async function QuestionBankPage({
                         <p className="truncate text-[0.5625rem] text-[var(--text-subtle)]">
                           {question.topic?.title_bn ?? ""}
                         </p>
+                      </td>
+                      <td className="px-3 py-3">
+                        <span className={cn(
+                          "inline-flex rounded-full px-2 py-0.5 text-[0.625rem] font-semibold",
+                          KIND_CHIP[question.question_kind ?? ""] ?? "bg-slate-100 text-slate-600 dark:bg-slate-500/15 dark:text-slate-400",
+                        )}>
+                          {KIND_LABELS[question.question_kind ?? ""] ?? "—"}
+                        </span>
                       </td>
                       <td className="px-3 py-3">
                         <span className="inline-flex rounded-full bg-violet-100 px-2 py-0.5 text-[0.625rem] font-semibold text-violet-700 dark:bg-violet-500/15 dark:text-violet-300">
@@ -795,7 +903,7 @@ export default async function QuestionBankPage({
                 </nav>
               ) : null}
             </div>
-          </div>
+          </form>
         )}
       </div>
     </div>
@@ -807,10 +915,12 @@ function QuestionDetailPanel({
   question,
   closeHref,
   courseTitle,
+  history,
 }: {
   question: QuestionListRow;
   closeHref: string;
   courseTitle: string;
+  history: QuestionAuditEntry[];
 }) {
   const options = [
     { letter: "A", text: question.option_a },
@@ -823,7 +933,10 @@ function QuestionDetailPanel({
     { label: "কোর্স", value: courseTitle },
     { label: "বিষয়", value: question.subject?.title_bn ?? "—" },
     { label: "টপিক", value: question.topic?.title_bn ?? "—" },
+    { label: "সাবটপিক", value: question.subtopic?.title_bn ?? "—" },
+    { label: "ধরন", value: KIND_LABELS[question.question_kind ?? ""] ?? "—" },
     { label: "উৎস", value: SOURCE_LABELS[question.source_type] ?? question.source_type },
+    { label: "পরীক্ষা", value: question.exam_name ?? "—" },
     { label: "কঠিনতা", value: DIFFICULTY_LABELS[question.difficulty] ?? "মধ্যম" },
     { label: "বছর", value: question.year ? formatNumber(question.year) : "—" },
     { label: "যাচাই", value: question.is_verified ? "যাচাইকৃত ✓" : "অযাচাইকৃত" },
@@ -919,6 +1032,35 @@ function QuestionDetailPanel({
               </div>
             ))}
           </dl>
+        </div>
+
+        <div className="mt-3 rounded-xl border border-[var(--border)] p-3">
+          <p className="flex items-center gap-1 text-[0.625rem] font-bold uppercase tracking-wide text-[var(--text-subtle)]">
+            <History className="size-3" aria-hidden />
+            সংস্করণ ইতিহাস (Version History)
+          </p>
+          {history.length === 0 ? (
+            <p className="mt-1.5 text-[0.6875rem] text-[var(--text-subtle)]">
+              এই প্রশ্নে এখনো কোনো পরিবর্তনের রেকর্ড নেই।
+            </p>
+          ) : (
+            <ol className="mt-1.5 space-y-1.5">
+              {history.map((entry, i) => (
+                <li key={entry.id} className="flex items-start gap-2 text-[0.6875rem]">
+                  <span className="mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full bg-[var(--brand-soft)] text-[0.5rem] font-bold text-[var(--brand)]">
+                    {formatNumber(history.length - i)}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="font-semibold text-[var(--text)]">{entry.action}</span>
+                    <span className="block text-[0.5625rem] text-[var(--text-subtle)]">
+                      {formatDateTime(entry.created_at)}
+                      {entry.actor_role ? ` · ${entry.actor_role}` : ""}
+                    </span>
+                  </span>
+                </li>
+              ))}
+            </ol>
+          )}
         </div>
 
         <div className="mt-4 flex items-center gap-2">
