@@ -11,9 +11,10 @@ import {
 import {
   AccuracyCard, SubjectPerformanceCard, WeakTopicsCard, UpcomingExamsCard, TargetCourseCard,
 } from "@/components/dashboard/insight-cards";
+import { CourseContextBar, QuickActions } from "@/components/dashboard/course-context";
 import {
-  getStudentAnalytics, isFirstAdminSeatOpen, listCourses, listMyResults, listPublishedSchedules,
-  listRoutines, getOpenAttempts,
+  ensureDefaultEnrollment, getStudentAnalytics, isFirstAdminSeatOpen, listCourses,
+  listMyEnrollments, listMyResults, listPublishedSchedules, listRoutines, getOpenAttempts,
 } from "@/lib/queries";
 import { dhakaDateKey } from "@/lib/format";
 
@@ -26,12 +27,32 @@ export const metadata: Metadata = { title: "ড্যাশবোর্ড" };
  * parallel batch and handed to presentational section components in
  * `@/components/dashboard/*`; no section fetches on its own.
  */
-export default async function DashboardPage() {
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | undefined>>;
+}) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
+  const params = await searchParams;
 
   const today = dhakaDateKey();
-  const targetCourseId = user.profile?.target_course_id ?? null;
+  const defaultCourseId = user.profile?.target_course_id ?? null;
+  // Course context (Phase 2): ?course=all → combined view, ?course=<id> →
+  // that course, otherwise the persisted default course. The default course
+  // in the profile keeps the context across logins without extra state.
+  const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const courseParam = params.course;
+  const targetCourseId =
+    courseParam === "all" ? null
+    : courseParam && UUID.test(courseParam) ? courseParam
+    : defaultCourseId;
+  let enrollments = await listMyEnrollments(user.id);
+  // Existing-student migration: profile has a course but no enrollment row.
+  if (enrollments.length === 0 && defaultCourseId) {
+    await ensureDefaultEnrollment(user.id, defaultCourseId);
+    enrollments = await listMyEnrollments(user.id);
+  }
   const [courseList, targetAnalytics, results, schedules, routines, openAttempts, adminSeatOpen] = await Promise.all([
     listCourses(),
     // Scope analytics to the student's target course so BCS and Petrobangla
@@ -60,7 +81,11 @@ export default async function DashboardPage() {
 
   const names = displayName(user);
   const courseById = new Map(courseList.map((c) => [c.id, c]));
-  const targetCourse = courseList.find((c) => c.id === user.profile?.target_course_id) ?? courseList[0];
+  const targetCourse = courseList.find((c) => c.id === (targetCourseId ?? defaultCourseId)) ?? courseList[0];
+  const activeEnrolledCourses = enrollments
+    .filter((e) => e.status === "active")
+    .map((e) => courseById.get(e.course_id))
+    .filter((c): c is NonNullable<typeof c> => Boolean(c));
 
   const now = Date.now();
   const liveExams = schedules.filter(
@@ -106,6 +131,14 @@ export default async function DashboardPage() {
         todayExam={todayExam}
       />
 
+      {activeEnrolledCourses.length > 0 ? (
+        <CourseContextBar
+          enrolledCourses={activeEnrolledCourses}
+          selectedId={targetCourseId}
+          defaultId={defaultCourseId}
+        />
+      ) : null}
+
       <ResumeBanner attempts={openAttempts as unknown as ResumeAttempt[]} courseById={courseById} now={now} />
       <LiveExamsBanner exams={liveExams} />
       <StatsGrid summary={summary} />
@@ -127,6 +160,8 @@ export default async function DashboardPage() {
       </div>
 
       <LearningActivityCard todayRoutineCount={todayRoutines.length} summary={summary} />
+
+      <QuickActions />
     </div>
   );
 }
