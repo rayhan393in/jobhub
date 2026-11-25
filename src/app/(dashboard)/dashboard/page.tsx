@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import Link from "next/link";
+import { BookOpenCheck, Bookmark, CalendarDays, Layers } from "lucide-react";
 import { redirect } from "next/navigation";
 import { getCurrentUser, displayName, isStaff } from "@/lib/auth";
 import { FirstAdminBanner } from "@/components/dashboard/first-admin-banner";
@@ -109,6 +111,42 @@ export default async function DashboardPage() {
       <ResumeBanner attempts={openAttempts as unknown as ResumeAttempt[]} courseById={courseById} now={now} />
       <LiveExamsBanner exams={liveExams} />
       <StatsGrid summary={summary} />
+
+      <section className="mt-5" aria-labelledby="student-quick-actions">
+        <div className="mb-2 flex flex-wrap items-end justify-between gap-2">
+          <div>
+            <h2 id="student-quick-actions" className="text-[0.875rem] font-semibold text-[var(--text)]">
+              দ্রুত শুরু করুন
+            </h2>
+            <p className="mt-0.5 text-[0.6875rem] text-[var(--text-subtle)]">
+              {targetCourse ? `${targetCourse.title_bn} প্রস্তুতির জন্য প্রয়োজনীয় শর্টকাট` : "আপনার প্রস্তুতির প্রয়োজনীয় শর্টকাট"}
+            </p>
+          </div>
+          {targetCourse ? (
+            <Link href="/my-courses" className="text-[0.6875rem] font-semibold text-[var(--brand)] hover:underline">
+              কোর্স পরিবর্তন বা দেখুন
+            </Link>
+          ) : null}
+        </div>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <Link href="/practice" className="group flex min-h-24 flex-col justify-between rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-3 transition hover:border-[var(--brand)] hover:shadow-sm">
+            <span className="flex size-8 items-center justify-center rounded-xl bg-[var(--brand-soft)] text-[var(--brand)]"><BookOpenCheck className="size-4" aria-hidden /></span>
+            <span className="mt-2 text-[0.75rem] font-semibold text-[var(--text)]">প্র্যাকটিস</span>
+          </Link>
+          <Link href="/custom-exam" className="group flex min-h-24 flex-col justify-between rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-3 transition hover:border-[var(--brand)] hover:shadow-sm">
+            <span className="flex size-8 items-center justify-center rounded-xl bg-[var(--brand-soft)] text-[var(--brand)]"><Layers className="size-4" aria-hidden /></span>
+            <span className="mt-2 text-[0.75rem] font-semibold text-[var(--text)]">কাস্টম পরীক্ষা</span>
+          </Link>
+          <Link href="/routines" className="group flex min-h-24 flex-col justify-between rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-3 transition hover:border-[var(--brand)] hover:shadow-sm">
+            <span className="flex size-8 items-center justify-center rounded-xl bg-[var(--brand-soft)] text-[var(--brand)]"><CalendarDays className="size-4" aria-hidden /></span>
+            <span className="mt-2 text-[0.75rem] font-semibold text-[var(--text)]">স্টাডি রুটিন</span>
+          </Link>
+          <Link href="/bookmarks" className="group flex min-h-24 flex-col justify-between rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-3 transition hover:border-[var(--brand)] hover:shadow-sm">
+            <span className="flex size-8 items-center justify-center rounded-xl bg-[var(--brand-soft)] text-[var(--brand)]"><Bookmark className="size-4" aria-hidden /></span>
+            <span className="mt-2 text-[0.75rem] font-semibold text-[var(--text)]">বুকমার্ক</span>
+          </Link>
+        </div>
+      </section>
 
       <div className="mt-5 grid gap-5 lg:grid-cols-[1.5fr_1fr]">
         <div className="space-y-5">
