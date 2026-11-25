@@ -5,9 +5,8 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   BookOpenCheck, CalendarDays, ChartNoAxesColumn, ChevronLeft, GraduationCap, Home,
-  Layers, LogOut, Menu, PenLine, Radio, Settings, ShieldCheck, Trophy, X, Library,
+  Layers, LogOut, Menu, PenLine, Radio, Rocket, Settings, ShieldCheck, Trophy, X, Library,
 } from "lucide-react";
-import { Logo } from "@/components/ui/logo";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { cn } from "@/lib/cn";
 import type { RoleId } from "@/lib/types";
@@ -60,12 +59,42 @@ export function DashboardShell({
   }
 
   return (
-    <div className="flex min-h-dvh bg-[var(--surface-muted)]">
-      {/* Desktop sidebar */}
-      <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col border-r border-[var(--border)] bg-[var(--surface)] lg:flex">
-        <div className="flex h-16 items-center px-4">
-          <Logo size={32} showTagline={false} />
+    <div className="flex min-h-dvh bg-[#f4f2fc] dark:bg-[var(--surface-muted)]">
+      {/* Desktop sidebar — dark violet, matching the admin design system */}
+      <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col bg-gradient-to-b from-[#241b63] via-[#1e1856] to-[#120e38] text-white lg:flex">
+        <div className="flex items-center gap-2.5 px-4 pb-3 pt-4">
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-500 text-white shadow-[0_8px_18px_-6px_rgba(168,85,247,0.7)]">
+            <GraduationCap className="size-5" aria-hidden />
+          </span>
+          <div className="min-w-0">
+            <p className="text-[0.9375rem] font-extrabold leading-tight tracking-tight">JobHub</p>
+            <p className="text-[0.5625rem] font-medium text-violet-200/80">Learn · Practice · Excel</p>
+          </div>
         </div>
+
+        {/* Signed-in student chip */}
+        <div className="mx-3 mb-2 flex items-center gap-2.5 rounded-2xl border border-white/10 bg-white/[0.07] px-2.5 py-2">
+          <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-white/15 text-[0.75rem] font-bold text-white">
+            {user.name.trim().charAt(0) || "শ"}
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-[0.75rem] font-semibold text-white">{user.name}</p>
+            <p className="flex items-center gap-1 text-[0.5625rem] text-violet-200/80">
+              <span className="size-1.5 rounded-full bg-emerald-400" aria-hidden />
+              {ROLE_LABELS[user.role].bn}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={signOut}
+            disabled={signingOut}
+            className="rounded-lg p-1.5 text-violet-200/70 transition hover:bg-white/10 hover:text-white"
+            aria-label="Sign out"
+          >
+            <LogOut className="size-4" aria-hidden />
+          </button>
+        </div>
+
         <nav className="flex-1 space-y-0.5 overflow-y-auto px-2.5 pb-4" aria-label="Dashboard">
           {nav.map((item) => {
             const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
@@ -77,8 +106,8 @@ export function DashboardShell({
                 className={cn(
                   "flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-[0.8125rem] font-medium transition-colors",
                   active
-                    ? "bg-[var(--brand-soft)] text-[var(--brand)]"
-                    : "text-[var(--text-muted)] hover:bg-[var(--surface-muted)] hover:text-[var(--text)]",
+                    ? "bg-white/15 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.12)]"
+                    : "text-violet-100/70 hover:bg-white/[0.08] hover:text-white",
                 )}
                 aria-current={active ? "page" : undefined}
               >
@@ -88,41 +117,61 @@ export function DashboardShell({
             );
           })}
         </nav>
-        <div className="border-t border-[var(--border)] p-2.5">
-          <div className="flex items-center gap-2.5 rounded-xl px-2 py-2">
-            <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-[var(--brand-soft)] text-[0.75rem] font-bold text-[var(--brand)]">
-              {user.name.trim().charAt(0) || "শ"}
+
+        <div className="border-t border-white/10 p-3">
+          <div className="rounded-2xl bg-gradient-to-br from-violet-600/50 to-fuchsia-600/30 p-3 text-center">
+            <span className="mx-auto flex size-8 items-center justify-center rounded-full bg-white/15 text-white">
+              <Rocket className="size-4" aria-hidden />
             </span>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-[0.75rem] font-semibold text-[var(--text)]">{user.name}</p>
-              <p className="truncate text-[0.625rem] text-[var(--text-subtle)]">{ROLE_LABELS[user.role].bn}</p>
-            </div>
-            <button
-              type="button"
-              onClick={signOut}
-              disabled={signingOut}
-              className="rounded-lg p-1.5 text-[var(--text-subtle)] hover:text-[var(--danger)]"
-              aria-label="Sign out"
+            <p className="mt-1.5 text-[0.6875rem] font-bold leading-snug text-white">Build a Better Future</p>
+            <p className="text-[0.5625rem] text-violet-200/80">with JobHub</p>
+            <Link
+              href="/practice"
+              className="mt-2 inline-flex items-center gap-1 rounded-lg bg-white px-2.5 py-1 text-[0.625rem] font-bold text-[#241b63] transition hover:bg-violet-50"
             >
-              <LogOut className="size-4" aria-hidden />
-            </button>
+              প্র্যাকটিস শুরু করুন →
+            </Link>
           </div>
         </div>
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
+        {/* Desktop top bar */}
+        <header className="sticky top-0 z-40 hidden h-16 items-center gap-3 border-b border-violet-100/80 bg-white/85 px-6 backdrop-blur dark:border-[var(--border)] dark:bg-[var(--surface)]/90 lg:flex">
+          <div className="min-w-0">
+            <p className="truncate text-[0.875rem] font-bold text-[var(--text)]">স্বাগতম, {user.name} 👋</p>
+            <p className="text-[0.625rem] text-[var(--text-subtle)]">আজকের প্রস্তুতি আজই শেষ করুন</p>
+          </div>
+          <div className="ml-auto flex items-center gap-2">
+            <ThemeToggle />
+            <span className="h-6 w-px bg-violet-100 dark:bg-[var(--border)]" aria-hidden />
+            <div className="flex items-center gap-2 rounded-full border border-violet-100 bg-white py-1 pl-1 pr-3 dark:border-[var(--border)] dark:bg-[var(--surface-muted)]">
+              <span className="flex size-7 items-center justify-center rounded-full bg-gradient-to-br from-violet-600 to-fuchsia-500 text-[0.625rem] font-bold text-white">
+                {user.name.trim().charAt(0) || "শ"}
+              </span>
+              <div className="leading-tight">
+                <p className="max-w-32 truncate text-[0.6875rem] font-semibold text-[var(--text)]">{user.name}</p>
+                <p className="text-[0.5rem] text-[var(--text-subtle)]">{ROLE_LABELS[user.role].bn}</p>
+              </div>
+            </div>
+          </div>
+        </header>
+
         {/* Mobile top bar */}
-        <header className="sticky top-0 z-40 flex h-14 items-center gap-2 border-b border-[var(--border)] bg-[var(--surface)]/95 px-4 backdrop-blur lg:hidden">
+        <header className="sticky top-0 z-40 flex h-14 items-center gap-2 bg-gradient-to-r from-[#241b63] to-[#1e1856] px-4 text-white lg:hidden">
           <button
             type="button"
             onClick={() => setOpen((v) => !v)}
-            className="inline-flex size-9 items-center justify-center rounded-xl border border-[var(--border)]"
+            className="inline-flex size-9 items-center justify-center rounded-xl border border-white/20 text-white"
             aria-label={open ? "Close menu" : "Open menu"}
             aria-expanded={open}
           >
             {open ? <X className="size-4" /> : <Menu className="size-4" />}
           </button>
-          <Logo size={28} showTagline={false} />
+          <span className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-500 text-white">
+            <GraduationCap className="size-4" aria-hidden />
+          </span>
+          <span className="text-[0.875rem] font-extrabold tracking-tight">JobHub</span>
           <div className="ml-auto flex items-center gap-1.5">
             <ThemeToggle />
           </div>
