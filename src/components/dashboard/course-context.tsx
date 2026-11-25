@@ -25,9 +25,9 @@ export function CourseContextBar({
       <span className="inline-flex items-center gap-1.5 px-1.5 text-[0.75rem] font-bold text-[var(--text)]">
         <Layers className="size-3.5 text-[var(--brand)]" aria-hidden />
         আমার কোর্সসমূহ
-        <span className="font-medium text-[var(--text-subtle)]">
-          ({enrolledCourses.length}টি কোর্স)
-        </span>
+        {enrolledCourses.length > 0 ? (
+          <span className="font-medium text-[var(--text-subtle)]">({enrolledCourses.length}টি কোর্স)</span>
+        ) : null}
       </span>
 
       <Link
@@ -89,8 +89,32 @@ const QUICK_ACTIONS = [
   { href: "/analytics", label: "রিপোর্ট", icon: BarChart3, tone: "text-sky-600 bg-sky-100 dark:text-sky-300 dark:bg-sky-500/15" },
 ] as const;
 
-/** Quick actions grid — the mockup's "দ্রুত প্রবেশ (Quick Actions)" row. */
-export function QuickActions() {
+/** Quick actions grid — the mockup's "দ্রুত প্রবেশ (Quick Actions)" card. */
+export function QuickActions({ compact = false }: { compact?: boolean }) {
+  if (compact) {
+    return (
+      <section className="jh-card p-4" aria-label="দ্রুত প্রবেশ">
+        <h2 className="mb-2.5 text-[0.8125rem] font-bold text-[var(--text)]">⚡ দ্রুত প্রবেশ (Quick Actions)</h2>
+        <div className="grid grid-cols-4 gap-2">
+          {QUICK_ACTIONS.map((action) => {
+            const Icon = action.icon;
+            return (
+              <Link
+                key={action.label}
+                href={action.href}
+                className="flex flex-col items-center gap-1 rounded-xl border border-[var(--border)] p-2 text-center transition hover:border-[var(--brand)]/40 hover:shadow-sm"
+              >
+                <span className={cn("flex size-8 items-center justify-center rounded-lg", action.tone)}>
+                  <Icon className="size-4" aria-hidden />
+                </span>
+                <span className="text-[0.5625rem] font-semibold leading-tight text-[var(--text-muted)]">{action.label}</span>
+              </Link>
+            );
+          })}
+        </div>
+      </section>
+    );
+  }
   return (
     <section className="mt-5" aria-label="দ্রুত প্রবেশ">
       <h2 className="mb-2 text-[0.8125rem] font-bold text-[var(--text)]">⚡ দ্রুত প্রবেশ (Quick Actions)</h2>

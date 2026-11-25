@@ -9,6 +9,7 @@ import { TodayRoutineCard, RecentResultsCard } from "@/components/dashboard/acti
 import { WeakTopicsCard, UpcomingExamsCard } from "@/components/dashboard/insight-cards";
 import { CourseContextBar, QuickActions } from "@/components/dashboard/course-context";
 import { AiCoachCard, MasteryCard, StudyCalendarCard } from "@/components/dashboard/v7-cards";
+import { ExamCountdownCard } from "@/components/dashboard/exam-countdown-card";
 import { WeeklyTrendCard } from "@/components/dashboard/weekly-trend";
 import {
   ensureDefaultEnrollment, getStudentAnalytics, isFirstAdminSeatOpen, listCourses,
@@ -174,13 +175,11 @@ export default async function DashboardPage({
         goals={dailyGoals}
       />
 
-      {activeEnrolledCourses.length > 0 ? (
-        <CourseContextBar
-          enrolledCourses={activeEnrolledCourses}
-          selectedId={targetCourseId}
-          defaultId={defaultCourseId}
-        />
-      ) : null}
+      <CourseContextBar
+        enrolledCourses={activeEnrolledCourses}
+        selectedId={targetCourseId}
+        defaultId={defaultCourseId}
+      />
 
       <ResumeBanner attempts={openAttempts as unknown as ResumeAttempt[]} courseById={courseById} now={now} />
       <LiveExamsBanner exams={liveExams} />
@@ -188,7 +187,7 @@ export default async function DashboardPage({
 
       {/* Row A — আজকের রুটিন · সাপ্তাহিক ট্রেন্ড · দক্ষতা donut (mockup) */}
       <div className="mt-5 grid gap-4 lg:grid-cols-2 2xl:grid-cols-[1.1fr_1.2fr_1fr]">
-        <TodayRoutineCard routines={todayRoutines} />
+        <TodayRoutineCard routines={todayRoutines} doneIds={doneRoutineIds as Set<string>} />
         <WeeklyTrendCard weekly={weekly} hasData={hasData} />
         <div className="lg:col-span-2 2xl:col-span-1">
           <MasteryCard subjects={subjects} />
@@ -205,12 +204,21 @@ export default async function DashboardPage({
         </div>
       </div>
 
-      {/* Row C — স্টাডি ক্যালেন্ডার ও স্ট্রিক */}
-      <div id="calendar" className="mt-4 scroll-mt-20">
-        <StudyCalendarCard activity={activityDays} today={today} />
+      {/* Row C — ক্যালেন্ডার · পরবর্তী পরীক্ষা কাউন্টডাউন · কুইক অ্যাকশন (mockup bottom) */}
+      <div className="mt-4 grid gap-4 lg:grid-cols-2 2xl:grid-cols-[1.3fr_1fr_1fr]">
+        <div id="calendar" className="scroll-mt-20">
+          <StudyCalendarCard activity={activityDays} today={today} />
+        </div>
+        {upcomingExams[0] ? (
+          <ExamCountdownCard
+            title={upcomingExams[0].title_bn ?? upcomingExams[0].title_en ?? "লাইভ পরীক্ষা"}
+            courseTitle={courseById.get(upcomingExams[0].course_id)?.title_bn ?? null}
+            startsAt={upcomingExams[0].starts_at}
+            href={`/exams/${upcomingExams[0].id}`}
+          />
+        ) : null}
+        <QuickActions compact />
       </div>
-
-      <QuickActions />
     </div>
   );
 }
