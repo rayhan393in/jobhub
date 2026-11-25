@@ -302,6 +302,26 @@ body {
     radial-gradient(45rem 26rem at 92% 0%, color-mix(in oklab, var(--accent) 10%, transparent), transparent 62%);
 }
 
+/* App shell background — soft lavender field behind dashboards ------------ */
+.jh-app-bg {
+  background-color: #f3f1fc;
+  background-image:
+    radial-gradient(48rem 26rem at 88% -6%, rgba(139, 92, 246, 0.12), transparent 62%),
+    radial-gradient(40rem 24rem at -8% 18%, rgba(217, 70, 239, 0.07), transparent 58%),
+    radial-gradient(44rem 26rem at 50% 115%, rgba(99, 102, 241, 0.08), transparent 60%),
+    linear-gradient(180deg, #f7f4fe 0%, #f2effc 45%, #eef0fb 100%);
+  background-attachment: fixed;
+}
+
+.dark .jh-app-bg {
+  background-color: var(--surface-muted);
+  background-image:
+    radial-gradient(48rem 26rem at 88% -6%, rgba(139, 92, 246, 0.14), transparent 62%),
+    radial-gradient(40rem 24rem at -8% 18%, rgba(168, 85, 247, 0.08), transparent 58%),
+    linear-gradient(180deg, color-mix(in oklab, var(--brand) 6%, var(--surface-muted)), var(--surface-muted) 30rem);
+  background-attachment: fixed;
+}
+
 /* Exam room background — calm brand-tinted field behind the runner -------- */
 .jh-exam-bg {
   background:

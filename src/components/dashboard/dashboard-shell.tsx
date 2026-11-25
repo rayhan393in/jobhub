@@ -59,7 +59,7 @@ export function DashboardShell({
   }
 
   return (
-    <div className="flex min-h-dvh bg-[#f4f2fc] dark:bg-[var(--surface-muted)]">
+    <div className="jh-app-bg flex min-h-dvh">
       {/* Desktop sidebar — dark violet, matching the admin design system */}
       <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col bg-gradient-to-b from-[#241b63] via-[#1e1856] to-[#120e38] text-white lg:flex">
         <div className="flex items-center gap-2.5 px-4 pb-3 pt-4">

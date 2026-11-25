@@ -67,7 +67,7 @@ export function AdminShell({
   const items = ADMIN_NAV.filter((item) => !item.permission || allowed.has(item.permission));
 
   return (
-    <div className="flex min-h-dvh bg-[#f4f2fc] dark:bg-[var(--surface-muted)]">
+    <div className="jh-app-bg flex min-h-dvh">
       {/* Dark violet sidebar, following the reference design system */}
       <aside className="sticky top-0 hidden h-dvh w-64 shrink-0 flex-col bg-gradient-to-b from-[#241b63] via-[#1e1856] to-[#120e38] text-white lg:flex">
         <div className="flex items-center gap-2.5 px-4 pb-3 pt-4">
