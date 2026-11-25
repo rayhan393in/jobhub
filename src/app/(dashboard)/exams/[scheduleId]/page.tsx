@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, CalendarClock, Clock3, Info, Lock, Radio, Target } from "lucide-react";
+import { ArrowLeft, BookOpenCheck, CalendarClock, Clock3, Info, Lock, Radio, Target } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { getCurrentUser } from "@/lib/auth";
 import { getServerClient } from "@/lib/supabase/server";
@@ -44,6 +44,46 @@ export default async function ScheduleDetailPage({ params }: { params: Promise<{
   const end = new Date(schedule.ends_at).getTime();
   const isLive = now >= start && now < end;
   const isUpcoming = now < start;
+
+  // --- Syllabus: resolve the paper composition (subjects + topics) so the
+  // student knows exactly what to study before the exam starts. -------------
+  type CompositionSection = { count?: number; subject_id?: string; topic_ids?: string[] };
+  const settings = (schedule.settings ?? {}) as {
+    composition?: { sections?: CompositionSection[] };
+    difficulty_mix?: { easy?: number; medium?: number; hard?: number; previous?: number };
+  };
+  const sections = Array.isArray(settings.composition?.sections) ? settings.composition.sections : [];
+  const subjectIds = [...new Set(sections.map((s) => s.subject_id).filter(Boolean))] as string[];
+  const topicIds = [...new Set(sections.flatMap((s) => s.topic_ids ?? []).filter(Boolean))];
+
+  const [subjectRows, topicRows] = await Promise.all([
+    subjectIds.length
+      ? supabase.from("subjects").select("id, title_bn").in("id", subjectIds)
+      : Promise.resolve({ data: [] as { id: string; title_bn: string }[] }),
+    topicIds.length
+      ? supabase.from("topics").select("id, title_bn, subject_id").in("id", topicIds)
+      : Promise.resolve({ data: [] as { id: string; title_bn: string; subject_id: string }[] }),
+  ]);
+  const subjectName = new Map((subjectRows.data ?? []).map((s) => [s.id, s.title_bn]));
+  const topicName = new Map((topicRows.data ?? []).map((t) => [t.id, t.title_bn]));
+
+  const syllabus = sections
+    .map((s) => ({
+      subject: s.subject_id ? subjectName.get(s.subject_id) ?? null : null,
+      topics: (s.topic_ids ?? []).map((id) => topicName.get(id)).filter(Boolean) as string[],
+      count: s.count ?? 0,
+    }))
+    .filter((s) => s.subject || s.topics.length > 0);
+
+  const mix = settings.difficulty_mix;
+  const mixParts = mix
+    ? ([
+        mix.easy ? `সহজ ${formatNumber(mix.easy)}%` : null,
+        mix.medium ? `মাঝারি ${formatNumber(mix.medium)}%` : null,
+        mix.hard ? `কঠিন ${formatNumber(mix.hard)}%` : null,
+        mix.previous ? `বিগত বছরের ${formatNumber(mix.previous)}%` : null,
+      ].filter(Boolean) as string[])
+    : [];
 
   return (
     <div className="mx-auto w-full max-w-3xl">
@@ -101,6 +141,55 @@ export default async function ScheduleDetailPage({ params }: { params: Promise<{
           ))}
         </dl>
       </div>
+
+      {syllabus.length > 0 ? (
+        <div className="mt-4 rounded-2xl border border-violet-200/70 bg-gradient-to-br from-violet-50 to-violet-100/40 p-5 dark:border-violet-500/25 dark:from-violet-500/10 dark:to-violet-500/5">
+          <h2 className="flex items-center gap-2 text-[0.875rem] font-semibold text-[var(--text)]">
+            <span className="flex size-7 items-center justify-center rounded-lg bg-violet-600 text-white">
+              <BookOpenCheck className="size-4" aria-hidden />
+            </span>
+            সিলেবাস — কী কী পড়তে হবে
+          </h2>
+          <ul className="mt-3 space-y-3">
+            {syllabus.map((s, i) => (
+              <li key={i} className="rounded-xl border border-violet-200/60 bg-white/70 p-3 dark:border-violet-500/20 dark:bg-white/5">
+                <div className="flex flex-wrap items-center gap-2">
+                  {s.subject ? (
+                    <span className="rounded-full bg-violet-600 px-2.5 py-0.5 text-[0.6875rem] font-bold text-white">
+                      {s.subject}
+                    </span>
+                  ) : null}
+                  {s.count > 0 ? (
+                    <span className="text-[0.6875rem] font-semibold text-violet-700 dark:text-violet-300">
+                      {formatNumber(s.count)}টি প্রশ্ন
+                    </span>
+                  ) : null}
+                </div>
+                {s.topics.length > 0 ? (
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {s.topics.map((t) => (
+                      <span
+                        key={t}
+                        className="rounded-full border border-violet-200 bg-violet-50 px-2.5 py-1 text-[0.75rem] font-medium text-violet-800 dark:border-violet-500/30 dark:bg-violet-500/15 dark:text-violet-200"
+                      >
+                        {t}
+                      </span>
+                    ))}
+                  </div>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+          {mixParts.length > 0 ? (
+            <p className="mt-3 text-[0.75rem] text-[var(--text-muted)]">
+              কঠিনতার মিশ্রণ: {mixParts.join(" · ")}
+            </p>
+          ) : null}
+          <p className="mt-1.5 text-[0.6875rem] text-[var(--text-subtle)]">
+            উপরের বিষয় ও টপিক থেকেই এই পরীক্ষার প্রশ্ন আসবে — এগুলো পড়ে প্রস্তুতি নিন।
+          </p>
+        </div>
+      ) : null}
 
       <div className="jh-card mt-4 p-5">
         <h2 className="flex items-center gap-2 text-[0.875rem] font-semibold text-[var(--text)]">
