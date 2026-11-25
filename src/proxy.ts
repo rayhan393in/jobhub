@@ -8,7 +8,7 @@ import { createServerClient } from "@supabase/ssr";
  * happen server-side in layouts/route handlers backed by RLS.
  */
 
-const PROTECTED_PREFIXES = ["/dashboard", "/practice", "/admin", "/account"];
+const PROTECTED_PREFIXES = ["/dashboard", "/practice", "/question-bank", "/admin", "/account", "/exams", "/custom-exam", "/leaderboard", "/results"];
 const AUTH_PAGES = ["/login", "/register"];
 
 /**

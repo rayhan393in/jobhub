@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { Check, Save, TriangleAlert } from "lucide-react";
+import { Archive, Check, Loader2, Save, TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Textarea } from "@/components/ui/field";
 import { cn } from "@/lib/cn";
@@ -39,6 +39,37 @@ export function QuestionEditor({
   const [saving, setSaving] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [saved, setSaved] = React.useState(false);
+  const [archiving, setArchiving] = React.useState(false);
+
+  async function archive() {
+    if (
+      !window.confirm(
+        "এই প্রশ্নটি আর্কাইভ (মুছে ফেলা) হবে। আর্কাইভ করা প্রশ্নের সাথে সম্পর্কিত পরীক্ষার ইতিহাস ও অনুশীলন ইতিহাস অক্ষত থাকে, কিন্তু প্রশ্নটি আর কোনো পরীক্ষায় আসে না। নিশ্চিত?",
+      )
+    ) {
+      return;
+    }
+    setArchiving(true);
+    setError(null);
+    try {
+      const response = await fetch("/api/admin/questions", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: question.id, action: "archive" }),
+      });
+      const payload = await response.json();
+      if (!response.ok) {
+        setError(payload.error ?? "আর্কাইভ করা যায়নি।");
+        return;
+      }
+      router.push("/admin/questions");
+      router.refresh();
+    } catch {
+      setError("নেটওয়ার্ক সমস্যা — আবার চেষ্টা করুন।");
+    } finally {
+      setArchiving(false);
+    }
+  }
 
   const dirty =
     statement !== question.statement ||
@@ -185,6 +216,17 @@ export function QuestionEditor({
           {error}
         </p>
       ) : null}
+      <div className="mt-5 border-t border-[var(--border)] pt-4">
+        <button
+          type="button"
+          onClick={archive}
+          disabled={archiving}
+          className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3 text-[0.75rem] font-semibold text-red-700 transition-colors hover:bg-red-100 disabled:opacity-60 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300"
+        >
+          {archiving ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <Archive className="size-4" aria-hidden />}
+          প্রশ্নটি আর্কাইভ করুন (মুছুন)
+        </button>
+      </div>
     </div>
   );
 }

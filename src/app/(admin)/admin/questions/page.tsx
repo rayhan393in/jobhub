@@ -50,6 +50,9 @@ export default async function QuestionBankPage({
     sourceType: params.source,
     verified: params.verified === "yes" || params.verified === "no" ? params.verified : undefined,
     search: params.q,
+    examName: params.exam?.trim() || undefined,
+    examYear: params.year?.trim() || undefined,
+    questionType: params.type === "mcq" || params.type === "written" ? params.type : undefined,
     sort: params.sort,
     page: Math.max(1, Number(params.page) || 1),
     pageSize: 20,
@@ -152,6 +155,22 @@ export default async function QuestionBankPage({
             <option value="ai_assisted">AI-সহায়ক</option>
           </select>
         </div>
+        <div className="min-w-[8rem]">
+          <label htmlFor="exam" className="jh-label">পরীক্ষা (নাম)</label>
+          <Input id="exam" name="exam" defaultValue={params.exam} placeholder="যেমন: ৪২তম BCS" className="h-9 w-36 text-[0.75rem]" />
+        </div>
+        <div>
+          <label htmlFor="year" className="jh-label">বছর</label>
+          <Input id="year" name="year" type="number" min={1900} max={2100} defaultValue={params.year} placeholder="যেমন: ২০২১" className="h-9 w-24 text-[0.75rem]" />
+        </div>
+        <div>
+          <label htmlFor="type" className="jh-label">ধরন</label>
+          <select id="type" name="type" defaultValue={params.type ?? ""} className="jh-select h-9 text-[0.75rem]">
+            <option value="">সব</option>
+            <option value="mcq">MCQ</option>
+            <option value="written">লিখিত</option>
+          </select>
+        </div>
         <div>
           <label htmlFor="difficulty" className="jh-label">কঠিনতা</label>
           <select id="difficulty" name="difficulty" defaultValue={params.difficulty ?? ""} className="jh-select h-9 text-[0.75rem]">
@@ -167,6 +186,7 @@ export default async function QuestionBankPage({
             <option value="">নতুন আগে</option>
             <option value="oldest">পুরনো আগে</option>
             <option value="difficulty">কঠিনতা অনুযায়ী</option>
+            <option value="year">বছর (নতুন → পুরনো)</option>
           </select>
         </div>
         <button
@@ -218,7 +238,9 @@ export default async function QuestionBankPage({
                   </Link>
                   <p className="mt-0.5 text-[0.5625rem] text-[var(--text-subtle)]">
                     {question.difficulty === "easy" ? "সহজ" : question.difficulty === "hard" ? "কঠিন" : "মধ্যম"}
+                    {question.question_type === "written" ? " · লিখিত" : ""}
                     {question.year ? ` · ${formatNumber(question.year)}` : ""}
+                    {question.exam_name ? ` · ${question.exam_name}` : ""}
                   </p>
                 </div>
                 <div className="min-w-0 text-[0.6875rem] text-[var(--text-muted)]">
@@ -231,6 +253,8 @@ export default async function QuestionBankPage({
                 <div className="flex flex-wrap items-center gap-1">
                   <Badge tone={STATUS_TONE[question.status] ?? "neutral"}>{STATUS_LABELS[question.status]}</Badge>
                   {question.is_verified ? <Badge tone="success">✓</Badge> : null}
+                  {question.source_type === "previous" ? <Badge tone="brand">PYQ</Badge> : null}
+                  {question.source_type === "ai_assisted" ? <Badge tone="warning">AI</Badge> : null}
                 </div>
                 <div className="text-[0.625rem] text-[var(--text-subtle)] sm:text-right">
                   {question.source_type === "ai_assisted"
@@ -274,5 +298,7 @@ function matchSummary(params: Record<string, string | undefined>) {
   const bits: string[] = [];
   if (params.status) bits.push(STATUS_LABELS[params.status] ?? params.status);
   if (params.verified) bits.push(params.verified === "yes" ? "যাচাইকৃত" : "অযাচাইকৃত");
+  if (params.exam) bits.push(`পরীক্ষা: ${params.exam}`);
+  if (params.year) bits.push(`বছর: ${params.year}`);
   return bits.length ? ` · ${bits.join(" · ")}` : "";
 }

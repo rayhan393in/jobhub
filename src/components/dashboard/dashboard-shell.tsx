@@ -4,7 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
-  BookOpenCheck, CalendarDays, ChartNoAxesColumn, ChevronLeft, GraduationCap, Home,
+  BookOpenCheck, BookCopy, CalendarDays, ChartNoAxesColumn, ChevronLeft, GraduationCap, Home,
   Layers, LogOut, Menu, PenLine, Radio, Settings, ShieldCheck, Trophy, X, Library,
 } from "lucide-react";
 import { Logo } from "@/components/ui/logo";
@@ -19,6 +19,7 @@ const NAV = [
   { href: "/exams", label: "লাইভ পরীক্ষা", icon: Radio },
   { href: "/written-exams", label: "লিখিত পরীক্ষা", icon: PenLine },
   { href: "/practice", label: "প্র্যাকটিস", icon: BookOpenCheck },
+  { href: "/question-bank", label: "প্রশ্নব্যাংক", icon: BookCopy },
   { href: "/custom-exam", label: "কাস্টম পরীক্ষা", icon: Layers },
   { href: "/routines", label: "স্টাডি রুটিন", icon: CalendarDays },
   { href: "/analytics", label: "বিশ্লেষণ", icon: ChartNoAxesColumn },
