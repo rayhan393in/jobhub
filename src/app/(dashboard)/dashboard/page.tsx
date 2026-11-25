@@ -5,7 +5,7 @@ import { FirstAdminBanner } from "@/components/dashboard/first-admin-banner";
 import { HeroSection } from "@/components/dashboard/hero-section";
 import { ResumeBanner, LiveExamsBanner, type ResumeAttempt } from "@/components/dashboard/exam-banners";
 import { StatsGrid } from "@/components/dashboard/stats-grid";
-import { TodayRoutineCard, RecentResultsCard } from "@/components/dashboard/activity-cards";
+import { RecentResultsCard } from "@/components/dashboard/activity-cards";
 import { WeakTopicsCard, UpcomingExamsCard } from "@/components/dashboard/insight-cards";
 import { CourseContextBar, QuickActions } from "@/components/dashboard/course-context";
 import { AiCoachCard, MasteryCard, StudyCalendarCard } from "@/components/dashboard/v7-cards";
@@ -185,13 +185,10 @@ export default async function DashboardPage({
       <LiveExamsBanner exams={liveExams} />
       <StatsGrid summary={summary} streak={streak} activeDays={activeDays12w} readiness={readiness} />
 
-      {/* Row A — আজকের রুটিন · সাপ্তাহিক ট্রেন্ড · দক্ষতা donut (mockup) */}
-      <div className="mt-5 grid gap-4 lg:grid-cols-2 2xl:grid-cols-[1fr_1.25fr_1fr]">
-        <TodayRoutineCard routines={todayRoutines} doneIds={doneRoutineIds as Set<string>} />
+      {/* Row A — সাপ্তাহিক ট্রেন্ড · দক্ষতা donut (আজকের রুটিন হিরোর Daily Goals-এই থাকে — ডুপ্লিকেট নয়) */}
+      <div className="mt-5 grid gap-4 lg:grid-cols-[1.4fr_1fr]">
         <WeeklyTrendCard weekly={weekly} hasData={hasData} />
-        <div className="lg:col-span-2 2xl:col-span-1">
-          <MasteryCard subjects={subjects} />
-        </div>
+        <MasteryCard subjects={subjects} />
       </div>
 
       {/* Row B — দুর্বল টপিক · আসন্ন পরীক্ষা · সর্বশেষ ফলাফল · AI কোচ */}

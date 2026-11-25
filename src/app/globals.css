@@ -1,5 +1,11 @@
 @import "tailwindcss";
 
+/* Tailwind v4: by default `dark:` utilities follow the OS media query.
+ * Our theme toggle sets a `.dark` class on <html>, so bind the variant to
+ * that class — otherwise toggled dark mode leaves every `dark:` utility
+ * (stat-card backgrounds, header, text colors) stuck in light styling. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 /* ==========================================================================
    JobHub design system
    Deep indigo + violet identity, clean white surfaces, soft shadows.

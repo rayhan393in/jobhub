@@ -169,7 +169,7 @@ export function HeroSection({
             <div className="min-w-0 flex-1 rounded-2xl border border-white/20 bg-white/[0.08] p-3 backdrop-blur-sm sm:p-4 xl:w-60 xl:flex-none 2xl:w-[18rem]">
               <p className="text-[0.8125rem] font-bold text-white xl:text-[0.9375rem]">আজকের লক্ষ্য (Daily Goals)</p>
               <ul className="mt-2.5 space-y-2">
-                {goals.slice(0, 3).map((goal) => (
+                {goals.slice(0, 4).map((goal) => (
                   <li key={goal.id} className="flex items-center gap-2 text-[0.8125rem] font-semibold xl:text-[0.875rem]">
                     <span
                       className={
@@ -185,11 +185,16 @@ export function HeroSection({
                   </li>
                 ))}
               </ul>
-              {goals.length > 3 ? (
-                <Link href="/routines" className="mt-2 inline-block text-[0.6875rem] font-semibold text-violet-200 hover:underline xl:text-[0.75rem]">
-                  +{formatNumber(goals.length - 3)}টি আরও কাজ →
+              <div className="mt-2 flex items-center justify-between gap-2">
+                {goals.length > 4 ? (
+                  <Link href="/routines" className="text-[0.6875rem] font-semibold text-violet-200 hover:underline xl:text-[0.75rem]">
+                    +{formatNumber(goals.length - 4)}টি আরও কাজ →
+                  </Link>
+                ) : <span />}
+                <Link href="/routines" className="text-[0.6875rem] font-bold text-white hover:underline xl:text-[0.75rem]">
+                  পুরো রুটিন →
                 </Link>
-              ) : null}
+              </div>
             </div>
           </div>
         ) : null}
