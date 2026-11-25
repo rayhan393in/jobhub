@@ -53,7 +53,7 @@ export function HeroSection({
 
       <div className="relative z-10 flex flex-col items-stretch gap-3.5 p-4 sm:gap-4 sm:p-5 xl:flex-row xl:items-center">
         {/* বাঁ — ডেস্ক ইলাস্ট্রেশন: হিরোর পুরো উচ্চতা জুড়ে */}
-        <div className="relative hidden min-h-[13rem] w-[19rem] shrink-0 self-stretch overflow-hidden rounded-xl shadow-[0_12px_30px_-12px_rgba(0,0,0,0.45)] 2xl:block 2xl:w-[21rem]">
+        <div className="relative hidden min-h-[13rem] shrink-0 self-stretch overflow-hidden rounded-xl shadow-[0_12px_30px_-12px_rgba(0,0,0,0.45)] xl:block xl:w-60 2xl:w-[21rem]">
           <Image
             src="/images/hero-study.jpg"
             alt=""
@@ -166,7 +166,7 @@ export function HeroSection({
                 </div>
               </div>
             </div>
-            <div className="min-w-0 flex-1 rounded-2xl border border-white/20 bg-white/[0.08] p-3 backdrop-blur-sm sm:p-4 xl:w-[16.5rem] xl:flex-none">
+            <div className="min-w-0 flex-1 rounded-2xl border border-white/20 bg-white/[0.08] p-3 backdrop-blur-sm sm:p-4 xl:w-56 xl:flex-none 2xl:w-[16.5rem]">
               <p className="text-[0.8125rem] font-bold text-white">আজকের লক্ষ্য (Daily Goals)</p>
               <ul className="mt-2.5 space-y-2">
                 {goals.slice(0, 3).map((goal) => (
