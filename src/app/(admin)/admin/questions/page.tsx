@@ -346,32 +346,32 @@ export default async function QuestionBankPage({
         ) : null}
 
         {/* Stat cards — mockup-এর মতো (মোট / পূর্ববর্তী / প্র্যাকটিস / AI / অনুমোদিত / পেন্ডিং / প্রত্যাখ্যাত) */}
-        <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-7">
+        <div className="mb-5 grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
           {statCards.map((card) => {
             const Icon = card.icon;
             return (
               <div
                 key={card.label}
-                className={cn("rounded-2xl border bg-gradient-to-br p-4", card.tone)}
+                className={cn("flex items-center gap-2.5 rounded-xl border bg-gradient-to-br px-3 py-2.5", card.tone)}
               >
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <p className={cn("text-[0.6875rem] font-semibold", card.text)}>{card.label}</p>
-                    <p className={cn("mt-1 text-[1.25rem] font-extrabold tabular-nums leading-none", card.num)}>
+                <span className={cn("flex size-7 shrink-0 items-center justify-center rounded-lg text-white shadow-sm", card.iconBg)}>
+                  <Icon className="size-3.5" aria-hidden />
+                </span>
+                <div className="min-w-0">
+                  <p className={cn("truncate text-[0.625rem] font-semibold leading-tight", card.text)}>
+                    {card.label}
+                  </p>
+                  <div className="flex items-baseline gap-1.5">
+                    <p className={cn("text-[1rem] font-extrabold tabular-nums leading-tight", card.num)}>
                       {formatNumber(card.value)}
                     </p>
+                    {card.pctOf !== null ? (
+                      <span className={cn("rounded-full px-1.5 py-px text-[0.5625rem] font-bold", card.badge)}>
+                        {formatPercent(card.pctOf)}
+                      </span>
+                    ) : null}
                   </div>
-                  <span className={cn("flex size-8 shrink-0 items-center justify-center rounded-xl text-white shadow-sm", card.iconBg)}>
-                    <Icon className="size-4" aria-hidden />
-                  </span>
                 </div>
-                {card.pctOf !== null ? (
-                  <p className={cn("mt-2 inline-flex rounded-full px-2 py-0.5 text-[0.625rem] font-bold", card.badge)}>
-                    {formatPercent(card.pctOf)}
-                  </p>
-                ) : (
-                  <p className={cn("mt-2 text-[0.625rem] font-medium", card.text)}>{card.note}</p>
-                )}
               </div>
             );
           })}
@@ -758,6 +758,7 @@ export default async function QuestionBankPage({
                       <td className="max-w-[20rem] px-3 py-3">
                         <Link
                           href={hrefWith({ view: question.id })}
+                          scroll={false}
                           className="line-clamp-2 font-bangla text-[0.8125rem] font-medium leading-[1.7] text-[var(--text)] hover:text-[var(--brand)]"
                         >
                           {question.statement_bn ?? question.statement}
@@ -814,6 +815,7 @@ export default async function QuestionBankPage({
                         <div className="flex items-center justify-end gap-1">
                           <Link
                             href={hrefWith({ view: question.id })}
+                            scroll={false}
                             className={cn(
                               "rounded-lg p-1.5 transition hover:bg-[var(--brand-soft)] hover:text-[var(--brand)]",
                               viewParam === question.id ? "bg-[var(--brand-soft)] text-[var(--brand)]" : "text-[var(--text-subtle)]",
@@ -952,6 +954,7 @@ function QuestionDetailPanel({
         <h2 className="text-[0.8125rem] font-bold">প্রশ্নের বিস্তারিত</h2>
         <Link
           href={closeHref}
+          scroll={false}
           className="rounded-lg p-1 text-violet-200 transition hover:bg-white/10 hover:text-white"
           aria-label="প্যানেল বন্ধ করুন"
         >
@@ -1073,6 +1076,7 @@ function QuestionDetailPanel({
           </Link>
           <Link
             href={closeHref}
+            scroll={false}
             className="inline-flex h-9 items-center justify-center rounded-xl border border-[var(--border)] px-3.5 text-[0.75rem] font-semibold text-[var(--text-muted)] hover:text-[var(--text)]"
           >
             বন্ধ করুন
