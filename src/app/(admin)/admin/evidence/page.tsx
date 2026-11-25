@@ -93,9 +93,9 @@ export default async function EvidencePage() {
       />
 
       <div className="mb-5 grid gap-3 sm:grid-cols-3">
-        <MiniStat icon={<FileCheck2 className="h-4 w-4" />} label="বিগত-বছর ট্যাগযুক্ত প্রশ্ন" value={formatNumber(totalPrevious)} />
-        <MiniStat icon={<ShieldCheck className="h-4 w-4" />} label="এভিডেন্সসহ যাচাইকৃত" value={formatNumber(withEvidence)} />
-        <MiniStat
+        <MiniStat tone="violet" icon={<FileCheck2 className="h-4 w-4" />} label="বিগত-বছর ট্যাগযুক্ত প্রশ্ন" value={formatNumber(totalPrevious)} />
+        <MiniStat tone="emerald" icon={<ShieldCheck className="h-4 w-4" />} label="এভিডেন্সসহ যাচাইকৃত" value={formatNumber(withEvidence)} />
+        <MiniStat tone="orange"
           icon={<ShieldAlert className="h-4 w-4" />}
           label="এভিডেন্সবিহীন (পেন্ডিং)"
           value={formatNumber(totalPrevious - withEvidence)}

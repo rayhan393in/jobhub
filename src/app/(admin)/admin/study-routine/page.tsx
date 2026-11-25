@@ -131,25 +131,25 @@ export default async function StudyRoutineHubPage({
       ) : null}
 
       <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <MiniStat
+        <MiniStat tone="violet"
           icon={<Layers className="size-3.5" aria-hidden />}
           label="সিলেবাস ইউনিট"
           value={formatNumber(totals.units)}
           hint={`${formatNumber(totals.subtopics)} সাবটপিক + ${formatNumber(totals.units - totals.subtopics)} সাবটপিকবিহীন টপিক`}
         />
-        <MiniStat
+        <MiniStat tone="emerald"
           icon={<ListChecks className="size-3.5" aria-hidden />}
           label="First-study বরাদ্দ"
           value={`${formatNumber(totals.assigned)}/${formatNumber(totals.units)}`}
           hint={totals.unassigned === 0 ? "সম্পূর্ণ কভারেজ" : `${formatNumber(totals.unassigned)}টি বাকি`}
         />
-        <MiniStat
+        <MiniStat tone="orange"
           icon={<CalendarCheck2 className="size-3.5" aria-hidden />}
           label="প্রকাশিত রুটিন-দিন"
           value={formatNumber(routineDays)}
           hint="published daily routine"
         />
-        <MiniStat
+        <MiniStat tone="sky"
           icon={<ShieldAlert className="size-3.5" aria-hidden />}
           label="PYQ প্রস্তুত (strict)"
           value={availability ? `${formatNumber(availability.pyq_ready)}/${formatNumber(availability.pyq_total)}` : "—"}

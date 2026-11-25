@@ -122,9 +122,9 @@ export default async function MergesPage() {
       />
 
       <div className="mb-5 grid gap-3 sm:grid-cols-3">
-        <MiniStat icon={<ListChecks className="h-4 w-4" />} label="রিভিউর অপেক্ষায়" value={formatNumber(proposed)} />
-        <MiniStat icon={<GitMerge className="h-4 w-4" />} label="প্রয়োগকৃত লিংক" value={formatNumber(applied)} />
-        <MiniStat icon={<Undo2 className="h-4 w-4" />} label="মোট রেকর্ড" value={formatNumber(merges.length)} hint="সব সিদ্ধান্তের অডিট ইতিহাস" />
+        <MiniStat tone="violet" icon={<ListChecks className="h-4 w-4" />} label="রিভিউর অপেক্ষায়" value={formatNumber(proposed)} />
+        <MiniStat tone="emerald" icon={<GitMerge className="h-4 w-4" />} label="প্রয়োগকৃত লিংক" value={formatNumber(applied)} />
+        <MiniStat tone="orange" icon={<Undo2 className="h-4 w-4" />} label="মোট রেকর্ড" value={formatNumber(merges.length)} hint="সব সিদ্ধান্তের অডিট ইতিহাস" />
       </div>
 
       <AdminNote>
