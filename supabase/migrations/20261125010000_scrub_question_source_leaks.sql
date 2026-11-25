@@ -37,22 +37,28 @@ where q.id = c.id
 --    citation is lost. (Run against the backup snapshot when present.)
 do $$
 begin
+  -- Dynamic SQL on purpose: if the statement were written inline, PL/pgSQL
+  -- would resolve public.qa_backup_… when it parses this block, and a fresh
+  -- database (CI, a new environment) would fail with 42P01 before the guard
+  -- could ever run.
   if to_regclass('public.qa_backup_20261125_question_text') is not null then
-    with src as (
-      select b.id,
-             btrim(regexp_replace(substring(b.explanation from '(উৎস\s*:.*)$'), '\s+', ' ', 'g')) as prov,
-             (regexp_match(b.statement, '\[([^\]]*)\]'))[1] as stmtref
-      from public.qa_backup_20261125_question_text b
-    )
-    update public.questions q
-    set source = nullif(btrim(
-          coalesce(btrim(q.source), '') ||
-          case when length(coalesce(s.prov, '')) > 0 and position(s.prov in coalesce(q.source, '')) = 0
-               then E'\n' || s.prov else '' end ||
-          case when length(coalesce(s.stmtref, '')) > 0 and position(s.stmtref in coalesce(q.source, '')) = 0
-               then E'\nউদ্ধৃতি-সূত্র: [' || s.stmtref || ']' else '' end), '')
-    from src s
-    where q.id = s.id;
+    execute $restore$
+      with src as (
+        select b.id,
+               btrim(regexp_replace(substring(b.explanation from '(উৎস\s*:.*)$'), '\s+', ' ', 'g')) as prov,
+               (regexp_match(b.statement, '\[([^\]]*)\]'))[1] as stmtref
+        from public.qa_backup_20261125_question_text b
+      )
+      update public.questions q
+      set source = nullif(btrim(
+            coalesce(btrim(q.source), '') ||
+            case when length(coalesce(s.prov, '')) > 0 and position(s.prov in coalesce(q.source, '')) = 0
+                 then E'\n' || s.prov else '' end ||
+            case when length(coalesce(s.stmtref, '')) > 0 and position(s.stmtref in coalesce(q.source, '')) = 0
+                 then E'\nউদ্ধৃতি-সূত্র: [' || s.stmtref || ']' else '' end), '')
+      from src s
+      where q.id = s.id
+    $restore$;
   end if;
 end $$;
 
@@ -111,5 +117,8 @@ where position(' — ' in explanation) > 0
   and position('। — ' in explanation) = 0
   and position('. — ' in explanation) = 0;
 
-comment on table public.qa_backup_20261125_question_text is
-  'Pre-scrub snapshot (statement/explanation/source) used by migration 20261125010000. Admin-only restore point.';
+-- 8) The pre-scrub snapshot public.qa_backup_20261125_question_text exists only
+--    in the production project where it was taken. It is deliberately not
+--    touched here: this migration must apply cleanly to a fresh database
+--    (CI, staging), so every reference to it stays inside the to_regclass
+--    guard above.

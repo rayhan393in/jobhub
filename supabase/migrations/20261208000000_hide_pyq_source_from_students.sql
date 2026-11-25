@@ -1,4 +1,4 @@
--- 20261126 — Portal question payloads must not carry collection provenance.
+-- 20261208 — Portal question payloads must not carry collection provenance.
 --
 -- `jh_qb_pyq_list` is SECURITY DEFINER and executable by `authenticated`, i.e.
 -- by every student. It used to return `source` and `source_title`, which hold
@@ -6,7 +6,8 @@
 -- exam attribution only (`exam_name`, `year`); provenance stays admin-side in
 -- `questions.source` and is read through the admin routes.
 --
--- Signature is unchanged, so grants from 20261207000000 remain valid.
+-- This runs after 20261207000000_question_bank.sql, which is what defines the
+-- function in the first place; signature is unchanged, so its grants stay valid.
 create or replace function public.jh_qb_pyq_list(
   p_course_slug text default 'bcs',
   p_exam_name text default null,

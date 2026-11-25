@@ -179,6 +179,19 @@ describe("PYQ browse list", () => {
     }
   });
 
+  it("never ships collection provenance to students", async () => {
+    await actAs(db, STUDENT);
+    const raw = await scalar<string>(db, `select public.jh_qb_pyq_list('bcs', null, null, null, null, null, null, null, null, 'year', 1, 10)::text`);
+    const data = JSON.parse(raw) as { rows: Array<Record<string, unknown>> };
+    expect(data.rows.length).toBeGreaterThan(0);
+    for (const row of data.rows) {
+      // Where a question was collected from is admin-only; the student sees
+      // exam attribution (exam_name + year) and nothing else.
+      expect(row).not.toHaveProperty("source");
+      expect(row).not.toHaveProperty("source_title");
+    }
+  });
+
   it("filters by exam name + year and by subject", async () => {
     await actAs(db, STUDENT);
     const raw = await scalar<string>(
