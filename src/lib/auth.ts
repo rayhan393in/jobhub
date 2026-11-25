@@ -43,6 +43,9 @@ export const getCurrentUser = cache(async (): Promise<SessionUser | null> => {
     .eq("id", user.id)
     .maybeSingle<Profile>();
 
+  // A disabled profile must not retain access through an otherwise valid Auth session.
+  if (profile && profile.is_active === false) return null;
+
   return {
     id: user.id,
     email: user.email ?? profile?.email ?? null,

@@ -17,7 +17,7 @@ export function AdminPageHeader({
   back?: { href: string; label: string };
 }) {
   return (
-    <div className="mb-5">
+    <div className="admin-page-header mb-6 rounded-2xl border border-violet-100/80 bg-white/75 p-5 shadow-[0_8px_28px_-22px_rgba(79,66,228,.45)] backdrop-blur sm:p-6">
       {back ? (
         <Link
           href={back.href}
@@ -29,15 +29,15 @@ export function AdminPageHeader({
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           {eyebrow ? (
-            <p className="text-[0.5625rem] font-semibold uppercase tracking-[0.14em] text-[var(--brand)]">
+            <p className="text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-[var(--brand)]">
               {eyebrow}
             </p>
           ) : null}
-          <h1 className="mt-0.5 text-balance text-[1.25rem] font-bold leading-tight tracking-[-0.03em] text-[var(--text)] sm:text-[1.5rem]">
+          <h1 className="mt-0.5 text-balance text-[1.5rem] font-bold leading-tight tracking-[-0.03em] text-[var(--text)] sm:text-[1.875rem]">
             {title}
           </h1>
           {description ? (
-            <p className="mt-1.5 max-w-2xl text-pretty text-[0.75rem] leading-relaxed text-[var(--text-muted)]">
+            <p className="mt-1.5 max-w-3xl text-pretty text-sm leading-relaxed text-[var(--text-muted)]">
               {description}
             </p>
           ) : null}
@@ -60,17 +60,17 @@ export function MiniStat({
   hint?: string;
 }) {
   return (
-    <div className="jh-card p-4">
+    <div className="jh-card jh-card-hover admin-stat-card p-4 sm:p-5">
       <div className="flex items-center gap-1.5 text-[var(--brand)]">
         {icon}
-        <span className="text-[0.625rem] font-medium uppercase tracking-[0.08em] text-[var(--text-subtle)]">
+        <span className="text-xs font-medium uppercase tracking-[0.06em] text-[var(--text-subtle)]">
           {label}
         </span>
       </div>
-      <p className="mt-1.5 text-[1.25rem] font-bold tabular-nums tracking-[-0.02em] text-[var(--text)]">
+      <p className="mt-1.5 text-2xl font-bold tabular-nums tracking-[-0.02em] text-[var(--text)]">
         {value}
       </p>
-      {hint ? <p className="mt-0.5 text-[0.625rem] text-[var(--text-subtle)]">{hint}</p> : null}
+      {hint ? <p className="mt-0.5 text-xs text-[var(--text-subtle)]">{hint}</p> : null}
     </div>
   );
 }
@@ -88,7 +88,7 @@ export function AdminNote({
     brand: "border-[var(--brand)]/25 bg-[var(--brand-soft)] text-[var(--text-muted)]",
   }[tone];
   return (
-    <p className={cn("flex items-start gap-1.5 rounded-xl border px-3 py-2 text-[0.6875rem] leading-relaxed", style)}>
+    <p className={cn("flex items-start gap-2 rounded-xl border px-4 py-3 text-sm leading-relaxed shadow-sm", style)}>
       <Info className="mt-0.5 size-3 shrink-0 shrink-0" aria-hidden />
       <span>{children}</span>
     </p>
@@ -97,7 +97,7 @@ export function AdminNote({
 
 export function AdminLink({ href, children }: { href: string; children: React.ReactNode }) {
   return (
-    <Link href={href} className="inline-flex items-center gap-1 text-[0.6875rem] font-semibold text-[var(--brand)] hover:underline">
+    <Link href={href} className="inline-flex items-center gap-1 text-sm font-semibold text-[var(--brand)] hover:underline">
       {children}
       <ArrowRight className="size-3" aria-hidden />
     </Link>
