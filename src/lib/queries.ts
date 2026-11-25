@@ -16,41 +16,54 @@ import type {
   ResultHistoryRow,
 } from "./types";
 
+/**
+ * Log a PostgREST error without changing the caller's fallback behaviour.
+ * Every read in this file degrades to an empty result on failure so pages
+ * never crash — but a silent empty state makes outages invisible. This puts
+ * the signal in the server logs (Vercel) while keeping the UX graceful.
+ */
+function logDbError(scope: string, error: { message: string } | null): void {
+  if (error) console.error(`[db:${scope}]`, error.message);
+}
+
 /** Public catalogue reads (RLS restricts to published courses). */
 export async function listCourses(): Promise<Course[]> {
   const supabase = await getServerClient();
   if (!supabase) return [];
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("courses")
     .select(
       "id, slug, title_en, title_bn, short_en, short_bn, summary_en, summary_bn, description_en, description_bn, level, icon, accent, duration_weeks, price_bdt, status, sort_order, exam_config",
     )
     .eq("status", "published")
     .order("sort_order");
+  logDbError("courses", error);
   return (data ?? []) as Course[];
 }
 
 export async function getCourseBySlug(slug: string): Promise<Course | null> {
   const supabase = await getServerClient();
   if (!supabase) return null;
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("courses")
     .select("*")
     .eq("slug", slug)
     .eq("status", "published")
     .maybeSingle();
+  logDbError("course-by-slug", error);
   return (data as Course) ?? null;
 }
 
 export async function listSubjects(courseId: string): Promise<Subject[]> {
   const supabase = await getServerClient();
   if (!supabase) return [];
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("subjects")
     .select("id, course_id, slug, title_en, title_bn, chapter_group, sort_order")
     .eq("course_id", courseId)
     .eq("is_active", true)
     .order("sort_order");
+  logDbError("subjects", error);
   return (data ?? []) as Subject[];
 }
 
@@ -60,14 +73,15 @@ export async function listTopicsWithSubtopics(
   const supabase = await getServerClient();
   if (!supabase) return [];
 
-  const { data: subjects } = await supabase
+  const { data: subjects, error: subjectsError } = await supabase
     .from("subjects")
     .select("id")
     .eq("course_id", courseId)
     .eq("is_active", true);
+  logDbError("taxonomy-subjects", subjectsError);
   if (!subjects?.length) return [];
 
-  const { data: topics } = await supabase
+  const { data: topics, error: topicsError } = await supabase
     .from("topics")
     .select("id, subject_id, slug, title_en, title_bn, chapter, sort_order")
     .in(
@@ -76,9 +90,10 @@ export async function listTopicsWithSubtopics(
     )
     .eq("is_active", true)
     .order("sort_order");
+  logDbError("taxonomy-topics", topicsError);
   if (!topics?.length) return [];
 
-  const { data: subtopics } = await supabase
+  const { data: subtopics, error: subtopicsError } = await supabase
     .from("subtopics")
     .select("id, topic_id, slug, title_en, title_bn, sort_order")
     .in(
@@ -87,6 +102,7 @@ export async function listTopicsWithSubtopics(
     )
     .eq("is_active", true)
     .order("sort_order");
+  logDbError("taxonomy-subtopics", subtopicsError);
 
   return (topics as Topic[]).map((topic) => ({
     ...topic,
@@ -122,11 +138,12 @@ export async function listPublishedSchedules(options?: {
   if (options?.courseId) query = query.eq("course_id", options.courseId);
   if (options?.from) query = query.gte("ends_at", options.from);
 
-  const { data } = await query;
+  const { data, error } = await query;
+  logDbError("schedules", error);
   const rows = (data ?? []) as unknown as ScheduleWithCourse[];
   if (!options?.userId || rows.length === 0) return rows;
 
-  const { data: attempts } = await supabase
+  const { data: attempts, error: attemptsError } = await supabase
     .from("exam_attempts")
     .select("id, schedule_id, status")
     .eq("user_id", options.userId)
@@ -134,6 +151,7 @@ export async function listPublishedSchedules(options?: {
       "schedule_id",
       rows.map((r) => r.id),
     );
+  logDbError("schedule-attempts", attemptsError);
 
   const map = new Map((attempts ?? []).map((a) => [a.schedule_id as string, a]));
   return rows.map((row) => {
@@ -162,7 +180,8 @@ export async function listRoutines(options?: {
   if (options?.courseId) query = query.eq("course_id", options.courseId);
   if (options?.fromDate) query = query.gte("routine_date", options.fromDate);
   if (options?.toDate) query = query.lte("routine_date", options.toDate);
-  const { data } = await query;
+  const { data, error } = await query;
+  logDbError("routines", error);
 
   // Multi-topic rows carry id arrays; resolve all names in two batched lookups.
   const extraTopicIds = new Set<string>();
@@ -174,11 +193,13 @@ export async function listRoutines(options?: {
   const topicNames = new Map<string, string>();
   const subtopicNames = new Map<string, string>();
   if (extraTopicIds.size > 0) {
-    const { data: rows } = await supabase.from("topics").select("id, title_bn").in("id", [...extraTopicIds]);
+    const { data: rows, error: err } = await supabase.from("topics").select("id, title_bn").in("id", [...extraTopicIds]);
+    logDbError("routine-topic-names", err);
     for (const row of rows ?? []) topicNames.set(row.id, row.title_bn);
   }
   if (extraSubtopicIds.size > 0) {
-    const { data: rows } = await supabase.from("subtopics").select("id, title_bn").in("id", [...extraSubtopicIds]);
+    const { data: rows, error: err } = await supabase.from("subtopics").select("id, title_bn").in("id", [...extraSubtopicIds]);
+    logDbError("routine-subtopic-names", err);
     for (const row of rows ?? []) subtopicNames.set(row.id, row.title_bn);
   }
 
@@ -212,7 +233,7 @@ export type PlanTopicPair = {
 export async function listStudyPlanTopicPairs(courseIds: string[]): Promise<PlanTopicPair[]> {
   const supabase = await getServerClient();
   if (!supabase || courseIds.length === 0) return [];
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("study_plan_assignments")
     .select(
       "routine_id, course_id, topic_title_bn:topics(title_bn), subtopic_title_bn:subtopics(title_bn)",
@@ -222,6 +243,7 @@ export async function listStudyPlanTopicPairs(courseIds: string[]): Promise<Plan
     .order("first_study_date", { ascending: true })
     .order("created_at", { ascending: true })
     .limit(2000);
+  logDbError("plan-topic-pairs", error);
   return (data ?? []).map((row) => ({
     routine_id: row.routine_id as string | null,
     course_id: row.course_id as string,
@@ -259,7 +281,8 @@ export async function listMyStudentRoutines(userId: string, courseId?: string): 
     .eq("user_id", userId)
     .order("routine_date");
   if (courseId) query = query.eq("course_id", courseId);
-  const { data } = await query;
+  const { data, error } = await query;
+  logDbError("student-routines", error);
   return (data ?? []).map((row) => ({
     ...row,
     topic_title_bn: flattenEmbeddedTitle(row.topic_title_bn),
@@ -270,7 +293,8 @@ export async function listMyStudentRoutines(userId: string, courseId?: string): 
 export async function getProfile(userId: string): Promise<Profile | null> {
   const supabase = await getServerClient();
   if (!supabase) return null;
-  const { data } = await supabase.from("profiles").select("*").eq("id", userId).maybeSingle();
+  const { data, error } = await supabase.from("profiles").select("*").eq("id", userId).maybeSingle();
+  logDbError("profile", error);
   return (data as Profile) ?? null;
 }
 
@@ -323,7 +347,7 @@ export async function getLeaderboard(params: {
 export async function listMyAttempts(userId: string, limit = 20) {
   const supabase = await getServerClient();
   if (!supabase) return [];
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("exam_attempts")
     .select(
       "id, course_id, mode, status, started_at, deadline_at, submitted_at, total_questions, total_marks, score, accuracy, correct_count, wrong_count, unanswered_count, is_released, schedule_id",
@@ -331,26 +355,28 @@ export async function listMyAttempts(userId: string, limit = 20) {
     .eq("user_id", userId)
     .order("started_at", { ascending: false })
     .limit(limit);
+  logDbError("my-attempts", error);
   return data ?? [];
 }
 
 export async function getOpenAttempts(userId: string) {
   const supabase = await getServerClient();
   if (!supabase) return [];
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("exam_attempts")
     .select("id, course_id, mode, status, started_at, deadline_at, total_questions, total_marks, schedule_id")
     .eq("user_id", userId)
     .eq("status", "in_progress")
     .order("started_at", { ascending: false })
     .limit(5);
+  logDbError("open-attempts", error);
   return data ?? [];
 }
 
 export async function listMyResults(userId: string, limit = 10): Promise<ResultHistoryRow[]> {
   const supabase = await getServerClient();
   if (!supabase) return [];
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("results")
     .select(
       "id, attempt_id, score, total_marks, accuracy, correct_count, wrong_count, unanswered_count, is_released, course_id, schedule_id, created_at",
@@ -359,6 +385,7 @@ export async function listMyResults(userId: string, limit = 10): Promise<ResultH
     .eq("is_released", true)
     .order("created_at", { ascending: false })
     .limit(limit);
+  logDbError("my-results", error);
   return (data ?? []).map((r) => ({
     attempt_id: r.attempt_id as string,
     result_id: r.id as string,
