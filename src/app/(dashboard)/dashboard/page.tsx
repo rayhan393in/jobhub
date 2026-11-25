@@ -161,7 +161,7 @@ export default async function DashboardPage({
   const enrolledTitles = activeEnrolledCourses.map((c) => c.title_bn);
 
   return (
-    <div className="mx-auto w-full max-w-7xl">
+    <div className="w-full">
       {adminSeatOpen ? <FirstAdminBanner /> : null}
 
       <HeroSection
