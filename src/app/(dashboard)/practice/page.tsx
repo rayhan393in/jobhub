@@ -11,7 +11,7 @@ import { ButtonLink } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ExamBuilder } from "@/components/exam/exam-builder";
 import { getCurrentUser } from "@/lib/auth";
-import { listCourses, listSubjects, listTopicsWithSubtopics, getStudentAnalytics } from "@/lib/queries";
+import { listCourses, getCourseTaxonomy, getStudentAnalytics } from "@/lib/queries";
 import { getServerClient } from "@/lib/supabase/server";
 import { formatNumber, formatPercent } from "@/lib/format";
 import { redirect } from "next/navigation";
@@ -23,28 +23,23 @@ export default async function PracticePage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
-  const [courses, analytics] = await Promise.all([listCourses(), getStudentAnalytics(null)]);
+  // One RPC returns the whole taxonomy tree for every published course —
+  // previously this page fanned out ~8 round-trips (2 per course, with 3 more
+  // sequential ones inside listTopicsWithSubtopics).
+  const [courses, analytics, taxonomy] = await Promise.all([
+    listCourses(),
+    getStudentAnalytics(null),
+    getCourseTaxonomy(),
+  ]);
   const supabase = await getServerClient();
 
   const subjectsByCourse: Record<string, { id: string; title_bn: string; title_en: string }[]> = {};
   const topicsByCourse: Record<string, { id: string; subject_id: string; title_bn: string; title_en: string; subtopics: { id: string; title_bn: string }[] }[]> = {};
 
-  await Promise.all(
-    courses.map(async (course) => {
-      const [subjects, topics] = await Promise.all([
-        listSubjects(course.id),
-        listTopicsWithSubtopics(course.id),
-      ]);
-      subjectsByCourse[course.id] = subjects.map((s) => ({ id: s.id, title_bn: s.title_bn, title_en: s.title_en }));
-      topicsByCourse[course.id] = topics.map((t) => ({
-        id: t.id,
-        subject_id: t.subject_id,
-        title_bn: t.title_bn,
-        title_en: t.title_en,
-        subtopics: t.subtopics.map((s) => ({ id: s.id, title_bn: s.title_bn })),
-      }));
-    }),
-  );
+  for (const course of courses) {
+    subjectsByCourse[course.id] = taxonomy[course.id]?.subjects ?? [];
+    topicsByCourse[course.id] = taxonomy[course.id]?.topics ?? [];
+  }
 
   let bookmarkCount = 0;
   if (supabase) {

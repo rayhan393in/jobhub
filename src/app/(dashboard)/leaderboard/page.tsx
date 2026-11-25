@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { PageHeader } from "@/components/dashboard/dashboard-shell";
 import { LeaderboardClient } from "@/components/leaderboard/leaderboard-client";
 import { getCurrentUser } from "@/lib/auth";
-import { getLeaderboard, listCourses, listPublishedSchedules, releaseDueResults } from "@/lib/queries";
+import { getLeaderboard, getMyRank, listCourses, listPublishedSchedules, releaseDueResults } from "@/lib/queries";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "লিডারবোর্ড" };
@@ -14,8 +14,12 @@ export default async function LeaderboardPage() {
 
   // Persist release flags for any schedule whose publication time has passed.
   await releaseDueResults();
-  const [courses, schedules] = await Promise.all([listCourses(), listPublishedSchedules({ limit: 40 })]);
-  const initialRows = await getLeaderboard({ scope: "daily", limit: 50 });
+  const [courses, schedules, initialRows, initialMyRank] = await Promise.all([
+    listCourses(),
+    listPublishedSchedules({ limit: 40 }),
+    getLeaderboard({ scope: "daily", limit: 50 }),
+    getMyRank({ scope: "daily" }),
+  ]);
 
   return (
     <div className="mx-auto w-full max-w-4xl">
@@ -26,6 +30,7 @@ export default async function LeaderboardPage() {
       />
       <LeaderboardClient
         initialRows={initialRows}
+        initialMyRank={initialMyRank}
         courses={courses.map((c) => ({ id: c.id, slug: c.slug, title_bn: c.title_bn }))}
         exams={schedules.map((s) => ({ id: s.id, title_bn: s.title_bn }))}
         currentUserId={user.id}

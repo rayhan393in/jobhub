@@ -13,6 +13,7 @@ import type {
   Topic,
   Subtopic,
   LeaderboardRow,
+  MyRank,
   ResultHistoryRow,
 } from "./types";
 
@@ -342,6 +343,60 @@ export async function getLeaderboard(params: {
     return [];
   }
   return (data ?? []) as LeaderboardRow[];
+}
+
+/**
+ * The signed-in student's true rank in a leaderboard scope — even when they
+ * are outside the top-N window the list shows. `rank: null` means they have
+ * no released result in this scope yet.
+ */
+export async function getMyRank(params: {
+  scope: "daily" | "weekly" | "course" | "exam";
+  courseId?: string | null;
+  scheduleId?: string | null;
+}): Promise<MyRank | null> {
+  const supabase = await getServerClient();
+  if (!supabase) return null;
+  const { data, error } = await supabase.rpc("jh_my_rank", {
+    p_scope: params.scope,
+    p_course_id: params.courseId ?? null,
+    p_schedule_id: params.scheduleId ?? null,
+  });
+  if (error) {
+    console.error("[my-rank]", error.message);
+    return null;
+  }
+  return (data as MyRank) ?? null;
+}
+
+export type CourseTaxonomy = Record<
+  string,
+  {
+    subjects: { id: string; title_bn: string; title_en: string }[];
+    topics: {
+      id: string;
+      subject_id: string;
+      title_bn: string;
+      title_en: string;
+      subtopics: { id: string; title_bn: string }[];
+    }[];
+  }
+>;
+
+/**
+ * Subjects + topics + subtopics for every published course in ONE round-trip,
+ * keyed by course id. Replaces the per-course fan-out (2 queries × courses +
+ * 3 sequential queries inside listTopicsWithSubtopics).
+ */
+export async function getCourseTaxonomy(): Promise<CourseTaxonomy> {
+  const supabase = await getServerClient();
+  if (!supabase) return {};
+  const { data, error } = await supabase.rpc("jh_course_taxonomy");
+  if (error) {
+    console.error("[taxonomy]", error.message);
+    return {};
+  }
+  return (data as CourseTaxonomy) ?? {};
 }
 
 export async function listMyAttempts(userId: string, limit = 20) {
