@@ -1,9 +1,9 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { TrendingUp } from "lucide-react";
 import { cn } from "@/lib/cn";
-import { formatNumber } from "@/lib/format";
 import type { StudentAnalytics } from "@/lib/types";
 
 type Metric = "score" | "attempts";
@@ -62,39 +62,66 @@ export function WeeklyTrendCard({
         </div>
       </div>
 
-      <div className="mt-3 flex h-32 items-end gap-1.5">
-        {weekly.map((day, i) => {
-          const value = values[i];
-          const height = Math.max(4, (value / max) * 100);
-          return (
-            <div key={day.date} className="flex flex-1 flex-col items-center gap-1">
-              {value > 0 ? (
-                <span className="text-[0.5625rem] font-bold tabular-nums text-[var(--brand)]">
-                  {formatNumber(Math.round(value))}
-                </span>
-              ) : null}
-              <div className="flex w-full flex-1 items-end">
-                <div
-                  className={cn(
-                    "w-full rounded-t-md transition-all",
-                    day.attempts > 0
-                      ? "bg-gradient-to-t from-violet-600 to-fuchsia-500"
-                      : "bg-[var(--surface-sunken)]",
-                  )}
-                  style={{ height: `${day.attempts > 0 ? height : 6}%` }}
-                  title={`${day.date}: ${metric === "score" ? `গড় স্কোর ${Math.round(day.score)}` : `${day.attempts}টি পরীক্ষা`}`}
-                />
-              </div>
-              <span className="text-[0.5625rem] text-[var(--text-subtle)]">{weekdayBn(day.date)}</span>
-            </div>
-          );
-        })}
-      </div>
       {!hasData ? (
-        <p className="mt-2 text-center text-[0.6875rem] text-[var(--text-subtle)]">
-          পরীক্ষা দিলে এই চার্টে দৈনিক পারফরম্যান্স দেখা যাবে।
-        </p>
-      ) : null}
+        <div className="mt-3 flex h-36 flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-[var(--border)] text-center">
+          <TrendingUp className="size-5 text-[var(--text-subtle)]" aria-hidden />
+          <p className="max-w-[16rem] text-[0.75rem] leading-relaxed text-[var(--text-subtle)]">
+            এখনো কোনো পরীক্ষার ডেটা নেই — প্রথম প্র্যাকটিস দিলেই এখানে দৈনিক ট্রেন্ড আঁকা হবে।
+          </p>
+          <Link href="/custom-exam" className="text-[0.6875rem] font-bold text-[var(--brand)] hover:underline">
+            প্র্যাকটিস শুরু করুন →
+          </Link>
+        </div>
+      ) : (
+      <div className="mt-3">
+        <svg viewBox="0 0 280 110" className="h-36 w-full" role="img" aria-label="সাপ্তাহিক ট্রেন্ড চার্ট">
+          <defs>
+            <linearGradient id="trendFill" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#8b5cf6" stopOpacity="0.35" />
+              <stop offset="100%" stopColor="#8b5cf6" stopOpacity="0.02" />
+            </linearGradient>
+          </defs>
+          {(() => {
+            const n = weekly.length;
+            if (n === 0) return null;
+            const stepX = 280 / Math.max(1, n - 1);
+            const pts = values.map((v, i) => ({
+              x: n === 1 ? 140 : i * stepX,
+              y: 96 - (v / max) * 72,
+            }));
+            const line = pts.map((p, i) => `${i === 0 ? "M" : "L"}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ");
+            const area = `${line} L${pts[pts.length - 1].x.toFixed(1)},104 L${pts[0].x.toFixed(1)},104 Z`;
+            return (
+              <>
+                <path d={area} fill="url(#trendFill)" />
+                <path d={line} fill="none" stroke="#7c3aed" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                {pts.map((p, i) => (
+                  <g key={weekly[i].date}>
+                    <circle cx={p.x} cy={p.y} r="3.5" fill="#fff" stroke="#7c3aed" strokeWidth="2">
+                      <title>
+                        {`${weekly[i].date}: ${metric === "score" ? `গড় স্কোর ${Math.round(weekly[i].score)}` : `${weekly[i].attempts}টি পরীক্ষা`}`}
+                      </title>
+                    </circle>
+                    {values[i] > 0 ? (
+                      <text x={p.x} y={p.y - 8} textAnchor="middle" fontSize="9" fontWeight="700" fill="#7c3aed">
+                        {Math.round(values[i])}
+                      </text>
+                    ) : null}
+                  </g>
+                ))}
+              </>
+            );
+          })()}
+        </svg>
+        <div className="flex justify-between px-1">
+          {weekly.map((day) => (
+            <span key={day.date} className="text-[0.5625rem] text-[var(--text-subtle)]">
+              {weekdayBn(day.date)}
+            </span>
+          ))}
+        </div>
+      </div>
+      )}
     </section>
   );
 }

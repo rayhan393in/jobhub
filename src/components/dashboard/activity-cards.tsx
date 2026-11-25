@@ -1,6 +1,6 @@
 import Link from "next/link";
 import {
-  ArrowRight, BookOpenCheck, CalendarCheck2, CalendarDays, CircleCheck, Clock3, Flame,
+  ArrowRight, CalendarCheck2, CalendarDays, CircleCheck, Clock3, Flame,
   Layers, Target, Trophy,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -9,8 +9,18 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { formatDate, formatNumber, formatPercent, relativeFromNow } from "@/lib/format";
 import type { Course, ResultHistoryRow, Routine, StudentAnalytics } from "@/lib/types";
 
-/** Today's published routine items with per-item minutes. */
-export function TodayRoutineCard({ routines }: { routines: Routine[] }) {
+/** Today's published routine items with per-item minutes and real completion ticks. */
+export function TodayRoutineCard({
+  routines,
+  doneIds,
+}: {
+  routines: Routine[];
+  /** routine ids the student marked done today (routine_progress). */
+  doneIds?: Set<string>;
+}) {
+  const done = doneIds ?? new Set<string>();
+  const doneCount = routines.filter((r) => done.has(r.id)).length;
+  const pct = routines.length > 0 ? Math.round((doneCount / routines.length) * 100) : 0;
   return (
     <section className="jh-card" aria-labelledby="routine-h">
       <div className="flex items-center justify-between gap-3 border-b border-[var(--border)] px-5 py-3.5">
@@ -37,30 +47,70 @@ export function TodayRoutineCard({ routines }: { routines: Routine[] }) {
           />
         ) : (
           <ul className="space-y-2">
-            {routines.map((routine) => (
-              <li
-                key={routine.id}
-                className="flex items-center gap-3 rounded-xl border border-[var(--border)] px-3 py-2.5"
-              >
-                <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-[var(--brand-soft)] text-[var(--brand)]">
-                  <BookOpenCheck className="size-4" aria-hidden />
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-[0.8125rem] font-semibold text-[var(--text)]">
-                    {routine.subject_title_bn ?? routine.title_bn ?? "পড়ার পরিকল্পনা"}
-                  </p>
-                  <p className="truncate text-[0.6875rem] text-[var(--text-subtle)]">
-                    {routine.topic_title_bn ?? routine.focus_note_bn ?? "—"}
-                  </p>
-                </div>
-                <span className="inline-flex shrink-0 items-center gap-1 text-[0.6875rem] font-medium text-[var(--text-subtle)]">
-                  <Clock3 className="size-3" aria-hidden />
-                  {formatNumber(routine.minutes)} মিনিট
-                </span>
-              </li>
-            ))}
+            {routines.map((routine) => {
+              const isDone = done.has(routine.id);
+              return (
+                <li
+                  key={routine.id}
+                  className={`flex items-center gap-3 rounded-xl border px-3 py-2.5 ${
+                    isDone
+                      ? "border-emerald-200 bg-emerald-50/60 dark:border-emerald-500/25 dark:bg-emerald-500/10"
+                      : "border-[var(--border)]"
+                  }`}
+                >
+                  <span
+                    className={`flex size-5 shrink-0 items-center justify-center rounded-md border-2 ${
+                      isDone
+                        ? "border-emerald-500 bg-emerald-500 text-white"
+                        : "border-[var(--border-strong)]"
+                    }`}
+                    aria-hidden
+                  >
+                    {isDone ? <CircleCheck className="size-3.5" /> : null}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className={`truncate text-[0.8125rem] font-semibold ${isDone ? "text-emerald-800 dark:text-emerald-300" : "text-[var(--text)]"}`}>
+                      {routine.subject_title_bn ?? routine.title_bn ?? "পড়ার পরিকল্পনা"}
+                    </p>
+                    <p className="truncate text-[0.6875rem] text-[var(--text-subtle)]">
+                      {routine.topic_title_bn ?? routine.focus_note_bn ?? "—"}
+                    </p>
+                  </div>
+                  <span className="inline-flex shrink-0 items-center gap-1 text-[0.6875rem] font-medium text-[var(--text-subtle)]">
+                    <Clock3 className="size-3" aria-hidden />
+                    {formatNumber(routine.minutes)} মিনিট
+                  </span>
+                  {isDone ? (
+                    <span className="shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 text-[0.625rem] font-bold text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300">
+                      সম্পন্ন
+                    </span>
+                  ) : (
+                    <Link
+                      href="/practice"
+                      className="shrink-0 rounded-full bg-[var(--brand-soft)] px-2 py-0.5 text-[0.625rem] font-bold text-[var(--brand)] hover:underline"
+                    >
+                      পড়ুন
+                    </Link>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         )}
+        {routines.length > 0 ? (
+          <div className="mt-3">
+            <div className="flex items-center justify-between text-[0.6875rem] font-semibold text-[var(--text-muted)]">
+              <span>আজকের অগ্রগতি: {formatNumber(doneCount)}/{formatNumber(routines.length)} সম্পন্ন</span>
+              <span className="tabular-nums">{formatNumber(pct)}%</span>
+            </div>
+            <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-[var(--surface-sunken)]">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-violet-600 to-emerald-500"
+                style={{ width: `${pct}%` }}
+              />
+            </div>
+          </div>
+        ) : null}
       </div>
     </section>
   );
