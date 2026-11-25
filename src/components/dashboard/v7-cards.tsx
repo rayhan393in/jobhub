@@ -1,8 +1,76 @@
 import Link from "next/link";
-import { ArrowRight, Bot, CalendarDays, Flame, Sparkles, Target } from "lucide-react";
+import { ArrowRight, Bot, CalendarDays, CheckCircle2, Flame, Sparkles, Target } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { formatNumber, formatPercent } from "@/lib/format";
-import type { TopicPerformance, StudentAnalytics } from "@/lib/types";
+import type { SubjectPerformance, TopicPerformance, StudentAnalytics } from "@/lib/types";
+
+const MASTERY_COLORS = ["#7c3aed", "#ec4899", "#f59e0b", "#10b981", "#0ea5e9", "#6366f1"];
+
+/**
+ * বিষয়ভিত্তিক দক্ষতা (Mastery) — donut built from the student's real
+ * subject-wise accuracy (jh_student_analytics). Center = attempt-weighted
+ * overall accuracy. No data → honest empty state.
+ */
+export function MasteryCard({ subjects }: { subjects: SubjectPerformance[] }) {
+  const top = subjects.slice(0, 6);
+  const totalAttempted = top.reduce((a, s) => a + s.attempted, 0);
+  const overall =
+    totalAttempted > 0
+      ? Math.round(top.reduce((a, s) => a + s.accuracy * s.attempted, 0) / totalAttempted)
+      : 0;
+
+  const shares = top.map((s) => (totalAttempted > 0 ? (s.attempted / totalAttempted) * 360 : 0));
+  const offsets = shares.map((_, i) => shares.slice(0, i).reduce((a, b) => a + b, 0));
+  const stops = top
+    .map((_, i) => `${MASTERY_COLORS[i % MASTERY_COLORS.length]} ${offsets[i]}deg ${offsets[i] + shares[i]}deg`)
+    .join(", ");
+
+  return (
+    <section className="jh-card p-4" aria-labelledby="mastery-h">
+      <div className="flex items-center justify-between gap-2">
+        <h2 id="mastery-h" className="flex items-center gap-1.5 text-[0.8125rem] font-semibold text-[var(--text)]">
+          <CheckCircle2 className="size-4 text-[var(--brand)]" aria-hidden />
+          বিষয়ভিত্তিক দক্ষতা (Mastery)
+        </h2>
+        <Link href="/analytics" className="text-[0.6875rem] font-semibold text-[var(--brand)] hover:underline">
+          বিস্তারিত দেখুন →
+        </Link>
+      </div>
+      {top.length === 0 ? (
+        <p className="mt-4 text-[0.75rem] text-[var(--text-subtle)]">
+          পরীক্ষা দিলে এখানে বিষয়ভিত্তিক সঠিকতার বিশ্লেষণ দেখা যাবে।
+        </p>
+      ) : (
+        <div className="mt-3 flex items-center gap-4">
+          <div
+            className="relative size-28 shrink-0 rounded-full"
+            style={{ background: `conic-gradient(${stops})` }}
+            role="img"
+            aria-label="বিষয়ভিত্তিক দক্ষতা"
+          >
+            <div className="absolute inset-[18%] flex flex-col items-center justify-center rounded-full bg-[var(--surface)]">
+              <span className="text-[1rem] font-extrabold tabular-nums text-[var(--text)]">{formatNumber(overall)}%</span>
+              <span className="text-[0.5rem] font-medium text-[var(--text-subtle)]">সার্বিক সঠিকতা</span>
+            </div>
+          </div>
+          <ul className="min-w-0 flex-1 space-y-1.5">
+            {top.map((s, i) => (
+              <li key={s.title_bn} className="flex items-center gap-2 text-[0.6875rem]">
+                <span
+                  className="size-2 shrink-0 rounded-full"
+                  style={{ backgroundColor: MASTERY_COLORS[i % MASTERY_COLORS.length] }}
+                  aria-hidden
+                />
+                <span className="min-w-0 flex-1 truncate font-medium text-[var(--text-muted)]">{s.title_bn}</span>
+                <span className="shrink-0 font-bold tabular-nums text-[var(--text)]">{formatNumber(Math.round(s.accuracy))}%</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </section>
+  );
+}
 
 /* ------------------------------------------------------------------ */
 /* স্টাডি ক্যালেন্ডার ও স্ট্রিক — real attempt activity heatmap        */

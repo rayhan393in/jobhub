@@ -5,18 +5,15 @@ import { FirstAdminBanner } from "@/components/dashboard/first-admin-banner";
 import { HeroSection } from "@/components/dashboard/hero-section";
 import { ResumeBanner, LiveExamsBanner, type ResumeAttempt } from "@/components/dashboard/exam-banners";
 import { StatsGrid } from "@/components/dashboard/stats-grid";
-import {
-  TodayRoutineCard, WeeklyProgressCard, RecentResultsCard, LearningActivityCard,
-} from "@/components/dashboard/activity-cards";
-import {
-  AccuracyCard, SubjectPerformanceCard, WeakTopicsCard, UpcomingExamsCard, TargetCourseCard,
-} from "@/components/dashboard/insight-cards";
+import { TodayRoutineCard, RecentResultsCard } from "@/components/dashboard/activity-cards";
+import { WeakTopicsCard, UpcomingExamsCard } from "@/components/dashboard/insight-cards";
 import { CourseContextBar, QuickActions } from "@/components/dashboard/course-context";
-import { AiCoachCard, StudyCalendarCard } from "@/components/dashboard/v7-cards";
+import { AiCoachCard, MasteryCard, StudyCalendarCard } from "@/components/dashboard/v7-cards";
+import { WeeklyTrendCard } from "@/components/dashboard/weekly-trend";
 import {
   ensureDefaultEnrollment, getStudentAnalytics, isFirstAdminSeatOpen, listCourses,
-  listMyActivityDays, listMyEnrollments, listMyResults, listPublishedSchedules,
-  listRoutines, getOpenAttempts,
+  listMyActivityDays, listMyEnrollments, listMyResults, listMyRoutineProgress,
+  listPublishedSchedules, listRoutines, getOpenAttempts,
 } from "@/lib/queries";
 import { dhakaDateKey } from "@/lib/format";
 
@@ -73,6 +70,7 @@ export default async function DashboardPage({
     isStaff(user.role) ? Promise.resolve(false) : isFirstAdminSeatOpen(),
     listMyActivityDays(user.id),
   ]);
+  const routineProgress = await listMyRoutineProgress(user.id, today);
 
   // Fallback: a student whose attempts all live outside the target course
   // (or who has no target set) should still see their real history rather
@@ -84,7 +82,6 @@ export default async function DashboardPage({
 
   const names = displayName(user);
   const courseById = new Map(courseList.map((c) => [c.id, c]));
-  const targetCourse = courseList.find((c) => c.id === (targetCourseId ?? defaultCourseId)) ?? courseList[0];
   const activeEnrolledCourses = enrollments
     .filter((e) => e.status === "active")
     .map((e) => courseById.get(e.course_id))
@@ -121,6 +118,47 @@ export default async function DashboardPage({
   const hasData = Boolean(summary && summary.attempts > 0);
   const weekly = analytics?.weekly ?? [];
 
+  // ---- V7 derived metrics (all from real records) --------------------
+  // Daily goals: today's study tasks ticked off via routine_progress.
+  const doneRoutineIds = new Set(
+    routineProgress.filter((r) => r.status === "done" && r.routineId).map((r) => r.routineId),
+  );
+  const dailyGoals = todayStudy.slice(0, 6).map((r) => ({
+    id: r.id,
+    label: `${r.subject_title_bn ?? r.title_bn}${r.topic_title_bn ? ` — ${r.topic_title_bn}` : ""}`,
+    done: doneRoutineIds.has(r.id),
+  }));
+
+  // Study streak: consecutive active days ending today/yesterday.
+  const shiftDay = (key: string, delta: number) => {
+    const [y, m, d] = key.split("-").map(Number);
+    const dt = new Date(Date.UTC(y, m - 1, d));
+    dt.setUTCDate(dt.getUTCDate() + delta);
+    return dt.toISOString().slice(0, 10);
+  };
+  let streak = 0;
+  let cursor = activityDays.has(today) ? today : shiftDay(today, -1);
+  while (activityDays.has(cursor)) {
+    streak += 1;
+    cursor = shiftDay(cursor, -1);
+  }
+  const activeDays12w = activityDays.size;
+
+  // Readiness: labeled estimate — accuracy (50%) + consistency (30%) +
+  // practice volume (20%). null until the student has real attempts.
+  const answeredTotal = (summary?.correct ?? 0) + (summary?.wrong ?? 0);
+  const readiness = hasData
+    ? Math.min(
+        100,
+        Math.round(
+          0.5 * (summary?.avg_accuracy ?? 0) +
+            0.3 * Math.min(100, (activeDays12w / 60) * 100) +
+            0.2 * Math.min(100, answeredTotal / 10),
+        ),
+      )
+    : null;
+  const enrolledTitles = activeEnrolledCourses.map((c) => c.title_bn);
+
   return (
     <div className="mx-auto w-full max-w-7xl">
       {adminSeatOpen ? <FirstAdminBanner /> : null}
@@ -132,6 +170,8 @@ export default async function DashboardPage({
         todayStudy={todayStudy}
         liveExam={liveExam}
         todayExam={todayExam}
+        enrolledTitles={enrolledTitles}
+        goals={dailyGoals}
       />
 
       {activeEnrolledCourses.length > 0 ? (
@@ -144,30 +184,30 @@ export default async function DashboardPage({
 
       <ResumeBanner attempts={openAttempts as unknown as ResumeAttempt[]} courseById={courseById} now={now} />
       <LiveExamsBanner exams={liveExams} />
-      <StatsGrid summary={summary} />
+      <StatsGrid summary={summary} streak={streak} activeDays={activeDays12w} readiness={readiness} />
 
-      <div className="mt-5 grid gap-5 lg:grid-cols-[1.5fr_1fr]">
-        <div className="space-y-5">
-          <TodayRoutineCard routines={todayRoutines} />
-          <WeeklyProgressCard weekly={weekly} hasData={hasData} />
-          <RecentResultsCard results={results} courseById={courseById} />
-        </div>
-
-        <div className="space-y-5">
-          <AccuracyCard summary={summary} />
-          <SubjectPerformanceCard subjects={subjects} />
-          <WeakTopicsCard weakTopics={weakTopics} almostThere={almostThere} hasData={hasData} />
-          <UpcomingExamsCard exams={upcomingExams} />
-          <TargetCourseCard course={targetCourse} />
+      {/* Row A — আজকের রুটিন · সাপ্তাহিক ট্রেন্ড · দক্ষতা donut (mockup) */}
+      <div className="mt-5 grid gap-4 lg:grid-cols-2 2xl:grid-cols-[1.1fr_1.2fr_1fr]">
+        <TodayRoutineCard routines={todayRoutines} />
+        <WeeklyTrendCard weekly={weekly} hasData={hasData} />
+        <div className="lg:col-span-2 2xl:col-span-1">
+          <MasteryCard subjects={subjects} />
         </div>
       </div>
 
-      <LearningActivityCard todayRoutineCount={todayRoutines.length} summary={summary} />
+      {/* Row B — দুর্বল টপিক · আসন্ন পরীক্ষা · সর্বশেষ ফলাফল · AI কোচ */}
+      <div className="mt-4 grid gap-4 lg:grid-cols-2 2xl:grid-cols-4">
+        <WeakTopicsCard weakTopics={weakTopics} almostThere={almostThere} hasData={hasData} />
+        <UpcomingExamsCard exams={upcomingExams} />
+        <RecentResultsCard results={results} courseById={courseById} />
+        <div id="ai-coach" className="scroll-mt-20">
+          <AiCoachCard weakTopics={weakTopics} summary={summary} todayRoutineCount={todayStudy.length} />
+        </div>
+      </div>
 
-      {/* V7: real-data study calendar + AI study coach */}
-      <div className="mt-5 grid gap-5 lg:grid-cols-[1.5fr_1fr]">
+      {/* Row C — স্টাডি ক্যালেন্ডার ও স্ট্রিক */}
+      <div id="calendar" className="mt-4 scroll-mt-20">
         <StudyCalendarCard activity={activityDays} today={today} />
-        <AiCoachCard weakTopics={weakTopics} summary={summary} todayRoutineCount={todayStudy.length} />
       </div>
 
       <QuickActions />

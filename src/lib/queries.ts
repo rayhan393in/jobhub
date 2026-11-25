@@ -473,6 +473,29 @@ function dhakaDateKeyOf(date: Date): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Dhaka" }).format(date);
 }
 
+/**
+ * Today's routine-slot completion for the hero Daily Goals checklist.
+ * Reads the student's own routine_progress rows (RLS-scoped) for one
+ * Dhaka-local date and returns the set of completed routine ids.
+ */
+export async function listMyRoutineProgress(
+  userId: string,
+  dateKey: string,
+): Promise<{ routineId: string | null; topicId: string | null; status: string }[]> {
+  const supabase = await getServerClient();
+  if (!supabase) return [];
+  const { data, error } = await supabase
+    .from("routine_progress")
+    .select("routine_id, topic_id, status")
+    .eq("user_id", userId)
+    .eq("progress_date", dateKey)
+    .limit(100);
+  logDbError("routine-progress", error);
+  return ((data as { routine_id: string | null; topic_id: string | null; status: string }[]) ?? []).map(
+    (row) => ({ routineId: row.routine_id, topicId: row.topic_id, status: row.status }),
+  );
+}
+
 export async function listMyAttempts(userId: string, limit = 20) {
   const supabase = await getServerClient();
   if (!supabase) return [];

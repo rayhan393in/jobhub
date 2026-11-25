@@ -4,29 +4,40 @@ import * as React from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
-  BookOpenCheck, CalendarDays, ChartNoAxesColumn, ChevronLeft, GraduationCap, Home,
-  Layers, LogOut, Menu, PenLine, Radio, Rocket, Settings, ShieldCheck, Trophy, X, Library,
+  BookOpenCheck, Bot, CalendarDays, ChartNoAxesColumn, ChevronLeft, GraduationCap, History,
+  Home, Layers, LogOut, Menu, NotebookPen, PenLine, Radio, Rocket, Settings, ShieldCheck,
+  Trophy, X, Library,
 } from "lucide-react";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { cn } from "@/lib/cn";
 import type { RoleId } from "@/lib/types";
 import { ROLE_LABELS } from "@/lib/types";
 
-const NAV = [
+type NavItem = {
+  href: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string; "aria-hidden"?: boolean }>;
+  badge?: { text: string; tone: "live" | "ai" };
+};
+
+const NAV: NavItem[] = [
   { href: "/dashboard", label: "ড্যাশবোর্ড", icon: Home },
-  { href: "/my-courses", label: "কোর্স", icon: GraduationCap },
-  { href: "/exams", label: "লাইভ পরীক্ষা", icon: Radio },
+  { href: "/my-courses", label: "আমার কোর্স (My Courses)", icon: GraduationCap },
+  { href: "/practice", label: "প্র্যাকটিস প্রশ্ন", icon: BookOpenCheck },
+  { href: "/exams", label: "লাইভ পরীক্ষা", icon: Radio, badge: { text: "LIVE", tone: "live" } },
+  { href: "/custom-exam", label: "মডেল টেস্ট", icon: Layers },
+  { href: "/practice?mode=previous", label: "পূর্ববর্তী বছরের প্রশ্ন", icon: History },
   { href: "/written-exams", label: "লিখিত পরীক্ষা", icon: PenLine },
-  { href: "/practice", label: "প্র্যাকটিস", icon: BookOpenCheck },
-  { href: "/custom-exam", label: "কাস্টম পরীক্ষা", icon: Layers },
   { href: "/routines", label: "স্টাডি রুটিন", icon: CalendarDays },
-  { href: "/analytics", label: "বিশ্লেষণ", icon: ChartNoAxesColumn },
+  { href: "/analytics", label: "বিশ্লেষণ ও রিপোর্ট", icon: ChartNoAxesColumn },
+  { href: "/bookmarks", label: "ভুল প্রশ্নের সংগ্রহ", icon: NotebookPen },
   { href: "/leaderboard", label: "লিডারবোর্ড", icon: Trophy },
-  { href: "/bookmarks", label: "বুকমার্ক", icon: Library },
+  { href: "/dashboard#ai-coach", label: "AI স্টাডি কোচ", icon: Bot, badge: { text: "AI", tone: "ai" } },
+  { href: "/dashboard#calendar", label: "স্টাডি ক্যালেন্ডার", icon: Library },
   { href: "/account", label: "অ্যাকাউন্ট", icon: Settings },
 ];
 
-const STAFF_NAV = [
+const STAFF_NAV: NavItem[] = [
   { href: "/admin", label: "অ্যাডমিন সেন্টার", icon: ShieldCheck },
 ];
 
@@ -97,14 +108,16 @@ export function DashboardShell({
 
         <nav className="flex-1 space-y-0.5 overflow-y-auto px-2.5 pb-4" aria-label="Dashboard">
           {nav.map((item) => {
-            const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
+            const base = item.href.split(/[?#]/)[0];
+            const plain = !item.href.includes("?") && !item.href.includes("#");
+            const active = plain && (pathname === base || pathname.startsWith(`${base}/`));
             const Icon = item.icon;
             return (
               <Link
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  "flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-[0.8125rem] font-medium transition-colors",
+                  "flex items-center gap-2.5 rounded-xl px-3 py-2 text-[0.8125rem] font-medium transition-colors",
                   active
                     ? "bg-white/15 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.12)]"
                     : "text-violet-100/70 hover:bg-white/[0.08] hover:text-white",
@@ -112,7 +125,17 @@ export function DashboardShell({
                 aria-current={active ? "page" : undefined}
               >
                 <Icon className="size-4 shrink-0" aria-hidden />
-                {item.label}
+                <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                {item.badge ? (
+                  <span
+                    className={cn(
+                      "rounded-md px-1.5 py-0.5 text-[0.5rem] font-extrabold tracking-wide",
+                      item.badge.tone === "live" ? "bg-red-500 text-white" : "bg-fuchsia-500 text-white",
+                    )}
+                  >
+                    {item.badge.text}
+                  </span>
+                ) : null}
               </Link>
             );
           })}
@@ -185,7 +208,9 @@ export function DashboardShell({
             {nav.map((item) => {
               // Match nested routes too (e.g. /results/123) so the tab stays
               // highlighted — mirrors the desktop sidebar behaviour above.
-              const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
+              const base = item.href.split(/[?#]/)[0];
+              const plain = !item.href.includes("?") && !item.href.includes("#");
+              const active = plain && (pathname === base || pathname.startsWith(`${base}/`));
               const Icon = item.icon;
               return (
                 <Link
@@ -198,7 +223,17 @@ export function DashboardShell({
                   )}
                 >
                   <Icon className="size-4" aria-hidden />
-                  {item.label}
+                  <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                  {item.badge ? (
+                    <span
+                      className={cn(
+                        "rounded-md px-1.5 py-0.5 text-[0.5rem] font-extrabold tracking-wide text-white",
+                        item.badge.tone === "live" ? "bg-red-500" : "bg-fuchsia-500",
+                      )}
+                    >
+                      {item.badge.text}
+                    </span>
+                  ) : null}
                 </Link>
               );
             })}
