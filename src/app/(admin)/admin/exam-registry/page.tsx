@@ -80,10 +80,10 @@ export default async function ExamRegistryPage() {
       />
 
       <div className="mb-5 grid gap-3 sm:grid-cols-4">
-        <MiniStat icon={<Landmark className="h-4 w-4" />} label="মোট পরীক্ষা" value={formatNumber(exams.length)} />
-        <MiniStat icon={<CalendarCheck2 className="h-4 w-4" />} label="প্রকাশিত" value={formatNumber(published)} />
-        <MiniStat icon={<ShieldCheck className="h-4 w-4" />} label="যাচাইকৃত সাল" value={formatNumber(verifiedYears)} />
-        <MiniStat
+        <MiniStat tone="violet" icon={<Landmark className="h-4 w-4" />} label="মোট পরীক্ষা" value={formatNumber(exams.length)} />
+        <MiniStat tone="emerald" icon={<CalendarCheck2 className="h-4 w-4" />} label="প্রকাশিত" value={formatNumber(published)} />
+        <MiniStat tone="orange" icon={<ShieldCheck className="h-4 w-4" />} label="যাচাইকৃত সাল" value={formatNumber(verifiedYears)} />
+        <MiniStat tone="sky"
           icon={<ShieldAlert className="h-4 w-4" />}
           label="অযাচাইকৃত সাল"
           value={formatNumber(unverifiedYears)}

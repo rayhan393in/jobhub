@@ -48,26 +48,56 @@ export function AdminPageHeader({
   );
 }
 
+const MINI_STAT_TONES = {
+  violet: {
+    card: "border-violet-200/70 bg-gradient-to-br from-violet-50 to-violet-100/60 dark:border-violet-500/25 dark:from-violet-500/15 dark:to-violet-500/5",
+    icon: "bg-violet-600",
+    label: "text-violet-700/80 dark:text-violet-300/80",
+  },
+  emerald: {
+    card: "border-emerald-200/70 bg-gradient-to-br from-emerald-50 to-emerald-100/60 dark:border-emerald-500/25 dark:from-emerald-500/15 dark:to-emerald-500/5",
+    icon: "bg-emerald-600",
+    label: "text-emerald-700/80 dark:text-emerald-300/80",
+  },
+  orange: {
+    card: "border-orange-200/70 bg-gradient-to-br from-orange-50 to-orange-100/60 dark:border-orange-500/25 dark:from-orange-500/15 dark:to-orange-500/5",
+    icon: "bg-orange-500",
+    label: "text-orange-700/80 dark:text-orange-300/80",
+  },
+  sky: {
+    card: "border-sky-200/70 bg-gradient-to-br from-sky-50 to-sky-100/60 dark:border-sky-500/25 dark:from-sky-500/15 dark:to-sky-500/5",
+    icon: "bg-sky-600",
+    label: "text-sky-700/80 dark:text-sky-300/80",
+  },
+} as const;
+
+export type MiniStatTone = keyof typeof MINI_STAT_TONES;
+
 export function MiniStat({
   icon,
   label,
   value,
   hint,
+  tone = "violet",
 }: {
   icon: React.ReactNode;
   label: string;
   value: string;
   hint?: string;
+  tone?: MiniStatTone;
 }) {
+  const t = MINI_STAT_TONES[tone];
   return (
-    <div className="jh-card p-4">
-      <div className="flex items-center gap-1.5 text-[var(--brand)]">
-        {icon}
-        <span className="text-[0.625rem] font-medium uppercase tracking-[0.08em] text-[var(--text-subtle)]">
+    <div className={cn("rounded-2xl border p-4", t.card)}>
+      <div className="flex items-center gap-2">
+        <span className={cn("flex size-8 shrink-0 items-center justify-center rounded-xl text-white", t.icon)}>
+          {icon}
+        </span>
+        <span className={cn("text-[0.625rem] font-semibold uppercase tracking-[0.08em]", t.label)}>
           {label}
         </span>
       </div>
-      <p className="mt-1.5 text-[1.25rem] font-bold tabular-nums tracking-[-0.02em] text-[var(--text)]">
+      <p className="mt-2 text-[1.375rem] font-extrabold tabular-nums tracking-[-0.02em] text-[var(--text)]">
         {value}
       </p>
       {hint ? <p className="mt-0.5 text-[0.625rem] text-[var(--text-subtle)]">{hint}</p> : null}

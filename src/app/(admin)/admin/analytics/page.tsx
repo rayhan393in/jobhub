@@ -56,10 +56,10 @@ export default async function AdminAnalyticsPage() {
       ) : (
         <>
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-            <MiniStat icon={<ChartNoAxesColumn className="size-4" />} label="প্রশ্ন" value={formatNumber(overview.questions.total)} hint={`${formatNumber(overview.questions.verified)} যাচাইকৃত`} />
-            <MiniStat icon={<ChartNoAxesColumn className="size-4" />} label="শিক্ষার্থী" value={formatNumber(overview.students)} hint="নিবন্ধিত" />
-            <MiniStat icon={<ChartNoAxesColumn className="size-4" />} label="প্রচেষ্টা" value={formatNumber(overview.attempts.total)} hint={`${formatNumber(overview.attempts.submitted)} জমা`} />
-            <MiniStat icon={<ChartNoAxesColumn className="size-4" />} label="প্রকাশিত পরীক্ষা" value={formatNumber(overview.schedules.published)} hint={`${formatNumber(overview.schedules.completed)} সম্পন্ন`} />
+            <MiniStat tone="violet" icon={<ChartNoAxesColumn className="size-4" />} label="প্রশ্ন" value={formatNumber(overview.questions.total)} hint={`${formatNumber(overview.questions.verified)} যাচাইকৃত`} />
+            <MiniStat tone="emerald" icon={<ChartNoAxesColumn className="size-4" />} label="শিক্ষার্থী" value={formatNumber(overview.students)} hint="নিবন্ধিত" />
+            <MiniStat tone="orange" icon={<ChartNoAxesColumn className="size-4" />} label="প্রচেষ্টা" value={formatNumber(overview.attempts.total)} hint={`${formatNumber(overview.attempts.submitted)} জমা`} />
+            <MiniStat tone="sky" icon={<ChartNoAxesColumn className="size-4" />} label="প্রকাশিত পরীক্ষা" value={formatNumber(overview.schedules.published)} hint={`${formatNumber(overview.schedules.completed)} সম্পন্ন`} />
           </div>
 
           <section className="jh-card mt-4 p-5">

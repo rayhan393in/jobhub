@@ -118,24 +118,28 @@ export default async function AdminOverviewPage({
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <MiniStat
+          tone="violet"
           icon={<BookCopy className="size-4" />}
           label="মোট প্রশ্ন"
           value={formatNumber(overview.questions.total)}
           hint={`${formatNumber(overview.questions.approved)} অনুমোদিত · ${formatNumber(overview.questions.verified)} যাচাইকৃত`}
         />
         <MiniStat
+          tone="sky"
           icon={<Users className="size-4" />}
           label="শিক্ষার্থী"
           value={formatNumber(overview.students)}
           hint={`${formatNumber(overview.staff)} স্টাফ অ্যাকাউন্ট`}
         />
         <MiniStat
+          tone="orange"
           icon={<Radio className="size-4" />}
           label="পরীক্ষা"
           value={formatNumber(overview.schedules.published)}
           hint={`${formatNumber(overview.schedules.completed)} সম্পন্ন · ${formatNumber(overview.schedules.draft)} ড্রাফট`}
         />
         <MiniStat
+          tone="emerald"
           icon={<TrendingUp className="size-4" />}
           label="প্রচেষ্টা"
           value={formatNumber(overview.attempts.total)}

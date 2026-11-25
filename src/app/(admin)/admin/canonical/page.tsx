@@ -81,10 +81,10 @@ export default async function CanonicalPage() {
       />
 
       <div className="mb-5 grid gap-3 sm:grid-cols-4">
-        <MiniStat icon={<Library className="h-4 w-4" />} label="ক্যানোনিকাল বিষয়" value={formatNumber(canonical.length)} />
-        <MiniStat icon={<Link2 className="h-4 w-4" />} label="ম্যাপকৃত কোর্স-বিষয়" value={formatNumber(mapped)} />
-        <MiniStat icon={<Link2Off className="h-4 w-4" />} label="অম্যাপকৃত" value={formatNumber(subjects.length - mapped)} hint="ইচ্ছাকৃত আলাদা থাকতে পারে" />
-        <MiniStat icon={<Share2 className="h-4 w-4" />} label="২+ কোর্সে পুনঃব্যবহৃত" value={formatNumber(reusedCount)} />
+        <MiniStat tone="violet" icon={<Library className="h-4 w-4" />} label="ক্যানোনিকাল বিষয়" value={formatNumber(canonical.length)} />
+        <MiniStat tone="emerald" icon={<Link2 className="h-4 w-4" />} label="ম্যাপকৃত কোর্স-বিষয়" value={formatNumber(mapped)} />
+        <MiniStat tone="orange" icon={<Link2Off className="h-4 w-4" />} label="অম্যাপকৃত" value={formatNumber(subjects.length - mapped)} hint="ইচ্ছাকৃত আলাদা থাকতে পারে" />
+        <MiniStat tone="sky" icon={<Share2 className="h-4 w-4" />} label="২+ কোর্সে পুনঃব্যবহৃত" value={formatNumber(reusedCount)} />
       </div>
 
       <AdminNote>
