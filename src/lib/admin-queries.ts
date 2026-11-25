@@ -132,31 +132,114 @@ export type QuestionListRow = {
   topic?: { title_bn: string } | null;
 };
 
-/** Headline numbers for the question-bank page's stat cards. */
+/** Headline numbers for the question-bank page's stat cards and tabs. */
 export type QuestionBankStats = {
   total: number;
   approved: number;
   pending: number;
+  rejected: number;
   exams: number;
+  /** source_type = 'previous' (PYQ) */
+  previous: number;
+  /** question_kind = 'practice' */
+  practice: number;
+  /** source_type = 'ai_assisted' */
+  ai: number;
+  /** source_type = 'manual' */
+  manual: number;
+};
+
+const EMPTY_QB_STATS: QuestionBankStats = {
+  total: 0, approved: 0, pending: 0, rejected: 0, exams: 0,
+  previous: 0, practice: 0, ai: 0, manual: 0,
 };
 
 export async function getQuestionBankStats(): Promise<QuestionBankStats> {
   const supabase = await getServerClient();
-  if (!supabase) return { total: 0, approved: 0, pending: 0, exams: 0 };
+  if (!supabase) return EMPTY_QB_STATS;
   const head = { count: "exact" as const, head: true };
-  const [total, approved, pending, draft, exams] = await Promise.all([
-    supabase.from("questions").select("id", head),
-    supabase.from("questions").select("id", head).eq("status", "approved"),
-    supabase.from("questions").select("id", head).eq("status", "pending_review"),
-    supabase.from("questions").select("id", head).eq("status", "draft"),
-    supabase.from("exam_schedules").select("id", head).in("status", ["published", "completed"]),
-  ]);
+  const [total, approved, pending, draft, rejected, exams, previous, practice, ai, manual] =
+    await Promise.all([
+      supabase.from("questions").select("id", head),
+      supabase.from("questions").select("id", head).eq("status", "approved"),
+      supabase.from("questions").select("id", head).eq("status", "pending_review"),
+      supabase.from("questions").select("id", head).eq("status", "draft"),
+      supabase.from("questions").select("id", head).eq("status", "rejected"),
+      supabase.from("exam_schedules").select("id", head).in("status", ["published", "completed"]),
+      supabase.from("questions").select("id", head).eq("source_type", "previous"),
+      supabase.from("questions").select("id", head).eq("question_kind", "practice"),
+      supabase.from("questions").select("id", head).eq("source_type", "ai_assisted"),
+      supabase.from("questions").select("id", head).eq("source_type", "manual"),
+    ]);
   return {
     total: total.count ?? 0,
     approved: approved.count ?? 0,
     pending: (pending.count ?? 0) + (draft.count ?? 0),
+    rejected: rejected.count ?? 0,
     exams: exams.count ?? 0,
+    previous: previous.count ?? 0,
+    practice: practice.count ?? 0,
+    ai: ai.count ?? 0,
+    manual: manual.count ?? 0,
   };
+}
+
+/** Chart data for the question-bank analytics row (course donut + monthly bars). */
+export type QuestionBankInsights = {
+  byCourse: { courseId: string; count: number }[];
+  /** Last 6 calendar months, oldest first. */
+  byMonth: { label: string; count: number }[];
+};
+
+export async function getQuestionBankInsights(courseIds: string[]): Promise<QuestionBankInsights> {
+  const supabase = await getServerClient();
+  if (!supabase) return { byCourse: [], byMonth: [] };
+  const head = { count: "exact" as const, head: true };
+
+  const now = new Date();
+  const monthStarts = Array.from({ length: 7 }, (_, i) =>
+    new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 5 + i, 1)),
+  );
+
+  const [courseCounts, monthCounts] = await Promise.all([
+    Promise.all(
+      courseIds.map((id) => supabase.from("questions").select("id", head).eq("course_id", id)),
+    ),
+    Promise.all(
+      monthStarts.slice(0, 6).map((start, i) =>
+        supabase
+          .from("questions")
+          .select("id", head)
+          .gte("created_at", start.toISOString())
+          .lt("created_at", monthStarts[i + 1].toISOString()),
+      ),
+    ),
+  ]);
+
+  return {
+    byCourse: courseIds
+      .map((courseId, i) => ({ courseId, count: courseCounts[i].count ?? 0 }))
+      .filter((c) => c.count > 0)
+      .sort((a, b) => b.count - a.count),
+    byMonth: monthStarts.slice(0, 6).map((start, i) => ({
+      label: start.toLocaleString("en", { month: "short", timeZone: "UTC" }),
+      count: monthCounts[i].count ?? 0,
+    })),
+  };
+}
+
+/** Fetch a single question (same shape as the list rows) for the detail panel. */
+export async function getQuestionById(id: string): Promise<QuestionListRow | null> {
+  const supabase = await getServerClient();
+  if (!supabase) return null;
+  const { data } = await supabase
+    .from("questions")
+    .select(
+      "id, statement, statement_bn, option_a, option_b, option_c, option_d, correct_option, explanation, source, status, difficulty, source_type, is_verified, year, created_at, course_id, subject_id, topic_id, course:courses(title_bn, slug), subject:subjects(title_bn), topic:topics(title_bn)",
+    )
+    .eq("id", id)
+    .maybeSingle();
+  return (data as unknown as QuestionListRow) ?? null;
 }
 
 export type QuestionFilters = {
@@ -166,6 +249,8 @@ export type QuestionFilters = {
   topicId?: string;
   difficulty?: string;
   sourceType?: string;
+  /** question_kind filter: exact_pyq | practice | ai_generated */
+  kind?: string;
   verified?: "yes" | "no";
   year?: string;
   search?: string;
@@ -207,6 +292,9 @@ export async function listQuestions(filters: QuestionFilters): Promise<{ rows: Q
   if (filters.topicId) query = query.eq("topic_id", filters.topicId);
   if (filters.difficulty) query = query.eq("difficulty", filters.difficulty);
   if (filters.sourceType) query = query.eq("source_type", filters.sourceType);
+  if (filters.kind && ["exact_pyq", "practice", "ai_generated"].includes(filters.kind)) {
+    query = query.eq("question_kind", filters.kind);
+  }
   if (filters.verified) query = query.eq("is_verified", filters.verified === "yes");
   if (filters.year && /^\d{4}$/.test(filters.year)) query = query.eq("year", Number(filters.year));
   if (filters.search?.trim()) {
