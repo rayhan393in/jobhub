@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { BookOpenCheck, CalendarDays, Play, Radio } from "lucide-react";
+import { BookOpenCheck, CalendarDays, CheckCircle2, Play, Radio } from "lucide-react";
 import { formatDate, formatNumber, formatPercent, formatTime, greeting } from "@/lib/format";
 import type { Routine, StudentAnalytics } from "@/lib/types";
 import type { ScheduleWithCourse } from "@/lib/queries";
@@ -9,6 +9,8 @@ import type { ScheduleWithCourse } from "@/lib/queries";
  * action (live exam → today's exam → exam centre). Pure server component —
  * all data arrives as props from the page orchestrator.
  */
+export type DailyGoal = { id: string; label: string; done: boolean };
+
 export function HeroSection({
   nameBn,
   summary,
@@ -16,6 +18,8 @@ export function HeroSection({
   todayStudy,
   liveExam,
   todayExam,
+  enrolledTitles = [],
+  goals = [],
 }: {
   nameBn: string;
   summary: StudentAnalytics["summary"] | undefined;
@@ -23,7 +27,13 @@ export function HeroSection({
   todayStudy: Routine[];
   liveExam: ScheduleWithCourse | null;
   todayExam: ScheduleWithCourse | null;
+  /** Enrolled course titles for the ✓ indicator chips (V7 mockup). */
+  enrolledTitles?: string[];
+  /** Today's routine tasks with real completion from routine_progress. */
+  goals?: DailyGoal[];
 }) {
+  const doneCount = goals.filter((g) => g.done).length;
+  const progressPct = goals.length > 0 ? Math.round((doneCount / goals.length) * 100) : 0;
   return (
     <section
       aria-labelledby="hero-h"
@@ -43,7 +53,8 @@ export function HeroSection({
         className="pointer-events-none absolute left-1/3 top-0 h-px w-1/2 bg-gradient-to-r from-transparent via-white/40 to-transparent"
       />
       <HeroBooksArt />
-      <div className="relative z-10 max-w-3xl px-5 py-6 sm:px-8 sm:py-8">
+      <div className="relative z-10 flex flex-col gap-5 px-5 py-6 sm:px-8 sm:py-8 xl:flex-row xl:items-stretch xl:justify-between">
+      <div className="max-w-3xl">
         <p className="inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-2.5 py-1 text-[0.6875rem] font-semibold uppercase tracking-[0.14em] text-violet-200">
           <CalendarDays className="size-3" aria-hidden />
           {formatDate(new Date(), "bn", { weekday: "long", day: "numeric", month: "long" })}
@@ -56,6 +67,29 @@ export function HeroSection({
             ? `আপনি এখন পর্যন্ত ${formatNumber(summary?.attempts ?? 0)}টি পরীক্ষা সম্পন্ন করেছেন। গড় নির্ভুলতা ${formatPercent(summary?.avg_accuracy ?? 0)}।`
             : "আপনার প্রস্তুতির যাত্রা শুরু হোক। প্রথম পরীক্ষা দিলেই এখানে বাস্তব বিশ্লেষণ দেখা যাবে।"}
         </p>
+
+        {/* Enrolled course indicators — V7 mockup ✓ chips */}
+        {enrolledTitles.length > 0 ? (
+          <ul className="mt-3 flex flex-wrap items-center gap-1.5">
+            {enrolledTitles.slice(0, 4).map((title) => (
+              <li
+                key={title}
+                className="inline-flex items-center gap-1 rounded-full border border-white/15 bg-white/[0.1] px-2.5 py-1 text-[0.6875rem] font-semibold text-white"
+              >
+                <CheckCircle2 className="size-3 text-emerald-400" aria-hidden />
+                {title}
+              </li>
+            ))}
+            <li>
+              <Link
+                href="/my-courses"
+                className="inline-flex items-center rounded-full border border-dashed border-white/30 px-2.5 py-1 text-[0.6875rem] font-semibold text-violet-200 transition hover:bg-white/10"
+              >
+                + আরও
+              </Link>
+            </li>
+          </ul>
+        ) : null}
 
         {/* আজ যা পড়বেন */}
         <div className="mt-4">
@@ -123,6 +157,58 @@ export function HeroSection({
             </Link>
           )}
         </div>
+      </div>
+
+      {/* Right panel — আজকের অগ্রগতি রিং + Daily Goals (real routine_progress) */}
+      {goals.length > 0 ? (
+        <div className="flex shrink-0 flex-col items-stretch gap-3 sm:flex-row xl:w-[23rem] xl:flex-col 2xl:w-[26rem] 2xl:flex-row">
+          <div className="flex items-center justify-center rounded-2xl border border-white/15 bg-white/[0.07] px-5 py-4 backdrop-blur-sm">
+            <div
+              className="relative flex size-28 shrink-0 items-center justify-center rounded-full"
+              style={{
+                background: `conic-gradient(#a855f7 ${progressPct * 3.6}deg, rgba(255,255,255,0.12) 0deg)`,
+              }}
+              role="img"
+              aria-label={`আজকের অগ্রগতি ${progressPct}%`}
+            >
+              <div className="absolute inset-[11%] flex flex-col items-center justify-center rounded-full bg-[#171242]">
+                <span className="text-[1.25rem] font-extrabold tabular-nums text-white">{formatNumber(progressPct)}%</span>
+                <span className="text-[0.5625rem] font-medium text-violet-200">আজকের অগ্রগতি</span>
+                <span className="text-[0.5625rem] font-semibold text-emerald-300">
+                  {formatNumber(doneCount)}/{formatNumber(goals.length)} টাস্ক
+                </span>
+              </div>
+            </div>
+          </div>
+          <div className="min-w-0 flex-1 rounded-2xl border border-white/15 bg-white/[0.07] p-3.5 backdrop-blur-sm">
+            <p className="text-[0.75rem] font-bold text-white">আজকের লক্ষ্য (Daily Goals)</p>
+            <ul className="mt-2 space-y-1.5">
+              {goals.slice(0, 3).map((goal) => (
+                <li key={goal.id} className="flex items-center gap-2 text-[0.75rem] font-medium">
+                  <span
+                    className={
+                      goal.done
+                        ? "flex size-4 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-white"
+                        : "size-4 shrink-0 rounded-full border-2 border-white/30"
+                    }
+                    aria-hidden
+                  >
+                    {goal.done ? <CheckCircle2 className="size-3" /> : null}
+                  </span>
+                  <span className={goal.done ? "truncate text-emerald-200" : "truncate text-white/90"}>
+                    {goal.label}
+                  </span>
+                </li>
+              ))}
+            </ul>
+            {goals.length > 3 ? (
+              <Link href="/routines" className="mt-1.5 inline-block text-[0.625rem] font-semibold text-violet-200 hover:underline">
+                +{formatNumber(goals.length - 3)}টি আরও কাজ →
+              </Link>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
       </div>
     </section>
   );
