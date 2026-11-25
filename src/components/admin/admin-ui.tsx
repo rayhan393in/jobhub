@@ -17,7 +17,7 @@ export function AdminPageHeader({
   back?: { href: string; label: string };
 }) {
   return (
-    <div className="mb-5">
+    <div className="admin-page-header mb-6 rounded-2xl border border-violet-100/80 bg-white/75 p-5 shadow-[0_8px_28px_-22px_rgba(79,66,228,.45)] backdrop-blur sm:p-6">
       {back ? (
         <Link
           href={back.href}
@@ -60,7 +60,7 @@ export function MiniStat({
   hint?: string;
 }) {
   return (
-    <div className="jh-card p-4">
+    <div className="jh-card jh-card-hover admin-stat-card p-4 sm:p-5">
       <div className="flex items-center gap-1.5 text-[var(--brand)]">
         {icon}
         <span className="text-xs font-medium uppercase tracking-[0.06em] text-[var(--text-subtle)]">
@@ -88,7 +88,7 @@ export function AdminNote({
     brand: "border-[var(--brand)]/25 bg-[var(--brand-soft)] text-[var(--text-muted)]",
   }[tone];
   return (
-    <p className={cn("flex items-start gap-1.5 rounded-xl border px-4 py-3 text-sm leading-relaxed", style)}>
+    <p className={cn("flex items-start gap-2 rounded-xl border px-4 py-3 text-sm leading-relaxed shadow-sm", style)}>
       <Info className="mt-0.5 size-3 shrink-0 shrink-0" aria-hidden />
       <span>{children}</span>
     </p>
