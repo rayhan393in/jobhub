@@ -52,13 +52,13 @@ export function HeroSection({
       />
 
       <div className="relative z-10 flex flex-col items-stretch gap-4 p-4 sm:p-5 xl:flex-row xl:items-center">
-        {/* বাঁ — ডেস্ক ইলাস্ট্রেশন (mockup-এর ছবির ব্লক) */}
-        <div className="relative hidden h-[13.5rem] w-[17rem] shrink-0 overflow-hidden rounded-xl lg:block">
+        {/* বাঁ — ডেস্ক ইলাস্ট্রেশন: হিরোর পুরো উচ্চতা জুড়ে */}
+        <div className="relative hidden min-h-[13rem] w-[19rem] shrink-0 self-stretch overflow-hidden rounded-xl shadow-[0_12px_30px_-12px_rgba(0,0,0,0.45)] lg:block 2xl:w-[22rem]">
           <Image
             src="/images/hero-study.jpg"
             alt=""
             fill
-            sizes="272px"
+            sizes="(min-width: 1536px) 352px, 304px"
             priority
             className="object-cover"
           />

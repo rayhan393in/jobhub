@@ -32,10 +32,12 @@ export function WeeklyTrendCard({
   const max = Math.max(1, ...values);
 
   return (
-    <section className="jh-card p-4" aria-labelledby="trend-h">
+    <section className="jh-card flex h-full flex-col p-4" aria-labelledby="trend-h">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 id="trend-h" className="flex items-center gap-1.5 text-[0.8125rem] font-semibold text-[var(--text)]">
-          <TrendingUp className="size-4 text-[var(--brand)]" aria-hidden />
+        <h2 id="trend-h" className="flex items-center gap-2 text-[0.9375rem] font-bold text-[var(--text)]">
+          <span className="flex size-7 items-center justify-center rounded-lg bg-indigo-100 text-indigo-600 dark:bg-indigo-500/15 dark:text-indigo-300">
+            <TrendingUp className="size-4" aria-hidden />
+          </span>
           সাপ্তাহিক পারফরম্যান্স ট্রেন্ড
         </h2>
         <div className="flex rounded-lg border border-[var(--border)] p-0.5" role="tablist" aria-label="মেট্রিক নির্বাচন">
@@ -50,7 +52,7 @@ export function WeeklyTrendCard({
               aria-selected={metric === tab.id}
               onClick={() => setMetric(tab.id)}
               className={cn(
-                "rounded-md px-2.5 py-1 text-[0.625rem] font-bold transition",
+                "rounded-md px-3 py-1 text-[0.6875rem] font-bold transition",
                 metric === tab.id
                   ? "bg-[var(--brand)] text-white"
                   : "text-[var(--text-subtle)] hover:text-[var(--text)]",
@@ -63,9 +65,9 @@ export function WeeklyTrendCard({
       </div>
 
       {!hasData ? (
-        <div className="mt-3 flex h-36 flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-[var(--border)] text-center">
+        <div className="mt-3 flex min-h-40 flex-1 flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-[var(--border)] text-center">
           <TrendingUp className="size-5 text-[var(--text-subtle)]" aria-hidden />
-          <p className="max-w-[16rem] text-[0.75rem] leading-relaxed text-[var(--text-subtle)]">
+          <p className="max-w-[16rem] text-[0.8125rem] leading-relaxed text-[var(--text-subtle)]">
             এখনো কোনো পরীক্ষার ডেটা নেই — প্রথম প্র্যাকটিস দিলেই এখানে দৈনিক ট্রেন্ড আঁকা হবে।
           </p>
           <Link href="/custom-exam" className="text-[0.6875rem] font-bold text-[var(--brand)] hover:underline">
@@ -73,14 +75,18 @@ export function WeeklyTrendCard({
           </Link>
         </div>
       ) : (
-      <div className="mt-3">
-        <svg viewBox="0 0 280 110" className="h-36 w-full" role="img" aria-label="সাপ্তাহিক ট্রেন্ড চার্ট">
+      <div className="mt-3 flex flex-1 flex-col justify-center">
+        <svg viewBox="0 0 280 110" className="max-h-48 w-full" role="img" aria-label="সাপ্তাহিক ট্রেন্ড চার্ট">
           <defs>
             <linearGradient id="trendFill" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor="#8b5cf6" stopOpacity="0.35" />
               <stop offset="100%" stopColor="#8b5cf6" stopOpacity="0.02" />
             </linearGradient>
           </defs>
+          {/* soft horizontal gridlines — the chart sits on a quiet ruled background */}
+          {[24, 48, 72, 96].map((y) => (
+            <line key={y} x1="0" y1={y} x2="280" y2={y} stroke="#8b5cf6" strokeOpacity="0.12" strokeWidth="1" />
+          ))}
           {(() => {
             const n = weekly.length;
             if (n === 0) return null;
@@ -103,7 +109,7 @@ export function WeeklyTrendCard({
                       </title>
                     </circle>
                     {values[i] > 0 ? (
-                      <text x={p.x} y={p.y - 8} textAnchor="middle" fontSize="9" fontWeight="700" fill="#7c3aed">
+                      <text x={p.x} y={p.y - 8} textAnchor="middle" fontSize="10.5" fontWeight="700" fill="#7c3aed">
                         {Math.round(values[i])}
                       </text>
                     ) : null}
@@ -115,7 +121,7 @@ export function WeeklyTrendCard({
         </svg>
         <div className="flex justify-between px-1">
           {weekly.map((day) => (
-            <span key={day.date} className="text-[0.5625rem] text-[var(--text-subtle)]">
+            <span key={day.date} className="text-[0.75rem] font-semibold text-[var(--text-subtle)]">
               {weekdayBn(day.date)}
             </span>
           ))}
