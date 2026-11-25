@@ -274,6 +274,16 @@ export type TopicPerformance = {
   accuracy: number;
 };
 
+/** The signed-in student's own rank in a leaderboard scope (jh_my_rank). */
+export type MyRank = {
+  rank: number | null;
+  total: number;
+  score?: number;
+  total_marks?: number;
+  accuracy?: number;
+  submitted_at?: string;
+};
+
 export type StudentAnalytics = {
   summary: {
     attempts: number;

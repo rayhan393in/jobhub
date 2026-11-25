@@ -88,6 +88,10 @@
 | **S4** | ✅ Fixed | Analytics এখন target course-স্কোপড; target কোর্সে কোনো attempt না থাকলে সব-কোর্স fallback (এক edge-case এ মাত্র ১টি অতিরিক্ত RPC)। |
 | **S5** | ✅ Fixed | নতুন `attempt-countdown.tsx` client component — resume banner-এ লাইভ টিকিং countdown (২ মিনিটের নিচে প্রতি সেকেন্ডে), সময় শেষ হলে লাল "সময় শেষ — জমা দিন"। |
 | **S7** | ✅ Fixed | মোবাইল nav-এও এখন `startsWith` match — nested route-এ ট্যাব হাইলাইট থাকে। |
-| S6, D2–D6 | ⏳ পরের স্প্রিন্ট | S6-এ ছোট RPC মাইগ্রেশন লাগবে; D2–D6 আগের মতোই ব্যাকলগে। |
+| **S6** | ✅ Fixed | নতুন `jh_my_rank` RPC — টপ-৫০ এর বাইরের ছাত্রও এখন নিজের আসল র‍্যাংক দেখে ("আপনার অবস্থান: ৬৭ / ১২০ জনের মধ্যে"); লিডারবোর্ড API ও client আপডেটেড। |
+| **D3** | ✅ Fixed | নতুন `jh_course_taxonomy` RPC — practice পেজের ~৮ round-trip এখন ১টি কলে (সব কোর্সের subject+topic+subtopic nested JSON)। |
+| **D4** | ✅ Fixed | `jh_student_analytics` weekly chart: ফিল্টার ও গ্রুপিং দুটোই এখন Asia/Dhaka দিন-সীমায় — প্রান্তের বার আর আংশিক নয়; অস্বচ্ছ UTC join সরানো হয়েছে। |
+| **D5** | ✅ Fixed | ৬৮৩-লাইনের `dashboard/page.tsx` ভেঙে এখন ~১৪০-লাইনের orchestrator + ৫টি presentational component ফাইল (`hero-section`, `exam-banners`, `stats-grid`, `activity-cards`, `insight-cards`)। |
+| D2, D6 | ⏳ ব্যাকলগ | D2: মার্কেটিং পেজগুলো build output-এ এরই মধ্যে static (○) — বড় অংশ নিষ্পন্ন। D6: ১৬টি pre-existing `react-hooks/*` warning — React Compiler মাইগ্রেশনের সময় একসাথে। |
 
-**Verification:** `tsc --noEmit` PASS · `next build` PASS · lint ০ error / ১৬ warning (সব pre-existing)।
+**Verification:** `tsc --noEmit` PASS · `next build` PASS · lint ০ error / ১৬ warning (সব pre-existing)। DB: মাইগ্রেশন `20261212000000_analytics_tz_my_rank_taxonomy.sql` লাইভ প্রয়োগ করা হয়েছে (taxonomy: BCS-এ ১০ subject/১৩৭ topic verified)।

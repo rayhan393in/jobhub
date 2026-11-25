@@ -7,7 +7,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Progress } from "@/components/ui/progress";
 import { formatNumber, formatPercent, formatTime } from "@/lib/format";
 import { cn } from "@/lib/cn";
-import type { LeaderboardRow } from "@/lib/types";
+import type { LeaderboardRow, MyRank } from "@/lib/types";
 
 type Scope = "daily" | "weekly" | "course" | "exam";
 
@@ -20,11 +20,13 @@ const SCOPES: { id: Scope; label: string; hint: string }[] = [
 
 export function LeaderboardClient({
   initialRows,
+  initialMyRank,
   courses,
   exams,
   currentUserId,
 }: {
   initialRows: LeaderboardRow[];
+  initialMyRank?: MyRank | null;
   courses: { id: string; slug: string; title_bn: string }[];
   exams: { id: string; title_bn: string }[];
   currentUserId: string | null;
@@ -33,6 +35,7 @@ export function LeaderboardClient({
   const [courseId, setCourseId] = React.useState<string>(courses[0]?.id ?? "");
   const [scheduleId, setScheduleId] = React.useState<string>(exams[0]?.id ?? "");
   const [rows, setRows] = React.useState<LeaderboardRow[]>(initialRows);
+  const [myRankData, setMyRankData] = React.useState<MyRank | null>(initialMyRank ?? null);
   const [loading, setLoading] = React.useState(false);
   const first = React.useRef(true);
 
@@ -47,6 +50,7 @@ export function LeaderboardClient({
     if (scope === "exam") {
       if (!scheduleId) {
         setRows([]);
+        setMyRankData(null);
         return () => controller.abort();
       }
       params.set("scheduleId", scheduleId);
@@ -60,8 +64,9 @@ export function LeaderboardClient({
           signal: controller.signal,
           cache: "no-store",
         });
-        const payload = response.ok ? await response.json() : { rows: [] };
+        const payload = response.ok ? await response.json() : { rows: [], myRank: null };
         setRows(payload.rows ?? []);
+        setMyRankData(payload.myRank ?? null);
       } catch {
         /* aborted or offline — keep the previous list */
       } finally {
@@ -73,7 +78,21 @@ export function LeaderboardClient({
 
   const podium = scope === "daily" || scope === "weekly" ? rows.slice(0, 3) : [];
   const rest = scope === "daily" || scope === "weekly" ? rows.slice(3) : rows;
-  const myRank = currentUserId ? rows.find((r) => r.user_id === currentUserId) : undefined;
+  // Prefer the row from the visible list (it carries full detail); fall back
+  // to the jh_my_rank RPC so a student ranked below the top-50 window still
+  // sees their true position instead of "not on the list".
+  const myListedRow = currentUserId ? rows.find((r) => r.user_id === currentUserId) : undefined;
+  const myRank = myListedRow
+    ? {
+        rank: myListedRow.rank,
+        total: myRankData?.total ?? rows.length,
+        score: myListedRow.score,
+        accuracy: myListedRow.accuracy,
+        submitted_at: myListedRow.submitted_at,
+      }
+    : myRankData && myRankData.rank !== null
+      ? myRankData
+      : undefined;
 
   return (
     <div>
@@ -235,24 +254,29 @@ export function LeaderboardClient({
         </>
       )}
 
-      {myRank ? (
+      {myRank && myRank.rank !== null ? (
         <div className="mt-4 rounded-2xl border border-[var(--brand)]/30 bg-[var(--brand-soft)] p-3.5">
           <div className="flex items-center justify-between gap-2">
             <p className="flex items-center gap-1.5 text-[0.75rem] font-semibold text-[var(--text)]">
               <Flame className="size-3.5 text-[var(--brand)]" aria-hidden />
               আপনার অবস্থান: {formatNumber(myRank.rank)}
+              {myRank.total ? (
+                <span className="font-medium text-[var(--text-muted)]">
+                  / {formatNumber(myRank.total)} জনের মধ্যে
+                </span>
+              ) : null}
             </p>
             <Link href="/analytics" className="text-[0.6875rem] font-semibold text-[var(--brand)] hover:underline">
               বিস্তারিত
             </Link>
           </div>
           <Progress
-            value={Math.max(4, 100 - (myRank.rank / Math.max(1, rows.length)) * 100)}
+            value={Math.max(4, 100 - (myRank.rank / Math.max(1, myRank.total || rows.length)) * 100)}
             className="mt-2"
             label="Your rank"
           />
           <p className="mt-1.5 text-[0.625rem] text-[var(--text-muted)]">
-            {formatNumber(myRank.score)} নম্বর · {formatPercent(myRank.accuracy)} নির্ভুলতা ·{" "}
+            {formatNumber(myRank.score ?? 0)} নম্বর · {formatPercent(myRank.accuracy ?? 0)} নির্ভুলতা ·{" "}
             {formatTime(myRank.submitted_at ?? undefined)}
           </p>
         </div>

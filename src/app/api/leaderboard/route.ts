@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
-import { getLeaderboard, releaseDueResults } from "@/lib/queries";
+import { getLeaderboard, getMyRank, releaseDueResults } from "@/lib/queries";
 import { fromDbError } from "@/lib/api";
 
 export const dynamic = "force-dynamic";
@@ -36,13 +36,13 @@ export async function GET(request: Request) {
   try {
     // Flip any result whose publication time has passed (idempotent).
     await releaseDueResults();
-    const rows = await getLeaderboard({
-      scope: scopeRaw as "daily" | "weekly" | "course" | "exam",
-      courseId,
-      scheduleId,
-      limit: 50,
-    });
-    return NextResponse.json({ rows }, { headers: { "Cache-Control": "no-store" } });
+    const scope = scopeRaw as "daily" | "weekly" | "course" | "exam";
+    const [rows, myRank] = await Promise.all([
+      getLeaderboard({ scope, courseId, scheduleId, limit: 50 }),
+      // The caller's true rank even when they are below the top-50 window.
+      getMyRank({ scope, courseId, scheduleId }),
+    ]);
+    return NextResponse.json({ rows, myRank }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     return fromDbError(error);
   }
