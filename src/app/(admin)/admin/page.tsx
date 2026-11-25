@@ -143,6 +143,56 @@ export default async function AdminOverviewPage({
         />
       </div>
 
+      <section className="mt-5" aria-labelledby="admin-quick-actions">
+        <div className="mb-2 flex items-end justify-between gap-3">
+          <div>
+            <h2 id="admin-quick-actions" className="text-[0.875rem] font-semibold text-[var(--text)]">
+              দ্রুত কাজ
+            </h2>
+            <p className="mt-0.5 text-[0.6875rem] text-[var(--text-subtle)]">
+              প্রতিদিনের গুরুত্বপূর্ণ অ্যাডমিন কাজ এক জায়গা থেকে শুরু করুন।
+            </p>
+          </div>
+        </div>
+        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+          {can(user.role, "question.review") ? (
+            <Link href="/admin/review" className="group flex items-center gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-3 transition hover:border-[var(--brand)] hover:shadow-sm">
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-[var(--brand-soft)] text-[var(--brand)]"><ClipboardCheck className="size-4" aria-hidden /></span>
+              <span className="min-w-0 flex-1"><span className="block text-[0.75rem] font-semibold text-[var(--text)]">প্রশ্ন রিভিউ</span><span className="mt-0.5 block text-[0.625rem] text-[var(--text-subtle)]">{formatNumber(overview.questions.pending)}টি অপেক্ষমাণ</span></span>
+              <ArrowRight className="size-3.5 text-[var(--text-subtle)] transition group-hover:translate-x-0.5" aria-hidden />
+            </Link>
+          ) : null}
+          {can(user.role, "question.import") ? (
+            <Link href="/admin/import" className="group flex items-center gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-3 transition hover:border-[var(--brand)] hover:shadow-sm">
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-[var(--brand-soft)] text-[var(--brand)]"><FileUp className="size-4" aria-hidden /></span>
+              <span className="min-w-0 flex-1"><span className="block text-[0.75rem] font-semibold text-[var(--text)]">প্রশ্ন ইমপোর্ট</span><span className="mt-0.5 block text-[0.625rem] text-[var(--text-subtle)]">CSV · JSON · Excel</span></span>
+              <ArrowRight className="size-3.5 text-[var(--text-subtle)] transition group-hover:translate-x-0.5" aria-hidden />
+            </Link>
+          ) : null}
+          {can(user.role, "exam.publish") ? (
+            <Link href="/admin/schedules" className="group flex items-center gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-3 transition hover:border-[var(--brand)] hover:shadow-sm">
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-[var(--brand-soft)] text-[var(--brand)]"><Radio className="size-4" aria-hidden /></span>
+              <span className="min-w-0 flex-1"><span className="block text-[0.75rem] font-semibold text-[var(--text)]">পরীক্ষার সময়সূচি</span><span className="mt-0.5 block text-[0.625rem] text-[var(--text-subtle)]">{formatNumber(overview.schedules.draft)}টি ড্রাফট</span></span>
+              <ArrowRight className="size-3.5 text-[var(--text-subtle)] transition group-hover:translate-x-0.5" aria-hidden />
+            </Link>
+          ) : null}
+          {can(user.role, "taxonomy.manage") ? (
+            <Link href="/admin/courses" className="group flex items-center gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-3 transition hover:border-[var(--brand)] hover:shadow-sm">
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-[var(--brand-soft)] text-[var(--brand)]"><BookCopy className="size-4" aria-hidden /></span>
+              <span className="min-w-0 flex-1"><span className="block text-[0.75rem] font-semibold text-[var(--text)]">কোর্স ও বিষয়</span><span className="mt-0.5 block text-[0.625rem] text-[var(--text-subtle)]">{formatNumber(overview.courses)}টি কোর্স পরিচালনা</span></span>
+              <ArrowRight className="size-3.5 text-[var(--text-subtle)] transition group-hover:translate-x-0.5" aria-hidden />
+            </Link>
+          ) : null}
+          {can(user.role, "student.manage") ? (
+            <Link href="/admin/students" className="group flex items-center gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-3 transition hover:border-[var(--brand)] hover:shadow-sm">
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-[var(--brand-soft)] text-[var(--brand)]"><Users className="size-4" aria-hidden /></span>
+              <span className="min-w-0 flex-1"><span className="block text-[0.75rem] font-semibold text-[var(--text)]">শিক্ষার্থী পরিচালনা</span><span className="mt-0.5 block text-[0.625rem] text-[var(--text-subtle)]">{formatNumber(overview.students)}টি শিক্ষার্থী অ্যাকাউন্ট</span></span>
+              <ArrowRight className="size-3.5 text-[var(--text-subtle)] transition group-hover:translate-x-0.5" aria-hidden />
+            </Link>
+          ) : null}
+        </div>
+      </section>
+
       <div className="mt-5 grid gap-5 lg:grid-cols-[1.35fr_1fr]">
         <section className="jh-card p-5" aria-labelledby="pipeline">
           <h2 id="pipeline" className="text-[0.875rem] font-semibold text-[var(--text)]">
