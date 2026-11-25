@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { formatDate } from "@/lib/format";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -162,8 +163,12 @@ export function DashboardShell({
         {/* Desktop top bar */}
         <header className="sticky top-0 z-40 hidden h-16 items-center gap-3 border-b border-violet-100/80 bg-white/85 px-6 backdrop-blur dark:border-[var(--border)] dark:bg-[var(--surface)]/90 lg:flex">
           <div className="min-w-0">
-            <p className="truncate text-[0.875rem] font-bold text-[var(--text)]">স্বাগতম, {user.name} 👋</p>
-            <p className="text-[0.625rem] text-[var(--text-subtle)]">আজকের প্রস্তুতি আজই শেষ করুন</p>
+            <p className="truncate text-[1.0625rem] font-extrabold tracking-tight text-[var(--text)]">
+              স্বাগতম, <span className="text-[var(--brand)]">{user.name}</span> 👋
+            </p>
+            <p className="truncate text-[0.75rem] font-medium text-[var(--text-muted)]">
+              {formatDate(new Date(), "bn", { weekday: "long", day: "numeric", month: "long" })} · আজকের প্রস্তুতি আজই শেষ করুন
+            </p>
           </div>
           <div className="ml-auto flex items-center gap-2">
             <ThemeToggle />

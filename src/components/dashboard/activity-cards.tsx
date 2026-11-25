@@ -23,16 +23,18 @@ export function TodayRoutineCard({
   const pct = routines.length > 0 ? Math.round((doneCount / routines.length) * 100) : 0;
   return (
     <section className="jh-card" aria-labelledby="routine-h">
-      <div className="flex items-center justify-between gap-3 border-b border-[var(--border)] px-5 py-3.5">
-        <h2 id="routine-h" className="flex items-center gap-2 text-[0.875rem] font-semibold text-[var(--text)]">
-          <CalendarDays className="size-4 text-[var(--brand)]" aria-hidden />
+      <div className="flex items-center justify-between gap-3 border-b border-[var(--border)] px-4 py-3">
+        <h2 id="routine-h" className="flex items-center gap-2 text-[0.9375rem] font-bold text-[var(--text)]">
+          <span className="flex size-7 items-center justify-center rounded-lg bg-[var(--brand-soft)] text-[var(--brand)]">
+            <CalendarDays className="size-4" aria-hidden />
+          </span>
           আজকের পড়ার রুটিন
         </h2>
-        <Link href="/routines" className="text-[0.6875rem] font-semibold text-[var(--brand)] hover:underline">
-          পুরো রুটিন
+        <Link href="/routines" className="text-[0.75rem] font-bold text-[var(--brand)] hover:underline">
+          পুরো রুটিন →
         </Link>
       </div>
-      <div className="p-4">
+      <div className="p-3.5">
         {routines.length === 0 ? (
           <EmptyState
             compact
@@ -46,13 +48,15 @@ export function TodayRoutineCard({
             }
           />
         ) : (
-          <ul className="space-y-2">
-            {routines.map((routine) => {
+          <ul className="space-y-1.5">
+            {routines.slice(0, 4).map((routine) => {
               const isDone = done.has(routine.id);
+              const subject = routine.subject_title_bn ?? routine.title_bn ?? "পড়ার পরিকল্পনা";
+              const topic = routine.topic_title_bn ?? routine.focus_note_bn;
               return (
                 <li
                   key={routine.id}
-                  className={`flex items-center gap-3 rounded-xl border px-3 py-2.5 ${
+                  className={`flex items-center gap-2.5 rounded-lg border px-2.5 py-2 ${
                     isDone
                       ? "border-emerald-200 bg-emerald-50/60 dark:border-emerald-500/25 dark:bg-emerald-500/10"
                       : "border-[var(--border)]"
@@ -68,26 +72,26 @@ export function TodayRoutineCard({
                   >
                     {isDone ? <CircleCheck className="size-3.5" /> : null}
                   </span>
-                  <div className="min-w-0 flex-1">
-                    <p className={`truncate text-[0.8125rem] font-semibold ${isDone ? "text-emerald-800 dark:text-emerald-300" : "text-[var(--text)]"}`}>
-                      {routine.subject_title_bn ?? routine.title_bn ?? "পড়ার পরিকল্পনা"}
-                    </p>
-                    <p className="truncate text-[0.6875rem] text-[var(--text-subtle)]">
-                      {routine.topic_title_bn ?? routine.focus_note_bn ?? "—"}
-                    </p>
-                  </div>
-                  <span className="inline-flex shrink-0 items-center gap-1 text-[0.6875rem] font-medium text-[var(--text-subtle)]">
-                    <Clock3 className="size-3" aria-hidden />
-                    {formatNumber(routine.minutes)} মিনিট
+                  <p className="min-w-0 flex-1 truncate text-[0.875rem]">
+                    <span className={`font-bold ${isDone ? "text-emerald-800 dark:text-emerald-300" : "text-[var(--text)]"}`}>
+                      {subject}
+                    </span>
+                    {topic ? (
+                      <span className="text-[0.8125rem] text-[var(--text-muted)]"> · {topic}</span>
+                    ) : null}
+                  </p>
+                  <span className="inline-flex shrink-0 items-center gap-1 text-[0.75rem] font-semibold text-[var(--text-subtle)]">
+                    <Clock3 className="size-3.5" aria-hidden />
+                    {formatNumber(routine.minutes)} মি.
                   </span>
                   {isDone ? (
-                    <span className="shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 text-[0.625rem] font-bold text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300">
+                    <span className="shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 text-[0.6875rem] font-bold text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300">
                       সম্পন্ন
                     </span>
                   ) : (
                     <Link
                       href="/practice"
-                      className="shrink-0 rounded-full bg-[var(--brand-soft)] px-2 py-0.5 text-[0.625rem] font-bold text-[var(--brand)] hover:underline"
+                      className="shrink-0 rounded-full bg-[var(--brand-soft)] px-2 py-0.5 text-[0.6875rem] font-bold text-[var(--brand)] hover:underline"
                     >
                       পড়ুন
                     </Link>
@@ -95,17 +99,27 @@ export function TodayRoutineCard({
                 </li>
               );
             })}
+            {routines.length > 4 ? (
+              <li>
+                <Link
+                  href="/routines"
+                  className="block rounded-lg border border-dashed border-[var(--border)] px-2.5 py-1.5 text-center text-[0.75rem] font-bold text-[var(--brand)] hover:bg-[var(--brand-soft)]"
+                >
+                  +{formatNumber(routines.length - 4)}টি আরও কাজ দেখুন →
+                </Link>
+              </li>
+            ) : null}
           </ul>
         )}
         {routines.length > 0 ? (
           <div className="mt-3">
-            <div className="flex items-center justify-between text-[0.6875rem] font-semibold text-[var(--text-muted)]">
+            <div className="flex items-center justify-between text-[0.75rem] font-bold text-[var(--text-muted)]">
               <span>আজকের অগ্রগতি: {formatNumber(doneCount)}/{formatNumber(routines.length)} সম্পন্ন</span>
               <span className="tabular-nums">{formatNumber(pct)}%</span>
             </div>
             <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-[var(--surface-sunken)]">
               <div
-                className="h-full rounded-full bg-gradient-to-r from-violet-600 to-emerald-500"
+                className="h-full rounded-full bg-emerald-500"
                 style={{ width: `${pct}%` }}
               />
             </div>

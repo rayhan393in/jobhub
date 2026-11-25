@@ -4,7 +4,7 @@ import { cn } from "@/lib/cn";
 import { formatNumber, formatPercent } from "@/lib/format";
 import type { SubjectPerformance, TopicPerformance, StudentAnalytics } from "@/lib/types";
 
-const MASTERY_COLORS = ["#7c3aed", "#ec4899", "#f59e0b", "#10b981", "#0ea5e9", "#6366f1"];
+const MASTERY_COLORS = ["#7c3aed", "#c026d3", "#6366f1", "#0ea5e9", "#10b981", "#f59e0b"];
 
 /**
  * বিষয়ভিত্তিক দক্ষতা (Mastery) — donut built from the student's real
@@ -28,11 +28,13 @@ export function MasteryCard({ subjects }: { subjects: SubjectPerformance[] }) {
   return (
     <section className="jh-card p-4" aria-labelledby="mastery-h">
       <div className="flex items-center justify-between gap-2">
-        <h2 id="mastery-h" className="flex items-center gap-1.5 text-[0.8125rem] font-semibold text-[var(--text)]">
-          <CheckCircle2 className="size-4 text-[var(--brand)]" aria-hidden />
+        <h2 id="mastery-h" className="flex items-center gap-2 text-[0.9375rem] font-bold text-[var(--text)]">
+          <span className="flex size-7 items-center justify-center rounded-lg bg-fuchsia-100 text-fuchsia-600 dark:bg-fuchsia-500/15 dark:text-fuchsia-300">
+            <CheckCircle2 className="size-4" aria-hidden />
+          </span>
           বিষয়ভিত্তিক দক্ষতা (Mastery)
         </h2>
-        <Link href="/analytics" className="text-[0.6875rem] font-semibold text-[var(--brand)] hover:underline">
+        <Link href="/analytics" className="text-[0.75rem] font-bold text-[var(--brand)] hover:underline">
           বিস্তারিত দেখুন →
         </Link>
       </div>
@@ -50,12 +52,12 @@ export function MasteryCard({ subjects }: { subjects: SubjectPerformance[] }) {
           >
             <div className="absolute inset-[18%] flex flex-col items-center justify-center rounded-full bg-[var(--surface)]">
               <span className="text-[1rem] font-extrabold tabular-nums text-[var(--text)]">{formatNumber(overall)}%</span>
-              <span className="text-[0.5rem] font-medium text-[var(--text-subtle)]">সার্বিক সঠিকতা</span>
+              <span className="text-[0.5625rem] font-medium text-[var(--text-subtle)]">সার্বিক সঠিকতা</span>
             </div>
           </div>
           <ul className="min-w-0 flex-1 space-y-1.5">
             {top.map((s, i) => (
-              <li key={s.title_bn} className="flex items-center gap-2 text-[0.6875rem]">
+              <li key={s.title_bn} className="flex items-center gap-2 text-[0.8125rem]">
                 <span
                   className="size-2 shrink-0 rounded-full"
                   style={{ backgroundColor: MASTERY_COLORS[i % MASTERY_COLORS.length] }}

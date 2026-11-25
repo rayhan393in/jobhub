@@ -186,7 +186,7 @@ export default async function DashboardPage({
       <StatsGrid summary={summary} streak={streak} activeDays={activeDays12w} readiness={readiness} />
 
       {/* Row A — আজকের রুটিন · সাপ্তাহিক ট্রেন্ড · দক্ষতা donut (mockup) */}
-      <div className="mt-5 grid gap-4 lg:grid-cols-2 2xl:grid-cols-[1.1fr_1.2fr_1fr]">
+      <div className="mt-5 grid gap-4 lg:grid-cols-2 2xl:grid-cols-[1fr_1.25fr_1fr]">
         <TodayRoutineCard routines={todayRoutines} doneIds={doneRoutineIds as Set<string>} />
         <WeeklyTrendCard weekly={weekly} hasData={hasData} />
         <div className="lg:col-span-2 2xl:col-span-1">
