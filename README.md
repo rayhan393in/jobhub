@@ -63,10 +63,32 @@ rest add taxonomy, exam structure, study plans, written exams and analytics):
 | `..._seed_content.sql`  | 48 editorial sample questions (all `pending_review`)  |
 | `..._demo_bootstrap.sql`| `jh_bootstrap_super_admin(email)` — operator only     |
 
-Totals across all 28 migrations: **39 tables, 92 RLS policies, 51 `jh_*`
+Totals across all 29 migrations: **39 tables, 92 RLS policies, 51 `jh_*`
 functions**. `..._function_privilege_lockdown.sql` is the one to read before
 adding an RPC — it fixes the set of functions `anon` may execute, and
 `tests/db/schema.test.ts` fails if a later migration widens it.
+
+### Adding an RPC: the anon rule
+
+Postgres grants `EXECUTE` to `PUBLIC` on every new function, and `ALTER DEFAULT
+PRIVILEGES ... REVOKE ... FROM PUBLIC` cannot remove that built-in default.
+`postgres` is not a superuser on Supabase, so a migration cannot install an
+event trigger to close it either. **A new function is therefore anon-callable
+until its own migration revokes it** — this is exactly how `jh_my_rank` and
+`jh_course_taxonomy` leaked anon access in `20261212000000`, fixed by
+`20261213000000_anon_execute_lockdown_followup.sql`.
+
+So every new `jh_*` function must end its migration with:
+
+```sql
+revoke execute on function public.<fn>(<args>) from public, anon;
+grant  execute on function public.<fn>(<args>) to authenticated;  -- + service_role only if needed
+```
+
+Only `jh_public_question_count` and `jh_admin_seat_available` may stay anon
+callable (marketing stats and the first-admin seat check). If you add a
+deliberately public one, add it to the allowlist in `tests/db/schema.test.ts`
+and to the README, or CI fails.
 
 Apply them with the versioned runner:
 
