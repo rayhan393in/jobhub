@@ -1,9 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getCurrentUser } from "@/lib/auth";
-import { can } from "@/lib/permissions";
 import { getServerClient } from "@/lib/supabase/server";
-import { fromDbError } from "@/lib/api";
+import { fromDbError, assertSameOrigin, requireApiPermission } from "@/lib/api";
 
 export const dynamic = "force-dynamic";
 
@@ -28,19 +26,11 @@ const upsertSchema = z.object({
 
 const idSchema = z.object({ id: z.string().uuid() });
 
-function sameOrigin(request: Request) {
-  const origin = request.headers.get("origin");
-  const host = request.headers.get("host");
-  return !origin || !host || new URL(origin).host === host;
-}
-
 export async function POST(request: Request) {
-  const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "লগইন প্রয়োজন।" }, { status: 401 });
-  if (!can(user.role, "routine.manage")) {
-    return NextResponse.json({ error: "রুটিন ব্যবস্থাপনার অনুমতি নেই।" }, { status: 403 });
-  }
-  if (!sameOrigin(request)) return NextResponse.json({ error: "অবৈধ অনুরোধ।" }, { status: 403 });
+  const guard = await requireApiPermission("routine.manage");
+  if ("error" in guard) return guard.error;
+  const { user } = guard;
+  if (!assertSameOrigin(request)) return NextResponse.json({ error: "অবৈধ অনুরোধ।" }, { status: 403 });
 
   let raw: unknown;
   try {
@@ -103,12 +93,9 @@ export async function POST(request: Request) {
 }
 
 export async function PATCH(request: Request) {
-  const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "লগইন প্রয়োজন।" }, { status: 401 });
-  if (!can(user.role, "routine.manage")) {
-    return NextResponse.json({ error: "রুটিন ব্যবস্থাপনার অনুমতি নেই।" }, { status: 403 });
-  }
-  if (!sameOrigin(request)) return NextResponse.json({ error: "অবৈধ অনুরোধ।" }, { status: 403 });
+  const guard = await requireApiPermission("routine.manage");
+  if ("error" in guard) return guard.error;
+  if (!assertSameOrigin(request)) return NextResponse.json({ error: "অবৈধ অনুরোধ।" }, { status: 403 });
 
   const parsed = idSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "অবৈধ আইডি।" }, { status: 422 });
@@ -136,12 +123,10 @@ export async function PATCH(request: Request) {
  * refused: the exam's provenance would silently lose its source.
  */
 export async function DELETE(request: Request) {
-  const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "লগইন প্রয়োজন।" }, { status: 401 });
-  if (!can(user.role, "routine.manage")) {
-    return NextResponse.json({ error: "রুটিন ব্যবস্থাপনার অনুমতি নেই।" }, { status: 403 });
-  }
-  if (!sameOrigin(request)) return NextResponse.json({ error: "অবৈধ অনুরোধ।" }, { status: 403 });
+  const guard = await requireApiPermission("routine.manage");
+  if ("error" in guard) return guard.error;
+  const { user } = guard;
+  if (!assertSameOrigin(request)) return NextResponse.json({ error: "অবৈধ অনুরোধ।" }, { status: 403 });
 
   const parsed = idSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "অবৈধ আইডি।" }, { status: 422 });

@@ -1,9 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getCurrentUser } from "@/lib/auth";
-import { can } from "@/lib/permissions";
 import { getServerClient } from "@/lib/supabase/server";
-import { fromDbError } from "@/lib/api";
+import { fromDbError, assertSameOrigin, requireApiPermission } from "@/lib/api";
 import { weeklyExamComposition } from "@/lib/routines/weekly-plan";
 import { flattenEmbeddedTitle } from "@/lib/postgrest";
 
@@ -52,16 +50,10 @@ const schema = z.object({
 const DEFAULT_MIX = { previous: 60, hard: 20, easy: 10, medium: 10 };
 
 export async function POST(request: Request) {
-  const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "লগইন প্রয়োজন।" }, { status: 401 });
-  if (!can(user.role, "exam.publish")) {
-    return NextResponse.json({ error: "পরীক্ষা প্রকাশের অনুমতি নেই।" }, { status: 403 });
-  }
-  const origin = request.headers.get("origin");
-  const host = request.headers.get("host");
-  if (origin && host && new URL(origin).host !== host) {
-    return NextResponse.json({ error: "অবৈধ অনুরোধ।" }, { status: 403 });
-  }
+  const guard = await requireApiPermission("exam.publish");
+  if ("error" in guard) return guard.error;
+  const { user } = guard;
+  if (!assertSameOrigin(request)) return NextResponse.json({ error: "অবৈধ অনুরোধ।" }, { status: 403 });
 
   let body: z.infer<typeof schema>;
   try {
@@ -262,11 +254,8 @@ const previewSchema = z.object({
 
 /** GET — what the weekly exam *would* cover, before creating anything. */
 export async function GET(request: Request) {
-  const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "লগইন প্রয়োজন।" }, { status: 401 });
-  if (!can(user.role, "exam.publish")) {
-    return NextResponse.json({ error: "অনুমতি নেই।" }, { status: 403 });
-  }
+  const guard = await requireApiPermission("exam.publish");
+  if ("error" in guard) return guard.error;
 
   const url = new URL(request.url);
   const parsed = previewSchema.safeParse({

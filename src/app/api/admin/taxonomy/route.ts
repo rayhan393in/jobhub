@@ -1,9 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getCurrentUser } from "@/lib/auth";
-import { can } from "@/lib/permissions";
 import { getServerClient } from "@/lib/supabase/server";
-import { fromDbError } from "@/lib/api";
+import { fromDbError, assertSameOrigin, requireApiPermission } from "@/lib/api";
 
 export const dynamic = "force-dynamic";
 
@@ -116,19 +114,10 @@ const bodySchema = z.discriminatedUnion("entity", [
   canonicalSchema,
 ]);
 
-function sameOrigin(request: Request) {
-  const origin = request.headers.get("origin");
-  const host = request.headers.get("host");
-  return !origin || !host || new URL(origin).host === host;
-}
-
 async function requireManager() {
-  const user = await getCurrentUser();
-  if (!user) return { error: NextResponse.json({ error: "লগইন প্রয়োজন।" }, { status: 401 }) };
-  if (!can(user.role, "taxonomy.manage")) {
-    return { error: NextResponse.json({ error: "ট্যাক্সোনমি পরিবর্তনের অনুমতি নেই।" }, { status: 403 }) };
-  }
-  return { user };
+  return requireApiPermission("taxonomy.manage", {
+    message: "ট্যাক্সোনমি পরিবর্তনের অনুমতি নেই।",
+  });
 }
 
 /**
@@ -209,7 +198,7 @@ export async function POST(request: Request) {
   const gate = await requireManager();
   if ("error" in gate) return gate.error;
   const user = gate.user;
-  if (!sameOrigin(request)) return NextResponse.json({ error: "অবৈধ অনুরোধ।" }, { status: 403 });
+  if (!assertSameOrigin(request)) return NextResponse.json({ error: "অবৈধ অনুরোধ।" }, { status: 403 });
 
   let raw: unknown;
   try {
@@ -407,7 +396,7 @@ const reviewSchema = z.object({
 export async function PATCH(request: Request) {
   const gate = await requireManager();
   if ("error" in gate) return gate.error;
-  if (!sameOrigin(request)) return NextResponse.json({ error: "অবৈধ অনুরোধ।" }, { status: 403 });
+  if (!assertSameOrigin(request)) return NextResponse.json({ error: "অবৈধ অনুরোধ।" }, { status: 403 });
 
   const parsed = reviewSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "অবৈধ ডেটা।" }, { status: 422 });
@@ -464,7 +453,7 @@ const deleteSchema = z.object({
 export async function DELETE(request: Request) {
   const gate = await requireManager();
   if ("error" in gate) return gate.error;
-  if (!sameOrigin(request)) return NextResponse.json({ error: "অবৈধ অনুরোধ।" }, { status: 403 });
+  if (!assertSameOrigin(request)) return NextResponse.json({ error: "অবৈধ অনুরোধ।" }, { status: 403 });
 
   const parsed = deleteSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "অবৈধ ডেটা।" }, { status: 422 });

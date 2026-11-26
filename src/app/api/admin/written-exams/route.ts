@@ -1,9 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getCurrentUser } from "@/lib/auth";
-import { can } from "@/lib/permissions";
 import { getServerClient } from "@/lib/supabase/server";
-import { fromDbError } from "@/lib/api";
+import { fromDbError, assertSameOrigin, requireApiPermission } from "@/lib/api";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -23,21 +21,14 @@ export const maxDuration = 60;
  * DELETE ?examId   → remove a draft exam (never a published one).
  */
 
-function sameOrigin(request: Request): boolean {
-  const origin = request.headers.get("origin");
-  const host = request.headers.get("host");
-  return !origin || !host || new URL(origin).host === host;
-}
-
 async function guard() {
-  const user = await getCurrentUser();
-  if (!user) return { error: NextResponse.json({ error: "লগইন প্রয়োজন।" }, { status: 401 }) };
-  if (!can(user.role, "exam.publish")) {
-    return { error: NextResponse.json({ error: "পরীক্ষা পরিচালনার অনুমতি নেই।" }, { status: 403 }) };
-  }
+  const gate = await requireApiPermission("exam.publish", {
+    message: "পরীক্ষা পরিচালনার অনুমতি নেই।",
+  });
+  if ("error" in gate) return gate;
   const supabase = await getServerClient();
   if (!supabase) return { error: NextResponse.json({ error: "সার্ভার কনফিগারেশন নেই।" }, { status: 500 }) };
-  return { user, supabase };
+  return { user: gate.user, supabase };
 }
 
 async function eligibleCourseIds(supabase: NonNullable<Awaited<ReturnType<typeof getServerClient>>>) {
@@ -110,7 +101,7 @@ export async function POST(request: Request) {
   const g = await guard();
   if ("error" in g) return g.error;
   const { user, supabase } = g;
-  if (!sameOrigin(request)) return NextResponse.json({ error: "অবৈধ অনুরোধ।" }, { status: 403 });
+  if (!assertSameOrigin(request)) return NextResponse.json({ error: "অবৈধ অনুরোধ।" }, { status: 403 });
 
   let body: z.infer<typeof createSchema>;
   try {
@@ -183,7 +174,7 @@ export async function PATCH(request: Request) {
   const g = await guard();
   if ("error" in g) return g.error;
   const { user, supabase } = g;
-  if (!sameOrigin(request)) return NextResponse.json({ error: "অবৈধ অনুরোধ।" }, { status: 403 });
+  if (!assertSameOrigin(request)) return NextResponse.json({ error: "অবৈধ অনুরোধ।" }, { status: 403 });
 
   let body: z.infer<typeof patchSchema>;
   try {
@@ -261,7 +252,7 @@ export async function DELETE(request: Request) {
   const g = await guard();
   if ("error" in g) return g.error;
   const { user, supabase } = g;
-  if (!sameOrigin(request)) return NextResponse.json({ error: "অবৈধ অনুরোধ।" }, { status: 403 });
+  if (!assertSameOrigin(request)) return NextResponse.json({ error: "অবৈধ অনুরোধ।" }, { status: 403 });
 
   const examId = new URL(request.url).searchParams.get("examId");
   if (!examId) return NextResponse.json({ error: "examId প্রয়োজন।" }, { status: 422 });

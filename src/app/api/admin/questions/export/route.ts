@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib/auth";
-import { can } from "@/lib/permissions";
+import { requireApiPermission } from "@/lib/api";
 import { listQuestions, type QuestionFilters } from "@/lib/admin-queries";
 
 export const dynamic = "force-dynamic";
@@ -16,11 +15,8 @@ function csvCell(value: unknown): string {
 
 /** CSV export of the question bank, honouring the table's current filters. */
 export async function GET(request: Request) {
-  const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "লগইন প্রয়োজন।" }, { status: 401 });
-  if (!can(user.role, "question.edit")) {
-    return NextResponse.json({ error: "অনুমতি নেই।" }, { status: 403 });
-  }
+  const guard = await requireApiPermission("question.edit");
+  if ("error" in guard) return guard.error;
 
   const url = new URL(request.url);
   const p = (key: string) => url.searchParams.get(key) ?? undefined;

@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib/auth";
-import { can } from "@/lib/permissions";
+import { assertSameOrigin, requireApiPermission } from "@/lib/api";
 import { getServerClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -14,17 +13,15 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
  * the bulk workbench — then redirects back to the table with a status flag.
  */
 export async function POST(request: Request) {
-  const user = await getCurrentUser();
-  if (!user) return NextResponse.redirect(new URL("/login?next=/admin/questions", request.url), 303);
-  if (!can(user.role, "question.review")) {
-    return NextResponse.redirect(new URL("/admin?denied=question.review", request.url), 303);
+  // A form post, so failures redirect back into the admin UI rather than
+  // rendering a bare JSON error page.
+  const gate = await requireApiPermission("question.review");
+  if ("error" in gate) {
+    const target = gate.error.status === 401 ? "/login?next=/admin/questions" : "/admin?denied=question.review";
+    return NextResponse.redirect(new URL(target, request.url), 303);
   }
 
-  const origin = request.headers.get("origin");
-  const host = request.headers.get("host");
-  if (origin && host && new URL(origin).host !== host) {
-    return NextResponse.json({ error: "অবৈধ অনুরোধ।" }, { status: 403 });
-  }
+  if (!assertSameOrigin(request)) return NextResponse.json({ error: "অবৈধ অনুরোধ।" }, { status: 403 });
 
   const form = await request.formData();
   const action = String(form.get("action") ?? "");

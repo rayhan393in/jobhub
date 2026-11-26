@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
+import { assertSameOrigin, requireApiPermission } from "@/lib/api";
 import { randomBytes } from "node:crypto";
 import { z } from "zod";
-import { getCurrentUser } from "@/lib/auth";
-import { can } from "@/lib/permissions";
 import { getAdminClient } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
@@ -57,16 +56,10 @@ function makeSlug(name: string, year: number | null | undefined, stage: string) 
 }
 
 export async function POST(request: Request) {
-  const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "লগইন প্রয়োজন।" }, { status: 401 });
-  if (user.role === "student" || !can(user.role, "question.review")) {
-    return NextResponse.json({ error: "পরীক্ষা রেজিস্ট্রি পরিচালনার অনুমতি নেই।" }, { status: 403 });
-  }
-  const origin = request.headers.get("origin");
-  const host = request.headers.get("host");
-  if (origin && host && new URL(origin).host !== host) {
-    return NextResponse.json({ error: "অবৈধ অনুরোধ।" }, { status: 403 });
-  }
+  const guard = await requireApiPermission("question.review");
+  if ("error" in guard) return guard.error;
+  const { user } = guard;
+  if (!assertSameOrigin(request)) return NextResponse.json({ error: "অবৈধ অনুরোধ।" }, { status: 403 });
 
   let body: z.infer<typeof bodySchema>;
   try {

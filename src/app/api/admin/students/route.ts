@@ -1,9 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getCurrentUser } from "@/lib/auth";
-import { can } from "@/lib/permissions";
 import { getServerClient } from "@/lib/supabase/server";
-import { fromDbError } from "@/lib/api";
+import { fromDbError, assertSameOrigin, requireApiPermission } from "@/lib/api";
 
 export const dynamic = "force-dynamic";
 
@@ -17,16 +15,11 @@ const activeSchema = z.object({
   isActive: z.boolean(),
 });
 
-function sameOrigin(request: Request) {
-  const origin = request.headers.get("origin");
-  const host = request.headers.get("host");
-  return !origin || !host || new URL(origin).host === host;
-}
-
 export async function PATCH(request: Request) {
-  const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "লগইন প্রয়োজন।" }, { status: 401 });
-  if (!sameOrigin(request)) return NextResponse.json({ error: "অবৈধ অনুরোধ।" }, { status: 403 });
+  const gate = await requireApiPermission("student.manage");
+  if ("error" in gate) return gate.error;
+  const { user } = gate;
+  if (!assertSameOrigin(request)) return NextResponse.json({ error: "অবৈধ অনুরোধ।" }, { status: 403 });
 
   let raw: unknown;
   try {
@@ -40,13 +33,12 @@ export async function PATCH(request: Request) {
   if (!parsed.success) return NextResponse.json({ error: "অবৈধ ডেটা।" }, { status: 422 });
 
   // Role changes are super-admin only; activation uses student.manage.
-  if (isRole) {
-    if (!can(user.role, "role.manage")) {
-      return NextResponse.json({ error: "রোল পরিবর্তনের অনুমতি নেই (শুধু সুপার অ্যাডমিন)।" }, { status: 403 });
-    }
-  } else if (!can(user.role, "student.manage")) {
-    return NextResponse.json({ error: "শিক্ষার্থী ব্যবস্থাপনার অনুমতি নেই।" }, { status: 403 });
-  }
+  const change = await requireApiPermission(isRole ? "role.manage" : "student.manage", {
+    message: isRole
+      ? "রোল পরিবর্তনের অনুমতি নেই (শুধু সুপার অ্যাডমিন)।"
+      : "শিক্ষার্থী ব্যবস্থাপনার অনুমতি নেই।",
+  });
+  if ("error" in change) return change.error;
 
   const payload = parsed.data as { userId: string; roleId?: string; isActive?: boolean };
   if (payload.userId === user.id && payload.roleId && payload.roleId !== user.role) {

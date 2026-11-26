@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { getServerClient } from "@/lib/supabase/server";
 import { getAdminClient } from "@/lib/supabase/admin";
-import { fromDbError } from "@/lib/api";
+import { fromDbError, assertSameOrigin } from "@/lib/api";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -30,12 +30,6 @@ const EXT: Record<string, string> = {
   "application/pdf": "pdf",
 };
 
-function sameOrigin(request: Request): boolean {
-  const origin = request.headers.get("origin");
-  const host = request.headers.get("host");
-  return !origin || !host || new URL(origin).host === host;
-}
-
 async function guard() {
   const user = await getCurrentUser();
   if (!user) return { error: NextResponse.json({ error: "লগইন প্রয়োজন।" }, { status: 401 }) };
@@ -48,7 +42,7 @@ export async function POST(request: Request) {
   const g = await guard();
   if ("error" in g) return g.error;
   const { user, supabase } = g;
-  if (!sameOrigin(request)) return NextResponse.json({ error: "অবৈধ অনুরোধ।" }, { status: 403 });
+  if (!assertSameOrigin(request)) return NextResponse.json({ error: "অবৈধ অনুরোধ।" }, { status: 403 });
 
   let form: FormData;
   try {
@@ -147,7 +141,7 @@ export async function DELETE(request: Request) {
   const g = await guard();
   if ("error" in g) return g.error;
   const { supabase } = g;
-  if (!sameOrigin(request)) return NextResponse.json({ error: "অবৈধ অনুরোধ।" }, { status: 403 });
+  if (!assertSameOrigin(request)) return NextResponse.json({ error: "অবৈধ অনুরোধ।" }, { status: 403 });
 
   const uploadId = new URL(request.url).searchParams.get("uploadId");
   if (!uploadId) return NextResponse.json({ error: "uploadId প্রয়োজন।" }, { status: 422 });

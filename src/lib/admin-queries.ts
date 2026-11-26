@@ -3,6 +3,9 @@ import { getServerClient } from "./supabase/server";
 import { getAdminClient } from "./supabase/admin";
 import { hasServiceRole } from "./supabase/env";
 
+/** Bangladesh has been a fixed UTC+6 with no DST since 2010. */
+const DHAKA_OFFSET_MS = 6 * 60 * 60 * 1000;
+
 /**
  * Staff reads. RLS already allows staff to read the rows they need, so the
  * normal cookie-bound client is preferred; the service-role client is only used
@@ -207,9 +210,16 @@ export async function getQuestionBankInsights(courseIds: string[]): Promise<Ques
   if (!supabase) return { byCourse: [], byMonth: [] };
   const head = { count: "exact" as const, head: true };
 
+  // Month buckets must line up with the Bangladesh calendar the UI displays.
+  // These used to be built with Date.UTC, so a question created at 03:00 Dhaka
+  // on the 1st (21:00 UTC on the last day of the previous month) was counted
+  // in the wrong month. Dhaka has been a fixed UTC+6 with no DST since 2010,
+  // so shifting the boundaries by six hours is exact — see DHAKA_TZ in
+  // src/lib/format.ts, which every date formatter already uses.
   const now = new Date();
+  const dhakaNow = new Date(now.getTime() + DHAKA_OFFSET_MS);
   const monthStarts = Array.from({ length: 7 }, (_, i) =>
-    new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 5 + i, 1)),
+    new Date(Date.UTC(dhakaNow.getUTCFullYear(), dhakaNow.getUTCMonth() - 5 + i, 1) - DHAKA_OFFSET_MS),
   );
 
   const [courseCounts, monthCounts] = await Promise.all([
@@ -233,7 +243,11 @@ export async function getQuestionBankInsights(courseIds: string[]): Promise<Ques
       .filter((c) => c.count > 0)
       .sort((a, b) => b.count - a.count),
     byMonth: monthStarts.slice(0, 6).map((start, i) => ({
-      label: start.toLocaleString("en", { month: "short", timeZone: "UTC" }),
+      // Label from the Dhaka-local instant of the bucket start.
+      label: new Date(start.getTime() + DHAKA_OFFSET_MS).toLocaleString("en", {
+        month: "short",
+        timeZone: "UTC",
+      }),
       count: monthCounts[i].count ?? 0,
     })),
   };

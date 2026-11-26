@@ -242,4 +242,12 @@ as $$
   ) top on true
   where c.status = 'published';
 $$;
-grant execute on function public.jh_course_taxonomy() to authenticated, anon;
+
+-- Deliberately NOT granted to `anon`. 20261127000000_function_privilege_lockdown
+-- fixes the set of functions an anonymous caller may execute at exactly two
+-- (jh_public_question_count, jh_admin_seat_available); tests/db/schema.test.ts
+-- asserts it. The only caller is the signed-in /practice page, so `authenticated`
+-- is sufficient. Re-adding `anon` here would silently widen the surface the
+-- NULL-bypass audit was written to close.
+revoke all on function public.jh_course_taxonomy() from public, anon;
+grant execute on function public.jh_course_taxonomy() to authenticated;

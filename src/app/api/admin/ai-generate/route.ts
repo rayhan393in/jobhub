@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
+import { assertSameOrigin, requireApiPermission } from "@/lib/api";
 import { z } from "zod";
-import { getCurrentUser } from "@/lib/auth";
-import { can } from "@/lib/permissions";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -41,17 +40,10 @@ function getApiKey(): string | null {
 }
 
 export async function POST(request: Request) {
-  const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "লগইন প্রয়োজন।" }, { status: 401 });
-  if (!can(user.role, "question.import")) {
-    return NextResponse.json({ error: "AI প্রশ্ন তৈরির অনুমতি নেই।" }, { status: 403 });
-  }
+  const guard = await requireApiPermission("question.import");
+  if ("error" in guard) return guard.error;
 
-  const origin = request.headers.get("origin");
-  const host = request.headers.get("host");
-  if (origin && host && new URL(origin).host !== host) {
-    return NextResponse.json({ error: "অবৈধ অনুরোধ।" }, { status: 403 });
-  }
+  if (!assertSameOrigin(request)) return NextResponse.json({ error: "অবৈধ অনুরোধ।" }, { status: 403 });
 
   const apiKey = getApiKey();
   if (!apiKey) {

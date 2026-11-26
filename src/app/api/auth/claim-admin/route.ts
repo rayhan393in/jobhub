@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { assertSameOrigin } from "@/lib/api";
 import { getCurrentUser, isStaff } from "@/lib/auth";
 import { getServerClient } from "@/lib/supabase/server";
 
@@ -20,11 +21,7 @@ export async function POST(request: Request) {
   }
 
   // Only same-origin form posts; blocks cross-site privilege attempts.
-  const origin = request.headers.get("origin");
-  const host = request.headers.get("host");
-  if (origin && host && new URL(origin).host !== host) {
-    return NextResponse.json({ error: "অবৈধ অনুরোধ।" }, { status: 403 });
-  }
+  if (!assertSameOrigin(request)) return NextResponse.json({ error: "অবৈধ অনুরোধ।" }, { status: 403 });
 
   if (isStaff(user.role)) {
     return NextResponse.json({ ok: true, role: user.role, alreadyStaff: true });
