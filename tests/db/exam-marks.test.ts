@@ -118,3 +118,25 @@ describe("exam_marks — seeded marks distribution", () => {
     expect(edited.note_bn).toBe("এডিট");
   });
 });
+
+describe("jh_bootstrap_super_admin — operator-only", () => {
+  /**
+   * 20261216000000. The 20261127 lockdown loop re-granted EXECUTE on every
+   * `jh_*` function to `authenticated`, which silently re-opened this
+   * escalation helper: a signed-in student could promote themselves to
+   * super_admin through /rest/v1/rpc. Guarded here so a future lockdown loop
+   * cannot re-open it unnoticed.
+   */
+  it("is not executable by anon or authenticated", async () => {
+    await db.exec(`reset role;`);
+    const [row] = await rows<{ anon_can: boolean; auth_can: boolean; owner_can: boolean }>(
+      db,
+      `select has_function_privilege('anon', 'public.jh_bootstrap_super_admin(text)', 'execute') as anon_can,
+              has_function_privilege('authenticated', 'public.jh_bootstrap_super_admin(text)', 'execute') as auth_can,
+              has_function_privilege(current_user, 'public.jh_bootstrap_super_admin(text)', 'execute') as owner_can`,
+    );
+    expect(row.anon_can).toBe(false);
+    expect(row.auth_can).toBe(false);
+    expect(row.owner_can).toBe(true);
+  });
+});
