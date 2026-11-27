@@ -92,3 +92,25 @@ describe("dayNumber", () => {
     expect(dayNumber("2026-12-05", "2026-11-22")).toBe(14);
   });
 });
+
+describe("buildDayLines slot order", () => {
+  it("keeps P1 → P2 → P3/P4 → MCQ even though MCQ sorts first alphabetically", () => {
+    // The 90-day plan's labels; alphabetical order would be MCQ, P1, P2, P3.
+    const slot = (name: string, time: string) => `${name} · ${time}`;
+    const lines = buildDayLines([
+      { ...base, id: "mcq", title_bn: "MCQ", slot_label: slot("MCQ ও ভুল বিশ্লেষণ", "রাত ৮:০০–৮:৫০") },
+      { ...base, id: "p3", title_bn: "তৃতীয়", slot_label: slot("P3/P4 Third", "বিকাল ৫:০০–৫:৪৫") },
+      { ...base, id: "p1", title_bn: "প্রথম", slot_label: slot("P1 Main", "সকাল ৭:০০–৯:৩০") },
+      { ...base, id: "p2", title_bn: "দ্বিতীয়", slot_label: slot("P2 Second", "সকাল ১০:০০–১১:১৫") },
+    ]);
+    expect(lines.map((line) => line.key)).toEqual(["p1", "p2", "p3", "mcq"]);
+  });
+
+  it("leaves rows without a slot last, in the order they arrived", () => {
+    const lines = buildDayLines([
+      { ...base, id: "none", title_bn: "স্লটহীন" },
+      { ...base, id: "p2", title_bn: "দ্বিতীয়", slot_label: "P2 Second · সকাল ১০:০০–১১:১৫" },
+    ]);
+    expect(lines.map((line) => line.key)).toEqual(["p2", "none"]);
+  });
+});

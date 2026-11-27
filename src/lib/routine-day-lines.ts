@@ -55,6 +55,23 @@ export function dayNumber(date: string, planStart: string): number {
  *    kept in the app for tracking but omitted from the schedule view;
  *  * course-level activities (weekly exam/revision, mock, rest) stay as-is.
  */
+/**
+ * Slot order within a day: P1 → P2 → P3/P4 → MCQ → everything else.
+ *
+ * The slot label is `P1 Main · সকাল ৭:০০–৯:৩০`, and sorting that text
+ * alphabetically would put `MCQ …` before `P1 …` and break the day's
+ * chronology. Only the *first* occurrence of a slot contributes its label, so
+ * merged subject lines keep the position of the slot that opened them.
+ */
+const SLOT_ORDER = ["P1 Main", "P2 Second", "P3/P4 Third", "MCQ"];
+
+function slotRank(slots: string[]): number {
+  const first = slots[0];
+  if (!first) return SLOT_ORDER.length;
+  const index = SLOT_ORDER.findIndex((slot) => first.startsWith(slot));
+  return index === -1 ? SLOT_ORDER.length : index;
+}
+
 export function buildDayLines(items: RoutineLineInput[]): DayLine[] {
   const lines: DayLine[] = [];
   const bySubject = new Map<string, DayLine>();
@@ -106,7 +123,11 @@ export function buildDayLines(items: RoutineLineInput[]): DayLine[] {
       });
     }
   }
-  return lines;
+  // Stable sort: slots in clock order, then the first-seen order within a slot.
+  return lines
+    .map((line, index) => ({ line, index }))
+    .sort((a, b) => slotRank(a.line.slots) - slotRank(b.line.slots) || a.index - b.index)
+    .map(({ line }) => line);
 }
 
 /** Attach টপিক → সাবটপিক pairs (study_plan_assignments) to each routine row. */
