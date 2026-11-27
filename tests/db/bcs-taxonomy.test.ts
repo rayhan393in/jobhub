@@ -264,8 +264,9 @@ describe("20261214000000 — BCS Preliminary syllabus migration", () => {
         ('20261129000000_study_plan_assignments.sql', 'a11dd29e91b5aa94cb89f5cb96d4d7da'),
         ('20261212000000_analytics_tz_my_rank_taxonomy.sql', '20053e03ef1e3323f419173dd80a7cb9')
       on conflict (filename) do update set checksum = excluded.checksum;`);
-    await applyMigration();
+    // The repair lives in its own migration (it sorts before this one).
     await db.exec(`reset role;`);
+    await db.exec(readFileSync(path.join(MIGRATIONS_DIR, "20261217000000_checksum_drift_repair.sql"), "utf8"));
     const synced = await rows<{ filename: string; checksum: string }>(
       db,
       `select filename, checksum from public.schema_migrations order by filename`,
