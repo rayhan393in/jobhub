@@ -11,6 +11,7 @@ import { cn } from "@/lib/cn";
 
 const NAV = [
   { href: "/courses", label: "কোর্স" },
+  { href: "/syllabus", label: "সিলেবাস" },
   { href: "/exams", label: "লাইভ পরীক্ষা" },
   { href: "/practice", label: "প্র্যাকটিস" },
   { href: "/leaderboard", label: "লিডারবোর্ড" },

@@ -13,7 +13,7 @@
 
 begin;
 
-drop table if exists jh_dp, jh_sb, jh_tp, jh_pl, jh_ins;
+drop table if exists jh_cfg, jh_dp, jh_sb, jh_tp, jh_pl, jh_ins;
 
 create temp table jh_cfg as
 select '599509ae-c4c3-440a-9463-802a4efc7a0c'::uuid as course_id,
@@ -164,7 +164,7 @@ from jh_dp d cross join jh_cfg c
 where d.day between 1 and 60;
 
 create temp table jh_ins as
--- সাধারণ দিন: ৩টি পড়ার ব্লক + প্র্যাকটিস + রাতের রিভিশন = ৩০০ মিনিট
+-- সাধারণ দিন: ৩টি পড়ার ব্লক (২৪০) + সন্ধ্যার প্র্যাকটিস (৬০) = ৩০০ মিনিট
 select p.day, p.d_date, p.week_index, p.week_start,
        (array['সকাল ৭:০০–৯:০০','সকাল ৯:১৫–১০:১৫','বিকাল ৪:০০–৫:০০'])[n] as slot_label,
        n as slot_no, p.day_no,
@@ -177,14 +177,10 @@ from jh_pl p join jh_dp d on d.day = p.day
 cross join generate_series(1, 3) as n
 where d.m_code not in ('TEST', 'MOCK')
 union all
-select p.day, p.d_date, p.week_index, p.week_start, 'সন্ধ্যা ৭:০০–৭:৪৫', 4, p.day_no,
-       null, null, '৩০–৫০টি প্রশ্ন', 45, 'practice'
+select p.day, p.d_date, p.week_index, p.week_start, 'সন্ধ্যা ৭:০০–৮:০০', 4, p.day_no,
+       null, null, '৭০–১০০টি প্রশ্ন', 60, 'practice'
 from jh_pl p join jh_dp d on d.day = p.day where d.m_code not in ('TEST', 'MOCK')
-union all
-select p.day, p.d_date, p.week_index, p.week_start, 'রাত ১০:৪৫–১১:০০', 5, p.day_no,
-       null, null, 'আজকের পড়া ঝালাই + আগের দিনের টপিক দ্রুত রিভিশন', 15, 'revision'
-from jh_pl p join jh_dp d on d.day = p.day where d.m_code not in ('TEST', 'MOCK')
--- Weekly Test-এর দিন: পরীক্ষা ৫০ + বিশ্লেষণ ৪৫ + রিভিশন ১২০ + প্র্যাকটিস ৭০ + ১৫
+-- Weekly Test-এর দিন: পরীক্ষা ৫০ + বিশ্লেষণ ৪৫ + রিভিশন ১২০ + প্র্যাকটিস ৮৫ = ৩০০
 union all
 select p.day, p.d_date, p.week_index, p.week_start, v.slot, v.sno, p.day_no, null, null, v.note, v.mins, v.tk
 from jh_pl p join jh_dp d on d.day = p.day
@@ -192,11 +188,10 @@ cross join lateral (values
   ('সকাল ৯:৩০–১০:২০', 1, '১০০ MCQ · ৫০ মিনিট · ১০০ নম্বর · ভুলে −০.৫০', 50, 'exam'),
   ('সকাল ১০:৩০–১১:১৫', 2, 'মডেল টেস্টের ভুল প্রশ্ন বিশ্লেষণ', 45, 'revision'),
   ('বিকাল ৪:০০–৬:০০', 3, case when p.day = 56 then 'Full syllabus assessment' else 'সপ্তাহের রিভিশন' end, 120, 'revision'),
-  ('সন্ধ্যা ৭:০০–৮:১০', 4, 'দুর্বল টপিকে অতিরিক্ত MCQ প্র্যাকটিস', 70, 'practice'),
-  ('রাত ১০:৪৫–১১:০০', 5, 'আজকের পড়া ঝালাই', 15, 'revision')
+  ('সন্ধ্যা ৭:০০–৮:২৫', 4, 'দুর্বল টপিকে অতিরিক্ত MCQ প্র্যাকটিস', 85, 'practice')
 ) as v(slot, sno, note, mins, tk)
 where d.m_code = 'TEST'
--- দিন ৫৯ · Full Mock (২০০ প্রশ্ন · ১২০ মিনিট)
+-- দিন ৫৯ · Full Mock (২০০ প্রশ্ন · ১২০ মিনিট · মোট ৩০০)
 union all
 select p.day, p.d_date, p.week_index, p.week_start, v.slot, v.sno, p.day_no, null, null, v.note, v.mins, v.tk
 from jh_pl p join jh_dp d on d.day = p.day
@@ -204,7 +199,7 @@ cross join (values
   ('সকাল ৯:০০–১১:০০', 1, '২০০ প্রশ্ন · ১২০ মিনিট · সম্পূর্ণ সিলেবাস', 120, 'exam'),
   ('সকাল ১১:১৫–১২:১৫', 2, 'Result ও subject-wise analysis', 60, 'revision'),
   ('বিকাল ৪:০০–৫:১৫', 3, 'ভুল প্রশ্ন ও formula revision', 75, 'revision'),
-  ('সন্ধ্যা ৭:০০–৭:৩০', 4, 'দুর্বল টপিকে শেষ প্র্যাকটিস', 30, 'practice')
+  ('সন্ধ্যা ৭:০০–৭:৪৫', 4, 'দুর্বল টপিকে শেষ প্র্যাকটিস', 45, 'practice')
 ) as v(slot, sno, note, mins, tk)
 where d.m_code = 'MOCK';
 
@@ -217,6 +212,10 @@ begin
   if bad > 0 then raise exception '% সারির তারিখ week_start-এর বাইরে', bad; end if;
   select count(*) into bad from jh_ins where day_no is null;
   if bad > 0 then raise exception '% সারিতে দিন নম্বর নেই', bad; end if;
+  select count(*) into bad from (
+    select day from jh_ins group by day having sum(minutes) <> 300
+  ) x;
+  if bad > 0 then raise exception '% দিনে মোট সময় ৩০০ মিনিট নয়', bad; end if;
 end $$;
 
 -- ── ৫ · uniqued index সংঘাত এড়ানো ──────────────────────────────────────────
@@ -239,6 +238,24 @@ where r.course_id = cfg.course_id
   and r.subject_id is not distinct from sb.id
   and r.topic_id is not distinct from t.resolved_id
   and r.slot_label is not distinct from i.slot_label;
+
+-- ── ৫খ · আগের रান-এর সারি সরানো (স্ক্রিপ্ট দুবার চালালেও ডাবল হয় না) ──────
+--  V2 রুটিনের সারি চেনা যায় title_en = 'BCS 60-day plan · day N' দিয়ে।
+--  আগে exam_schedules-এর routine_ids থেকে ওই id-গুলো সরিয়ে নেওয়া হয়,
+--  তারপর সারিগুলো মোছে। (exam_schedules নিজেরা থাকে, নিচে আবার লিংক হয়।)
+--  (নিজস্ব exam_schedules-এর routine_ids-এ থাকা id আলাদা করে রাখা হয়)
+create temp table if not exists jh_old_ids on commit drop as
+select r.id from routines r join jh_cfg cfg on r.course_id = cfg.course_id
+where r.title_en like 'BCS 60-day plan · day %';
+
+update exam_schedules e
+set routine_ids = coalesce((
+      select array_agg(x) from unnest(e.routine_ids) as x
+      where x not in (select id from jh_old_ids)
+    ), '{}'::uuid[])
+where e.routine_ids && (select coalesce(array_agg(id), '{}'::uuid[]) from jh_old_ids);
+
+delete from routines r where r.id in (select id from jh_old_ids);
 
 -- ── ৬ · রুটিন সারি (published) ─────────────────────────────────────────────
 insert into routines (
@@ -358,6 +375,21 @@ where not exists (
     and e.kind = 'scheduled_mock'
     and e.starts_at = (p.d_date + time '09:00') at time zone 'Asia/Dhaka'
     and e.status in ('draft', 'published'));
+
+-- ── ৮খ · স্কেলেটন পরীক্ষাগুলোর routine_ids নতুন সারির সাথে লিংক ───────────
+update exam_schedules e
+set routine_ids = coalesce((
+      select array_agg(r.id order by r.routine_date)
+      from routines r
+      where r.course_id = e.course_id
+        and r.title_en like 'BCS 60-day plan · day %'
+        and r.task_kind = 'study'
+        and r.routine_date between e.week_start and e.week_start + 6
+    ), '{}'::uuid[])
+where e.course_id = (select course_id from jh_cfg)
+  and e.kind = 'weekly_special'
+  and e.exam_kind = 'weekly'
+  and e.status = 'draft';
 
 -- ── ৯ · ফলাফল (এক রো-তেই সব) ───────────────────────────────────────────────
 select jsonb_build_object(

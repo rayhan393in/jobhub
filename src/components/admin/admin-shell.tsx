@@ -4,7 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  BookCopy, CalendarClock, CalendarDays, ChartNoAxesColumn, ChevronLeft, ClipboardCheck,
+  BookCopy, Calculator, CalendarClock, CalendarDays, ChartNoAxesColumn, ChevronLeft, ClipboardCheck,
   Columns3, FileCheck2, FileUp, GitMerge, GraduationCap, Home, Landmark, LayoutDashboard, Lock, Menu, Network, PenLine, Radio,
   Rocket, ScrollText, Search, Settings, ShieldCheck, Sparkles, Upload, UserCog, Users, X,
 } from "lucide-react";
@@ -34,6 +34,7 @@ export const ADMIN_NAV: AdminNavItem[] = [
   { href: "/admin/bulk", label: "বাল্ক অ্যাকশন", icon: Columns3, permission: "question.review", hint: "ফিল্টার-স্কোপড" },
   { href: "/admin/courses", label: "কোর্স ও ট্যাক্সোনমি", icon: GraduationCap, permission: "taxonomy.manage", hint: "কোর্স · বিষয় · টপিক" },
   { href: "/admin/taxonomy", label: "টপিক ডাটাবেস", icon: Network, permission: "taxonomy.manage", hint: "অনুমোদন · বাল্ক · কমন লাইব্রেরি" },
+  { href: "/admin/marks", label: "নম্বর বিভাজন", icon: Calculator, permission: "taxonomy.manage", hint: "প্রিলিমিনারি · লিখিত · ভাইভা" },
   { href: "/admin/canonical", label: "কেন্দ্রীয় বিষয়", icon: BookCopy, permission: "taxonomy.manage", hint: "একবার সংরক্ষণ · বহু কোর্সে" },
   { href: "/admin/exam-registry", label: "পরীক্ষা রেজিস্ট্রি", icon: Landmark, permission: "question.review", hint: "নাম · সাল · ধাপ · পদ" },
   { href: "/admin/routines", label: "রুটিন ম্যানেজার", icon: CalendarDays, permission: "routine.manage", hint: "রুটিন তৈরি" },
