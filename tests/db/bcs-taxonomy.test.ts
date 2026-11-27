@@ -252,6 +252,38 @@ describe("20261214000000 — BCS Preliminary syllabus migration", () => {
     ]);
   });
 
+  it("repairs the two live checksum drifts so `db:migrate` never stops on drift", async () => {
+    // The production database recorded these two files at their PRE-edit bytes.
+    // A fresh run must re-sync them, otherwise the next `db:migrate` refuses.
+    await db.exec(`reset role;`);
+    await db.exec(`
+      create table if not exists public.schema_migrations (
+        filename text primary key, checksum text not null, applied_at timestamptz not null default now());
+      insert into public.schema_migrations (filename, checksum) values
+        ('20261121120400_seed_content.sql', 'c351207bf79d4031548e2ff87a0f7a46'),
+        ('20261129000000_study_plan_assignments.sql', 'a11dd29e91b5aa94cb89f5cb96d4d7da'),
+        ('20261212000000_analytics_tz_my_rank_taxonomy.sql', '20053e03ef1e3323f419173dd80a7cb9')
+      on conflict (filename) do update set checksum = excluded.checksum;`);
+    await applyMigration();
+    await db.exec(`reset role;`);
+    const synced = await rows<{ filename: string; checksum: string }>(
+      db,
+      `select filename, checksum from public.schema_migrations order by filename`,
+    );
+    const byName = new Map(synced.map((row) => [row.filename, row.checksum]));
+    // The expected values are the sha256 of the repo bytes, first 32 hex chars.
+    const { createHash } = await import("node:crypto");
+    const current = createHash("sha256")
+      .update(readFileSync(path.join(MIGRATIONS_DIR, "20261121120400_seed_content.sql")))
+      .digest("hex")
+      .slice(0, 32);
+    expect(byName.get("20261121120400_seed_content.sql")).toBe(current);
+    // An untouched, already-matching record is left alone.
+    expect(byName.get("20261212000000_analytics_tz_my_rank_taxonomy.sql")).toBe(
+      "20053e03ef1e3323f419173dd80a7cb9",
+    );
+  });
+
   it("keeps the syllabus queryable the way the spec asks for", async () => {
     // subject → topic → subtopic, one row per subtopic, with marks + priority.
     const outline = await rows<{ subject: string; topic: string; subtopic: string; priority: string }>(
