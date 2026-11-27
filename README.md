@@ -105,6 +105,42 @@ with `--skip`, so a build without database credentials still succeeds.
 In CI/hosting, set the same value as `SUPABASE_DB_URL`. The credentials to use are
 under **Supabase → Project Settings → Database → Connection pooling**.
 
+### Large migrations and the SQL editor
+
+`20261214000000_bcs_preliminary_taxonomy.sql` (113 KB) **must run as one
+transaction** — it stages the syllabus in `on commit drop` temp tables, so
+splitting it into pasted fragments loses the seed between statements, and the
+Supabase SQL editor caps a single statement at a few tens of KB anyway. Use the
+runner:
+
+```bash
+SUPABASE_DB_URL=... npm run db:migrate      # idempotent, records checksums
+```
+
+If `schema_migrations` holds pre-edit bytes for an older file, the runner stops
+with `edited after it was applied:` — that is intentional.
+`20261217000000_checksum_drift_repair.sql` re-applies the exact repo behaviour
+of the two files that were edited after being applied live and re-syncs their
+recorded checksums, so a normal `npm run db:migrate` then works unchanged.
+
+### BCS syllabus and marks
+
+- `20261214000000_bcs_preliminary_taxonomy.sql` — the official BCS Preliminary
+  outline: 10 subjects (marks = `subjects.weight`, 200 total), **55 topics**,
+  **504 subtopics** (one row each, `metadata.priority` = P1/P2/P3), 138 legacy
+  topics remapped by hand (`gen/map.json`), the rest archived with
+  `is_active = false` — nothing deleted, every question keeps an ACTIVE topic.
+  One first-study assignment per subtopic. Idempotent.
+- `gen/` holds the syllabus data (`data_a/b/c.py`) and the renderer
+  (`python3 gen/render.py`) that regenerate the migration — edit the data, never
+  the generated SQL.
+- `20261215000000_exam_marks_distribution.sql` — the marks section: one row per
+  course stage/paper (`exam_marks`), seeded with **verified** figures only
+  (BCS prelim 200 / written 900 → 1200 / viva 200; প্রাথমিক 80 + 20 viva; NTRCA
+  100 + 100). Courses without a verified circular keep no rows on purpose.
+- Public page: `/syllabus` and `/syllabus/<course-slug>`. Admin editor:
+  `/admin/marks` (`taxonomy.manage`), API `PUT /api/admin/marks`.
+
 ## First administrator
 
 A fresh deployment has no staff, and roles can only be granted by an existing
@@ -141,6 +177,11 @@ Operators with database access can still promote out of band:
 ```sql
 select public.jh_bootstrap_super_admin('you@example.com');
 ```
+
+`jh_bootstrap_super_admin` is **operator-only**: no application role may execute
+it (`20261216000000_bootstrap_admin_lockdown.sql` closes the hole where the
+`jh_*` lockdown loop had re-granted it to `authenticated`, letting any signed-in
+student promote themselves through `/rest/v1/rpc`).
 
 Never auto-promote the first sign-up: that is a privilege-escalation hole.
 
