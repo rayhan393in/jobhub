@@ -3,9 +3,12 @@
 --
 -- 20261121120400_seed_content.sql and 20261129000000_study_plan_assignments.sql
 -- were edited AFTER being applied to production, so `schema_migrations` holds
--- their pre-edit bytes and `npm run db:migrate` stops on drift. Re-applying the
--- same two files is not an option (idempotent, but the checksum comparison runs
--- before the SQL — the runner refuses to even start).
+-- their pre-edit bytes and a future `npm run db:migrate` would stop on drift.
+-- (The checklist comparison runs BEFORE any SQL, so this file itself cannot
+-- unblock a runner that is already refusing — an operator must run the
+-- checksum UPDATE below once against production, or re-record the two rows.
+-- It is kept in the migration set so a database restored from an older backup,
+-- or a fresh clone that replays them in the old order, self-heals.)
 --
 -- This migration therefore does two things, in one transaction:
 --   1. re-applies the exact repo behaviour of the edited 20261129 functions
