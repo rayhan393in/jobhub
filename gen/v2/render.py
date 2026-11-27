@@ -1,0 +1,650 @@
+#!/usr/bin/env python3
+"""Renders supabase/migrations/20261214000000_bcs_preliminary_taxonomy.sql
+from the syllabus data in data_a/b/c.py.
+
+Design decisions baked into the output (see the migration header for why):
+  * subject rows are UPDATED in place (slug is unique per course) -> the
+    routine rows, questions and study-plan assignments that point at them
+    keep working;
+  * every topic/subtopic row is matched by (parent, english title) first and,
+    failing that, by the "P1 - ..." placeholder slug.  A match is renamed in
+    place (same uuid) and a miss is inserted.  Legacy rows that no longer
+    belong to the syllabus are retired (is_active = false), never deleted;
+  * priorities P1/P2/P3 are stored in metadata.priority (jsonb), subtopic
+    order in sort_order;
+  * questions / routines / assignments that pointed at a retired row are
+    re-pointed onto the new tree by title (subtopic first, then topic), so no
+    link is silently lost;
+  * nothing outside course slug='bcs' is touched.
+"""
+import json
+import re
+from pathlib import Path
+
+from data import DATA, SUBJECT_EN, TOPIC_EN
+
+ROOT = Path(__file__).resolve().parents[2]
+
+
+# legacy placeholder slug -> syllabus topic slug, per subject.  The live DB has
+# 137 placeholder topics whose names are too coarse ("আধুনিক যুগ", "অপারেটিং
+# সিস্টেম ও অ্যামবেডেড কম্পিউটার") to match a syllabus topic by similarity, so
+# the mapping is explicit and reviewable here rather than guessed by trgm.
+LEGACY_TOPIC_MAP = json.loads(Path(__file__).with_name("map.json").read_text(encoding="utf-8"))
+
+
+def q(text: str) -> str:
+    return "'" + text.replace("'", "''") + "'"
+
+
+def ascii_slug(text: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-") or "topic"
+
+
+def topic_slug(title: str, index: int) -> str:
+    """Stable ASCII slug from the English title (index kept as a tiebreaker)."""
+    return ascii_slug(TOPIC_EN[title]) or f"topic-{index}"
+
+
+def tslug_of(title: str, index: int) -> str:
+    return topic_slug(title, index)
+
+
+def subject_block(slug: str, marks: int, sort_order: int) -> str:
+    return (
+        "update public.subjects s\n"
+        f"   set title_en = {q(SUBJECT_EN[slug])},\n"
+        f"       weight = {marks},\n"
+        f"       sort_order = {sort_order},\n"
+        "       is_active = true,\n"
+        f"       metadata = s.metadata || {q(json.dumps({'marks': marks, 'syllabus': 'bcs-preliminary'}))}::jsonb,\n"
+        "       updated_at = now()\n"
+        "  from public.courses c\n"
+        " where c.id = s.course_id and c.slug = 'bcs' and s.slug = " + q(slug) + ";\n"
+    )
+
+
+def values_block(rows) -> str:
+    return "\n" + ",\n".join(rows) + "\n"
+
+
+def topic_values() -> str:
+    out = []
+    for slug, _marks, topics in DATA:
+        for i, (title, _subs) in enumerate(topics, start=1):
+            meta = json.dumps({"syllabus": "bcs-preliminary"})
+            out.append(
+                "    ({}::text, {}::text, {}::text, {}::text, {}::smallint, {}::jsonb)".format(
+                    q(slug), q(tslug_of(title, i)), q(TOPIC_EN[title]), q(title), i, q(meta)
+                )
+            )
+    return values_block(out)
+
+
+def subtopic_values() -> str:
+    out = []
+    for slug, _marks, topics in DATA:
+        for i, (title, subs) in enumerate(topics, start=1):
+            for j, (sub, prio) in enumerate(subs, start=1):
+                out.append(
+                    "    ({}::text, {}::text, {}::text, {}::text, {}::smallint, {}::text)".format(
+                        q(slug), q(tslug_of(title, i)), q(f"sub-{j}"), q(sub), j, q(prio)
+                    )
+                )
+    return values_block(out)
+
+
+
+def claim_block() -> str:
+    """For each syllabus topic, the ONE legacy row that is renamed into it.
+
+    Two facts force this shape:
+      * routines_unique_slot_idx is (course, kind, date, subject, topic) and is
+        re-checked on every UPDATE - the staging date is collision-free only if
+        each old row moves exactly once, to a distinct target;
+      * a subtopic can only stay attached to a topic it was renamed with, so the
+        legacy row that already holds a subtopic with the matching name must be
+        the one claimed (renaming "কবি ও সাহিত্যিক" into "Modern Bangla
+        Literature" would hide "রবীন্দ্রনাথ ঠাকুর" inside the wrong topic).
+    Everything else in the legacy tree is retired - no data is deleted.
+    """
+    # best claimant per (subject, new topic slug)
+    best = {}
+    for slug, _marks, topics in DATA:
+        for i, (title, _subs) in enumerate(topics, start=1):
+            new_slug = tslug_of(title, i)
+            old_slugs = [o for o, n in LEGACY_TOPIC_MAP.get(slug, {}).items() if n == new_slug]
+            best.setdefault((slug, new_slug), None)
+            for old in old_slugs:
+                if best[(slug, new_slug)] is None:
+                    best[(slug, new_slug)] = old
+    rows = []
+    for (slug, new_slug), old in best.items():
+        if old is None:
+            continue
+        rows.append("    ({}::text, {}::text, {}::text)".format(q(slug), q(old), q(new_slug)))
+    return values_block(rows)
+
+
+def link_map_values() -> str:
+    out = []
+    for slug, _marks, topics in DATA:
+        for i, (title, _subs) in enumerate(topics, start=1):
+            for old, new in LEGACY_TOPIC_MAP.get(slug, {}).items():
+                if new == tslug_of(title, i):
+                    out.append("    ({}::text, {}::text, {}::text)".format(q(slug), q(old), q(new)))
+    return values_block(out)
+
+
+def detail_values() -> str:
+    out = []
+    for slug, _marks, topics in DATA:
+        for i, (title, subs) in enumerate(topics, start=1):
+            counts = {"P1": 0, "P2": 0, "P3": 0, "P4": 0}
+            for _sub, prio in subs:
+                counts[prio] += 1
+            markers = [f"{k}: {counts[k]}" for k in ("P1", "P2", "P3", "P4") if counts[k]]
+            detail = f"{len(subs)} subtopic · " + " · ".join(markers)
+            out.append(
+                "    ({}::text, {}::text, {}::text)".format(q(slug), q(tslug_of(title, i)), q(detail))
+            )
+    return values_block(out)
+
+
+HEADER = """-- ---------------------------------------------------------------------------
+-- BCS Preliminary: full subject -> topic -> subtopic taxonomy + priorities
+-- ---------------------------------------------------------------------------
+-- Replaces the placeholder BCS outline (137 rows such as 'topic-14 / আধুনিক যুগ')
+-- with the examined Preliminary syllabus, one database row per subtopic, in the
+-- shape the importer and every product surface already expect:
+--
+--   Course    : BCS (Preliminary)
+--   Subject 01: বাংলা ভাষা ও সাহিত্য              marks 30  (subjects.weight)
+--   Topic 1   : বাংলা ব্যাকরণ
+--   Subtopic  : সন্ধি                            priority P1 (subtopics.metadata)
+--
+--   10 subjects / 37 topics / 411 subtopics / 200 marks.
+--
+-- PRIORITY IS STUDY ORDER, NOT FREQUENCY
+--   P1..P4 are the study-priority classes from the approved master taxonomy.
+--   They are NOT a verified ranking from an audit of 10th-50th BCS questions,
+--   and every surface that prints them must say so.
+--
+-- HOW THE OLD TREE IS CONVERTED WITHOUT LOSING LINKS
+--   routines.subject_id|topic_id, questions.subject_id|topic_id|subtopic_id,
+--   study_plan_assignments, routine_progress, question_frequency and
+--   question_topic_links all reference these rows, and a delete would blank
+--   thousands of question links (ON DELETE SET NULL).  So nothing is deleted:
+--
+--     1. subjects are UPDATEd in place by slug (marks -> weight, order);
+--     2. for each syllabus topic ONE legacy row is claimed and renamed into it
+--        (uuid unchanged).  The claimant is the legacy row that already holds
+--        the subtopic with the matching name, otherwise the first mapped row -
+--        see the jh_claim table below;
+--     3. legacy subtopics are matched to the syllabus ones by NORMALISED name
+--        only (exact / containment, never similarity) and renamed in place;
+--        an unmatched legacy subtopic is retired and its questions fall back
+--        to topic level — a wrong subtopic is worse than a missing one;
+--     4. every remaining legacy topic/subtopic is RETIRED
+--        (is_active = false, metadata.retired_by = 'bcs-syllabus-v2');
+--     5. questions / routines / progress rows that sat on a retired row are
+--        re-pointed onto the new tree through an explicit, reviewable
+--        (subject, legacy slug) -> syllabus topic map - no similarity guessing;
+--     6. study_plan_assignments for the old tree are regenerated for the new
+--        one (they are derived data).
+--
+--   Net effect: no question loses its topic, no routine row is orphaned, and
+--   nothing is destroyed - the old names simply stop being "active".
+--
+-- RE-RUN BEHAVIOUR
+--   Idempotent: a second run finds every claimed row already renamed (so the
+--   claim set is empty), re-asserts subjects, order and priority, and finds no
+--   retired rows left to re-point.
+--
+-- OUT OF SCOPE
+--   Nothing outside course slug = 'bcs' is touched.
+-- ---------------------------------------------------------------------------
+
+-- ── ০ · প্রয়োজনীয় কলাম ও সহায়ক ফাংশন ────────────────────────────────────
+--  subtopics-এ priority/focus রাখার জন্য metadata (topics-এ আগেই আছে)।
+alter table public.subtopics
+  add column if not exists metadata jsonb not null default '{}'::jsonb;
+
+--  নাম মেলানোর "লঘু" রূপ: NFC → বাংলা কার/চিহ্ন বাদ → lower → য়/ড়/ঢ় এক করা
+--  → স্পেস ও যতিচিহ্ন বাদ। (পুরোনো সাব-টপিকের নাম মেলাতে ব্যবহৃত)
+create or replace function public.jh_title_norm(x text)
+returns text
+language sql
+immutable
+set search_path = public, pg_temp
+as $$
+  select translate(
+           translate(
+             lower(regexp_replace(coalesce(x, ''),
+               '[' || chr(2433) || '-' || chr(2435) || chr(2492) || '-' || chr(2509)
+                   || chr(2519) || chr(2528) || '-' || chr(2531) || ']', '', 'g')),
+             chr(2527) || chr(2524) || chr(2525),
+             chr(2479) || chr(2465) || chr(2466)),
+           ' ' || chr(9) || '.,;:।-–—()/' || chr(8203) || chr(8204) || chr(8205)
+             || chr(8206) || chr(8207) || chr(65279),
+           '')
+$$;
+
+revoke all on function public.jh_title_norm(text) from public, anon, authenticated;
+
+-- ── ১ · কোর্স ───────────────────────────────────────────────────────────────
+create temp table jh_tx on commit drop as
+select c.id as course_id from public.courses c where c.slug = 'bcs';
+
+do $$
+begin
+  if not exists (select 1 from jh_tx) then
+    raise exception 'BCS কোর্স পাওয়া যায়নি';
+  end if;
+end $$;
+
+-- ── ২ · বিষয়: ১০টি, নম্বর = weight, ক্রম = sort_order ──────────────────────
+__SUBJECTS__
+-- ── ৩ · সিলেবাসের বীজ (৩৭ টপিক · ৪১১ সাব-টপিক) ────────────────────────────
+create temp table jh_topic_seed on commit drop as
+select v.subject_slug, v.slug, v.title_en, v.title_bn, v.sort_order, v.metadata
+from (values
+__TOPIC_VALUES__
+) as v(subject_slug, slug, title_en, title_bn, sort_order, metadata);
+
+create temp table jh_sub_seed on commit drop as
+select v.subject_slug, v.topic_slug, v.slug, v.title_en, v.sort_order, v.priority
+from (values
+__SUBTOPIC_VALUES__
+) as v(subject_slug, topic_slug, slug, title_en, sort_order, priority);
+
+-- ── ৪ · দাবিদার (claim): প্রতিটি সিলেবাস টপিকের জন্য একটি পুরোনো সারি ─────
+--  পুরোনো গাছের যে সারিতে ইতিমধ্যেই সিলেবাসের নামে সাব-টপিক আছে সেটিই দাবি
+--  করে (তাতে সাব-টপিকগুলো সঠিক টপিকের ভেতরে থাকে); না থাকলে ম্যাপের প্রথম
+--  সারি। বাকি সব সারি অবসরে যাবে।
+create temp table jh_claim on commit drop as
+select v.subject_slug, v.old_slug, v.new_topic_slug
+from (values
+__CLAIM_VALUES__
+) as v(subject_slug, old_slug, new_topic_slug);
+
+--  পুরোনো সাব-টপিক → সিলেবাসের নাম (একই বিষয়ে, একই নাম = একই সারি)।
+create temp table jh_sub_claim on commit drop as
+select c.subject_slug, c.old_slug as old_topic_slug, c.new_topic_slug,
+       ns.slug as new_sub_slug, ns.title_en as new_sub_title,
+       os.slug as old_sub_slug
+from jh_claim c
+join jh_tx x on true
+join public.subjects su on su.course_id = x.course_id and su.slug = c.subject_slug
+join public.topics ot on ot.subject_id = su.id and ot.slug = c.old_slug
+join lateral (
+  select st.* from public.subtopics st
+  where st.topic_id = ot.id
+    and exists (select 1 from jh_sub_seed s
+                join public.topics nt2 on nt2.slug = s.topic_slug and nt2.subject_id = su.id
+                where s.subject_slug = c.subject_slug and s.topic_slug = c.new_topic_slug
+                  and public.jh_title_norm(s.title_en) = public.jh_title_norm(st.title_en))
+  limit 1
+) os on true
+join lateral (
+  select s.slug, s.title_en from jh_sub_seed s
+  where s.subject_slug = c.subject_slug and s.topic_slug = c.new_topic_slug
+    and public.jh_title_norm(s.title_en) = public.jh_title_norm(os.title_en)
+  limit 1
+) ns on true;
+
+-- ── ৫ · সাব-টপিক ও টপিক নতুন নামে (uuid অপরিবর্তিত) ───────────────────────
+update public.subtopics st
+   set slug = sc.new_sub_slug,
+       title_en = sc.new_sub_title,
+       title_bn = sc.new_sub_title,
+       is_active = true,
+       approval_status = 'approved',
+       metadata = coalesce(st.metadata, '{}'::jsonb)
+                  || jsonb_build_object('priority',
+                       (select s.priority from jh_sub_seed s
+                         where s.subject_slug = sc.subject_slug
+                           and s.topic_slug = sc.new_topic_slug
+                           and s.slug = sc.new_sub_slug)),
+       updated_at = now()
+  from jh_sub_claim sc
+  join jh_tx x on true
+  join public.subjects su on su.course_id = x.course_id and su.slug = sc.subject_slug
+  join public.topics ot on ot.subject_id = su.id and ot.slug = sc.old_topic_slug
+ where st.topic_id = ot.id and st.slug = sc.old_sub_slug;
+
+update public.topics t
+   set slug = c.new_topic_slug,
+       title_en = s.title_en,
+       title_bn = s.title_bn,
+       sort_order = s.sort_order,
+       is_active = true,
+       approval_status = 'approved',
+       metadata = t.metadata || s.metadata,
+       updated_at = now()
+  from jh_claim c
+  join jh_tx x on true
+  join public.subjects su on su.course_id = x.course_id and su.slug = c.subject_slug
+  join public.topics ot on ot.subject_id = su.id and ot.slug = c.old_slug
+  join jh_topic_seed s on s.subject_slug = c.subject_slug and s.slug = c.new_topic_slug
+ where t.id = ot.id
+   -- পুনরায় চালালে সিলেবাসের slug আগেই আছে (আগের রানে দাবি করা সারিতে) → ছাড়
+   and not exists (select 1 from public.topics t3
+                    where t3.subject_id = su.id and t3.slug = c.new_topic_slug);
+
+-- ── ৬ · নতুন গাছে যা এখনো নেই, যোগ করা ─────────────────────────────────────
+insert into public.topics (subject_id, slug, title_en, title_bn, sort_order, is_active, approval_status, metadata)
+select su.id, s.slug, s.title_en, s.title_bn, s.sort_order, true, 'approved', s.metadata
+from jh_topic_seed s
+join jh_tx x on true
+join public.subjects su on su.course_id = x.course_id and su.slug = s.subject_slug
+where not exists (select 1 from public.topics t where t.subject_id = su.id and t.slug = s.slug);
+
+insert into public.subtopics (topic_id, slug, title_en, title_bn, sort_order, is_active, approval_status, metadata)
+select t.id, s.slug, s.title_en, s.title_en, s.sort_order, true, 'approved',
+       jsonb_build_object('priority', s.priority)
+from jh_sub_seed s
+join jh_tx x on true
+join public.subjects su on su.course_id = x.course_id and su.slug = s.subject_slug
+join public.topics t on t.subject_id = su.id and t.slug = s.topic_slug
+where not exists (select 1 from public.subtopics st where st.topic_id = t.id and st.slug = s.slug);
+
+--  নতুন যোগ হওয়া সারির sort_order/priority এক জায়গায় ঠিক করা
+update public.subtopics st
+   set sort_order = s.sort_order,
+       title_bn = s.title_en,
+       metadata = coalesce(st.metadata, '{}'::jsonb) || jsonb_build_object('priority', s.priority),
+       updated_at = now()
+  from jh_sub_seed s
+  join jh_tx x on true
+  join public.subjects su on su.course_id = x.course_id and su.slug = s.subject_slug
+  join public.topics t on t.subject_id = su.id and t.slug = s.topic_slug
+ where st.topic_id = t.id and st.slug = s.slug;
+
+-- ── ৭ · পুরোনো গাছ অবসর (মোছা হয় না) ──────────────────────────────────────
+create temp table jh_retired_topic on commit drop as
+select t.id
+from public.topics t
+join public.subjects su on su.id = t.subject_id
+join jh_tx x on x.course_id = su.course_id
+where not exists (
+  select 1 from jh_topic_seed s where s.subject_slug = su.slug and s.slug = t.slug
+);
+
+--  সক্রিয় টপিকের ভেতরে থাকা অচেনা সাব-টপিকও অবসরে যায় (নাম মিললেই সেটি
+--  ইতিমধ্যে সিলেবাসের নামে বদলে গেছে, তাই আর অবসরে পড়বে না)।
+create temp table jh_retired_sub on commit drop as
+select st.id, st.topic_id
+from public.subtopics st
+join public.topics t on t.id = st.topic_id
+join public.subjects su on su.id = t.subject_id
+join jh_tx x on x.course_id = su.course_id
+where not exists (
+  select 1 from jh_sub_seed s
+  where s.subject_slug = su.slug and s.topic_slug = t.slug and s.slug = st.slug
+);
+
+update public.topics t
+   set is_active = false,
+       metadata = t.metadata || jsonb_build_object('retired_by', 'bcs-syllabus-v2'),
+       updated_at = now()
+  from jh_retired_topic r
+ where t.id = r.id and t.is_active;
+
+update public.subtopics st
+   set is_active = false,
+       metadata = coalesce(st.metadata, '{}'::jsonb) || jsonb_build_object('retired_by', 'bcs-syllabus-v2'),
+       updated_at = now()
+  from jh_retired_sub r
+ where st.id = r.id and st.is_active;
+
+-- ── ৮ · পুরোনো লিংক নতুন গাছে আনা ─────────────────────────────────────────
+--  হাতে যাচাই করা ম্যাপ: (subject, পুরোনো placeholder slug) → সিলেবাস টপিক।
+--  পুরোনো নামগুলো এতটাই মোটা ("আধুনিক যুগ", "অপারেটিং সিস্টেম ও অ্যামবেডেড
+--  কম্পিউটার") যে similarity দিয়ে অনুমান করা যায় না - তাই স্পষ্ট ম্যাপ।
+create temp table jh_link_map on commit drop as
+select v.subject_slug, v.old_slug, v.new_topic_slug
+from (values
+__LINK_MAP_VALUES__
+) as v(subject_slug, old_slug, new_topic_slug);
+
+create temp table jh_link_target on commit drop as
+select ot.id as old_topic_id,
+       nt.id as new_topic_id,
+       (select nst.id from public.subtopics nst
+         where nst.topic_id = nt.id and nst.is_active
+           and public.jh_title_norm(nst.title_en) = public.jh_title_norm(os.title_en)
+         limit 1) as new_subtopic_id
+from public.topics ot
+join public.subjects su on su.id = ot.subject_id
+join jh_tx x on x.course_id = su.course_id
+join jh_retired_topic rt on rt.id = ot.id
+join jh_link_map m on m.subject_slug = su.slug and m.old_slug = ot.slug
+join public.topics nt on nt.subject_id = su.id and nt.slug = m.new_topic_slug and nt.is_active
+left join lateral (
+  select st.title_en from public.subtopics st where st.topic_id = ot.id order by st.sort_order limit 1
+) os on true;
+
+--  প্রশ্ন তার টপিক-লিংক হারায় না; সাব-টপিক বসে যখন পুরোনো সাব-টপিকের নাম
+--  নতুন গাছে ঠিকভাবে মিলে যায় (jh_link_target.new_subtopic_id), নাহলে null।
+update public.questions q
+   set topic_id = t.new_topic_id,
+       subtopic_id = t.new_subtopic_id,
+       updated_at = now()
+  from jh_link_target t
+ where q.topic_id = t.old_topic_id;
+
+--  রুটিন: routines_unique_slot_idx = (course, kind, date, subject, topic) — তাই
+--  প্রতিটি সারি আলাদাভাবে সরানো হয়, আর সংঘর্ষ হলে (যেমন একই দিনে একই বিষয়ে
+--  পুরোনো আর্কাইভ সারি) সেই সারি আগের জায়গাতেই থাকে। শুধু প্রকাশিত রুটিন
+--  সরানো হয়; আর্কাইভ করা ইতিহাস অপরিবর্তিত।
+do $$
+declare
+  rec record;
+  moved int := 0;
+begin
+  for rec in
+    select r.id, t.new_topic_id, t.new_subtopic_id
+    from public.routines r
+    join jh_link_target t on t.old_topic_id = r.topic_id
+    where r.status = 'published'
+  loop
+    begin
+      update public.routines
+         set topic_id = rec.new_topic_id,
+             subtopic_id = rec.new_subtopic_id,
+             updated_at = now()
+       where id = rec.id;
+      moved := moved + 1;
+    exception when unique_violation then
+      raise notice 'রুটিন % সরানো যায়নি (একই দিন/বিষয়ে অন্য সারি), আগের টপিকেই রাখা হলো', rec.id;
+    end;
+  end loop;
+  raise notice 'রুটিন সারি সরানো হয়েছে: %', moved;
+end $$;
+
+update public.routine_progress p
+   set topic_id = t.new_topic_id,
+       subtopic_id = t.new_subtopic_id
+  from jh_link_target t
+ where p.topic_id = t.old_topic_id;
+
+--  সাব-টপিক: নতুন টপিকের ভেতরে হুবহু/অন্তর্ভুক্ত নামের সিলেবাস সাব-টপিক
+--  খুঁজে বসানো হয় (similarity অনুমান নয়); না মিললে null — প্রশ্নটি
+--  টপিক-লেভেলে থাকে, হারায় না।
+create temp table jh_sub_remap on commit drop as
+select os.id as old_sub_id, best.new_sub_id
+from jh_retired_sub os
+join public.subtopics ost on ost.id = os.id
+join jh_link_target t on t.old_topic_id = os.topic_id
+join lateral (
+  select nst.id as new_sub_id,
+         case
+           when public.jh_title_norm(nst.title_en) = public.jh_title_norm(ost.title_en) then 1::real
+           when length(public.jh_title_norm(nst.title_en)) >= 6
+                and position(public.jh_title_norm(nst.title_en) in public.jh_title_norm(ost.title_en)) > 0 then 0.9::real
+           when length(public.jh_title_norm(ost.title_en)) >= 6
+                and position(public.jh_title_norm(ost.title_en) in public.jh_title_norm(nst.title_en)) > 0 then 0.9::real
+           else similarity(public.jh_title_norm(nst.title_en), public.jh_title_norm(ost.title_en))
+         end as score
+  from public.subtopics nst
+  where nst.topic_id = t.new_topic_id and nst.is_active
+  order by score desc, nst.sort_order
+  limit 1
+) best on best.score >= 0.9;
+
+update public.questions q
+   set subtopic_id = m.new_sub_id,
+       updated_at = now()
+  from jh_sub_remap m
+ where q.subtopic_id = m.old_sub_id;
+
+update public.routines r
+   set subtopic_id = m.new_sub_id,
+       updated_at = now()
+  from jh_sub_remap m
+ where r.subtopic_id = m.old_sub_id;
+
+update public.routine_progress p
+   set subtopic_id = m.new_sub_id
+  from jh_sub_remap m
+ where p.subtopic_id = m.old_sub_id;
+
+--  কোনো পুরোনো সাব-টপিকের নাম মিলল না → লিংকটি টপিক-লেভেলে নামানো হয়
+--  (প্রশ্ন/রুটিন হারায় না, শুধু সাব-টপিক থাকে না)।
+update public.questions q
+   set subtopic_id = null,
+       updated_at = now()
+  from jh_retired_sub r
+ where q.subtopic_id = r.id
+   and not exists (select 1 from jh_sub_remap m where m.old_sub_id = r.id);
+
+update public.routines r
+   set subtopic_id = null,
+       updated_at = now()
+  from jh_retired_sub rs
+ where r.subtopic_id = rs.id
+   and not exists (select 1 from jh_sub_remap m where m.old_sub_id = rs.id);
+
+update public.routine_progress p
+   set subtopic_id = null
+  from jh_retired_sub rs
+ where p.subtopic_id = rs.id
+   and not exists (select 1 from jh_sub_remap m where m.old_sub_id = rs.id);
+
+--  অ্যাসাইনমেন্ট জেনারেট করা ডেটা → পুরোনো গাছের সারি বাদ, নতুন গাছে আবার।
+delete from public.study_plan_assignments a
+using jh_retired_topic r
+where a.topic_id = r.id;
+
+delete from public.study_plan_assignments a
+using jh_retired_sub r
+where a.subtopic_id = r.id;
+
+-- ── ৯ · priority ও টপিকের মিশ্রণ ──────────────────────────────────────────
+create temp table jh_detail_seed on commit drop as
+select v.subject_slug, v.topic_slug, v.detail
+from (values
+__DETAIL_VALUES__
+) as v(subject_slug, topic_slug, detail);
+
+update public.topics t
+   set metadata = t.metadata || jsonb_build_object(
+         'priority', case
+           when d.detail like '%P1:%' then 'P1'
+           when d.detail like '%P2:%' then 'P2'
+           when d.detail like '%P3:%' then 'P3'
+           else 'P4' end,
+         'priority_mix', d.detail),
+       updated_at = now()
+  from jh_detail_seed d
+  join jh_tx x on true
+  join public.subjects su on su.course_id = x.course_id and su.slug = d.subject_slug
+  join public.topics t2 on t2.subject_id = su.id and t2.slug = d.topic_slug
+ where t.id = t2.id;
+
+-- ── ১০ · প্রথম-পড়ার অ্যাসাইনমেন্ট (কভারেজ ইঞ্জিনের জন্য) ──────────────────
+--  P1 আগে, তারপর P2, P3; ৬০ দিনের মধ্যে ঘুরিয়ে বসানো। আগে থেকে থাকলে
+--  (unique index) হাত দেওয়া হয় না।
+with unit as (
+  select su.id as subject_id, t.id as topic_id, st.id as subtopic_id, st.title_en,
+         coalesce(st.metadata ->> 'priority', 'P2') as priority,
+         row_number() over (
+           order by case coalesce(st.metadata ->> 'priority', 'P2')
+                      when 'P1' then 1 when 'P2' then 2 when 'P3' then 3 else 4 end,
+                    su.sort_order, t.sort_order, st.sort_order, st.id) as rn
+  from jh_tx x
+  join public.subjects su on su.course_id = x.course_id and su.is_active
+  join public.topics t on t.subject_id = su.id and t.is_active
+  join public.subtopics st on st.topic_id = t.id and st.is_active
+)
+insert into public.study_plan_assignments
+  (course_id, subject_id, topic_id, subtopic_id, plan_day, first_study_date,
+   minutes, priority, objective_bn)
+select x.course_id, u.subject_id, u.topic_id, u.subtopic_id,
+       1 + ((u.rn - 1) % 60)::smallint,
+       date '2026-11-28' + (((u.rn - 1) % 60)::int),
+       20,
+       case u.priority when 'P1' then 'high' when 'P3' then 'low' when 'P4' then 'low' else 'normal' end,
+       'সিলেবাসের সাব-টপিক: ' || u.title_en
+from unit u
+cross join jh_tx x
+where not exists (
+  select 1 from public.study_plan_assignments a
+  where a.course_id = x.course_id and a.topic_id = u.topic_id
+    and a.subtopic_id is not distinct from u.subtopic_id);
+
+-- ── ১১ · যাচাই ─────────────────────────────────────────────────────────────
+--  পুরোনো গাছের সাথে সামঞ্জস্যরক্ষার ফাংশন (jh_guard_previous_source,
+--  jh_recompute_topic_priorities) এবং ট্রিগার থেকে যায়; এখানে শুধু হিসাব।
+do $$
+declare bad int;
+begin
+  select count(*) into bad from jh_tx x
+  where (select count(*) from public.subjects su where su.course_id = x.course_id and su.is_active) <> 10;
+  if bad > 0 then raise exception 'BCS-এ ১০টি সক্রিয় বিষয় থাকা উচিত, পাওয়া গেল %', bad; end if;
+
+  select count(*) into bad from jh_tx x
+  where (select count(*) from public.topics t join public.subjects su on su.id = t.subject_id
+          where su.course_id = x.course_id and su.is_active and t.is_active) <> 37;
+  if bad > 0 then raise exception 'BCS-এ ৩৭টি সক্রিয় টপিক থাকা উচিত, পাওয়া গেল %', bad; end if;
+
+  select count(*) into bad from jh_tx x
+  where (select count(*) from public.subtopics st join public.topics t on t.id = st.topic_id
+           join public.subjects su on su.id = t.subject_id
+          where su.course_id = x.course_id and su.is_active and t.is_active and st.is_active) <> 411;
+  if bad > 0 then raise exception 'BCS-এ ৪১১টি সক্রিয় সাব-টপিক থাকা উচিত, পাওয়া গেল %', bad; end if;
+
+  select count(*) into bad
+  from public.subtopics st
+  join public.topics t on t.id = st.topic_id
+  join public.subjects su on su.id = t.subject_id
+  join jh_tx x on x.course_id = su.course_id
+  where st.is_active and t.is_active and (st.metadata ->> 'priority') is null;
+  if bad > 0 then raise exception '%টি সক্রিয় সাব-টপিকে priority নেই', bad; end if;
+end $$;
+"""
+
+def main():
+    subjects = [
+        subject_block(slug, marks, i)
+        for i, (slug, marks, _topics) in enumerate(DATA, start=1)
+    ]
+    sql = HEADER
+    for token, value in (
+        ("__SUBJECTS__", "\n".join(subjects)),
+        ("__TOPIC_VALUES__", topic_values()),
+        ("__SUBTOPIC_VALUES__", subtopic_values()),
+        ("__DETAIL_VALUES__", detail_values()),
+        ("__LINK_MAP_VALUES__", link_map_values()),
+        ("__CLAIM_VALUES__", claim_block()),
+    ):
+        sql = sql.replace(token, value)
+    out = ROOT / "gen/v2/out/20261214000000_bcs_preliminary_taxonomy_v3.sql"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(sql, encoding="utf-8")
+    print(out, len(sql), "bytes")
+
+
+if __name__ == "__main__":
+    main()
