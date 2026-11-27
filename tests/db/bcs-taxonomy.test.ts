@@ -285,6 +285,25 @@ describe("20261214000000 — BCS Preliminary syllabus migration", () => {
     );
   });
 
+  it("keeps one first-study assignment per subtopic, spread over the 60 plan days", async () => {
+    await actAsService(db);
+    const [row] = await rows<{ rows: number; distinct_units: number; days: number; with_routine: number }>(
+      db,
+      `select count(*)::int as rows,
+              count(distinct (topic_id, subtopic_id))::int as distinct_units,
+              count(distinct plan_day)::int as days,
+              count(*) filter (where routine_id is not null)::int as with_routine
+         from public.study_plan_assignments where course_id = $1`,
+      [courseId],
+    );
+    expect(row.rows).toBe(505); // 504 subtopic rows + the pre-existing topic-level row
+    expect(row.distinct_units).toBe(row.rows);
+    expect(row.days).toBeGreaterThan(1);
+    expect(row.days).toBeLessThanOrEqual(60);
+    // No routine exists yet in a fresh database, so no row is pre-linked.
+    expect(row.with_routine).toBe(0);
+  });
+
   it("keeps the syllabus queryable the way the spec asks for", async () => {
     // subject → topic → subtopic, one row per subtopic, with marks + priority.
     const outline = await rows<{ subject: string; topic: string; subtopic: string; priority: string }>(
