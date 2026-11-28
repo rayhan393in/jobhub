@@ -126,8 +126,8 @@ and regeneration steps.
 |---|---|---|
 | topics | 140 (85 retired) | **55, none inactive** |
 | subtopics | 827 (208 retired) | **620** |
-| questions on a topic | 2,296 | **3,657** |
-| questions with no topic | 2,112 | **751** |
+| questions on a topic | 2,296 | **3,739** |
+| questions with no topic | 2,112 | **669** |
 | duplicate topic titles (active) | 0 | **0** |
 | duplicate subtopic titles (active) | 1 | **0** |
 | first-study assignments | 544 | **546** |
@@ -153,11 +153,18 @@ duplicates it.
 
 ### What is still open
 
-**751 questions keep `topic_id = null`** — roughly 600 Bengali literature
-questions (author / work / quotation / award identification) plus one-off
-wordings. Filing those needs either more `rules.py` entries or a human pass in
-the admin question table. This is the honest remaining gap, not an oversight:
-a wrongly filed question lands in the wrong revision list.
+**669 questions keep `topic_id = null`** — 377 Bengali (author / work /
+quotation / award identification), 174 maths, and 118 spread over the other
+eight subjects. Filing those needs either more `rules.py` entries or a human
+pass in the admin question table. This is the honest remaining gap, not an
+oversight: a wrongly filed question lands in the wrong revision list.
+
+Of those 669, 27 would match a rule *if the rule's subject were ignored* — a
+Bengali literature question containing the word `ধারা` scores as
+"ধারার যোগফল", `বৃত্ত` in a history question scores as geometry. The
+migration's `t.subject_id = m.subject_id` predicate drops exactly those, which
+is why the count is 669 and not 642. Re-running the rules over the remaining
+nulls therefore changes nothing; closing this gap needs new rules, not a rerun.
 
 ## 8. Adding a question now
 

@@ -24,8 +24,10 @@
 --     keep their Bengali text in `statement`; only 43 have `statement_bn`).
 --     A question the rules do not confidently match KEEPS `topic_id = null` —
 --     a wrong topic is worse than none, since it would surface the question in
---     the wrong revision list. Expected split: ~1,470 classified, ~642 left
---     null, almost all of them Bengali literature questions that need a human.
+--     the wrong revision list. Measured split on production: 1,443 classified,
+--     669 left null, almost all of them Bengali literature questions that need
+--     a human. The `t.subject_id = m.subject_id` predicate below is what keeps
+--     a cross-subject keyword from landing a question in the wrong subject.
 --
 -- Idempotent: every statement is a no-op on a second run.
 -- ───────────────────────────────────────────────────────────────────────────
