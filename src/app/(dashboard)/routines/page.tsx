@@ -8,13 +8,11 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { StudyPlanner } from "@/components/routines/study-planner";
 import { WeeklyPlanner } from "@/components/routines/weekly-planner";
 import { RecommendationsPanel } from "@/components/routines/recommendations-panel";
-import {
-  PublishedRoutineViewer,
-  type ViewerCourse,
-} from "@/components/routines/published-routine-viewer";
+import { Routine90DaySheet, type SheetCourse } from "@/components/routines/routine-90day-sheet";
 import { getCurrentUser } from "@/lib/auth";
 import {
   listCourses,
+  listMyDoneDates,
   listMyStudentRoutines,
   listRoutines,
   listStudyPlanTopicPairs,
@@ -22,7 +20,7 @@ import {
   listTopicsWithSubtopics,
 } from "@/lib/queries";
 import { dhakaDateKey, formatDate, formatNumber } from "@/lib/format";
-import { buildDayLines, dayNumber, topicsForRoutine } from "@/lib/routine-day-lines";
+import { dayNumber, topicsForRoutine } from "@/lib/routine-day-lines";
 import type { PlanTopic } from "@/lib/study-plan";
 
 export const dynamic = "force-dynamic";
@@ -103,43 +101,47 @@ export default async function RoutinesPage() {
     pairsByRoutine.set(pair.routine_id, byTopic);
   }
 
-  const viewerCourses: ViewerCourse[] = routineCourseIds.map((courseId) => {
-    const courseRoutines = routines
-      .filter((r) => r.course_id === courseId)
-      .map((routine) => ({
-        id: routine.id,
-        routine_date: routine.routine_date,
-        title_bn: routine.title_bn,
-        subject_title_bn: routine.subject_title_bn ?? null,
-        minutes: routine.minutes,
-        slot_label: routine.slot_label ?? null,
-        task_kind: routine.task_kind ?? "study",
-        focus_note_bn: routine.focus_note_bn ?? null,
-        topics: topicsForRoutine(
-          pairsByRoutine.get(routine.id),
-          routine.topic_titles_bn,
-          routine.subtopic_titles_bn,
-        ),
-      }));
+  // The 90-day sheet groups rows by their own slot label, so it needs the raw
+  // rows rather than the merged day lines: one row per study slot keeps
+  // P1 / P2 / P3 in their own columns.
+  const sheetCourses: SheetCourse[] = routineCourseIds.map((courseId) => {
+    const courseRoutines = routines.filter((r) => r.course_id === courseId);
     const dates = [...new Set(courseRoutines.map((r) => r.routine_date))].sort();
     const days = dates
-      .map((date) => {
-        const lines = buildDayLines(courseRoutines.filter((r) => r.routine_date === date));
-        return {
-          date,
-          day_number: dayNumber(date, planStart[courseId]),
-          total_minutes: lines.reduce((sum, line) => sum + line.minutes, 0),
-          lines,
-        };
-      })
-      .filter((day) => day.lines.length > 0);
+      .map((date) => ({
+        date,
+        day_number: dayNumber(date, planStart[courseId]),
+        rows: courseRoutines
+          .filter((r) => r.routine_date === date)
+          .map((routine) => ({
+            id: routine.id,
+            routine_date: routine.routine_date,
+            title_bn: routine.title_bn,
+            subject_title_bn: routine.subject_title_bn ?? null,
+            minutes: routine.minutes,
+            slot_label: routine.slot_label ?? null,
+            task_kind: routine.task_kind ?? "study",
+            focus_note_bn: routine.focus_note_bn ?? null,
+            topics: topicsForRoutine(
+              pairsByRoutine.get(routine.id),
+              routine.topic_titles_bn,
+              routine.subtopic_titles_bn,
+            ),
+          })),
+      }))
+      .filter((day) => day.rows.length > 0);
     return {
       id: courseId,
       title_bn: courseById.get(courseId)?.title_bn ?? "কোর্স",
-      total_days: days.length,
+      plan_start: planStart[courseId],
       days,
     };
   });
+
+  // Progress comes from the student's own ticks, so the tracker shows what was
+  // actually completed rather than assuming the plan is done.
+  const bcsSheet = sheetCourses.find((course) => isBcs(course.title_bn)) ?? sheetCourses[0];
+  const bcsProgress = bcsSheet ? await listMyDoneDates(user.id, bcsSheet.id) : [];
 
   return (
     <div className="mx-auto w-full max-w-4xl">
@@ -247,7 +249,7 @@ export default async function RoutinesPage() {
         </section>
       ) : null}
 
-      <h2 className="mb-3 text-[1rem] font-bold tracking-[-0.02em] text-[var(--text)]">প্রশাসকের দেওয়া রুটিন</h2>
+      <h2 className="mb-3 text-[1rem] font-bold tracking-[-0.02em] text-[var(--text)]">প্রশাসকের দেওয়া ৯০ দিনের রুটিন</h2>
 
       {routineCourseIds.length === 0 ? (
         <EmptyState
@@ -261,9 +263,9 @@ export default async function RoutinesPage() {
             </ButtonLink>
           }
         />
-      ) : (
-        <PublishedRoutineViewer courses={viewerCourses} today={today} />
-      )}
+      ) : bcsSheet ? (
+        <Routine90DaySheet course={bcsSheet} initialCompletedDates={bcsProgress} />
+      ) : null}
     </div>
   );
 }

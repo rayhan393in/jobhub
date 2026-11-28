@@ -130,6 +130,71 @@ export function buildDayLines(items: RoutineLineInput[]): DayLine[] {
     .map(({ line }) => line);
 }
 
+/**
+ * Day 1 of the plan is 28 Nov 2026 (শনিবার); day 90 is 25 Feb 2027.
+ *
+ * The 90-day sheet is a fixed, dated plan — the same three phases the PDF
+ * prints. Phase boundaries live here rather than being re-typed per view, so
+ * the heading under a day can never disagree with the day's number.
+ */
+export const PLAN_START = "2026-11-28";
+
+export const PHASES: { from: number; to: number; label: string }[] = [
+  { from: 1, to: 30, label: "ফেজ ১ · বাংলা ও English" },
+  { from: 31, to: 60, label: "ফেজ ২ · English ও বাংলাদেশ" },
+  { from: 61, to: 90, label: "ফেজ ৩ · বাকি Subject ও সমাপ্তি" },
+];
+
+export function phaseForDay(day: number): { from: number; to: number; label: string } | null {
+  return PHASES.find((phase) => day >= phase.from && day <= phase.to) ?? null;
+}
+
+/** The three study columns of the daily grid, in clock order. */
+export type GridSlot = "p1" | "p2" | "p3";
+
+export const GRID_SLOTS: { slot: GridSlot; title: string; minutes: number; dot: string }[] = [
+  { slot: "p1", title: "Main — P1", minutes: 150, dot: "#d03030" },
+  { slot: "p2", title: "Second — P2", minutes: 75, dot: "#d97a06" },
+  { slot: "p3", title: "Third — P3/P4", minutes: 45, dot: "#1f9d55" },
+];
+
+/** Which grid column a routine row's slot label belongs to. */
+export function gridSlotFor(slotLabel: string | null): GridSlot | null {
+  if (!slotLabel) return null;
+  if (slotLabel.startsWith("P1 Main")) return "p1";
+  if (slotLabel.startsWith("P2 Second")) return "p2";
+  if (slotLabel.startsWith("P3/P4 Third")) return "p3";
+  return null;
+}
+
+/**
+ * The nightly MCQ block is derived from the published MCQ row rather than
+ * hard-coded: its focus note carries the official split
+ * (P1 ৫০ + P2 ২৫ + P3/P4 ১৫ + পূর্বে-পড়া ১০ = ১০০). If the plan's split ever
+ * changes, the table on screen follows the plan, not this file.
+ */
+export const MCQ_DEFAULT_SPLIT = { p1: 50, p2: 25, p3: 15, revisit: 10 };
+
+export function parseMcqSplit(note: string | null | undefined): {
+  p1: number;
+  p2: number;
+  p3: number;
+  revisit: number;
+} {
+  if (!note) return MCQ_DEFAULT_SPLIT;
+  const num = (pattern: RegExp) => {
+    const match = note.match(pattern);
+    return match ? Number.parseInt(match[1], 10) : 0;
+  };
+  // The note is Bengali-numeral text; only trust it when all four are found.
+  const p1 = num(/P1\s*([0-9]+)/);
+  const p2 = num(/P2\s*([0-9]+)/);
+  const p3 = num(/P3\/P4\s*([0-9]+)/);
+  const revisit = num(/পূর্বে-পড়া\s*([0-9]+)/);
+  if (!p1 || !p2 || !p3 || !revisit) return MCQ_DEFAULT_SPLIT;
+  return { p1, p2, p3, revisit };
+}
+
 /** Attach টপিক → সাবটপিক pairs (study_plan_assignments) to each routine row. */
 export function topicsForRoutine(
   assigned: Map<string, string[]> | undefined,

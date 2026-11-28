@@ -496,6 +496,29 @@ export async function listMyRoutineProgress(
   );
 }
 
+/**
+ * Every date in a course the student has fully ticked off.
+ *
+ * The 90-day tracker paints a day green only when the student actually said so
+ * — a date with no row is genuine "not done", never an assumed one.
+ */
+export async function listMyDoneDates(userId: string, courseId: string): Promise<string[]> {
+  const supabase = await getServerClient();
+  if (!supabase) return [];
+  const { data, error } = await supabase
+    .from("routine_progress")
+    .select("progress_date")
+    .eq("user_id", userId)
+    .eq("course_id", courseId)
+    .eq("status", "done");
+  logDbError("routine-progress-done-dates", error);
+  const dates = new Set<string>();
+  for (const row of (data as { progress_date: string }[]) ?? []) {
+    if (row.progress_date) dates.add(row.progress_date);
+  }
+  return [...dates];
+}
+
 export async function listMyAttempts(userId: string, limit = 20) {
   const supabase = await getServerClient();
   if (!supabase) return [];
