@@ -1,8 +1,8 @@
 # BCS Preliminary taxonomy — what the database actually contains
 
-*Read-only audit, 2026-11-26. Every figure below was queried live against
-`bozmbnelcokhbuumkdry`, course `bcs` = `599509ae-c4c3-440a-9463-802a4efc7a0c`.
-No data was modified.*
+*Audit 2026-11-26 against `bozmbnelcokhbuumkdry`, course `bcs` =
+`599509ae-c4c3-440a-9463-802a4efc7a0c`. Sections 1–5 are the read-only findings
+that were used to decide the plan; **section 7 records what was then applied**.*
 
 ## 1. There is only ONE visible tree already
 
@@ -105,19 +105,88 @@ The only shape that satisfies both of your constraints at once is:
 That is a merge, not a replacement, and it is also what makes questions easy to
 add — one canonical branch survives, so "which topic?" has exactly one answer.
 
-## 6. Decisions I need from you
+## 6. Decisions taken (2026-11-26)
 
-1. **The 85 retired topics.** They hold no questions, but they are the only
-   copy of the fine-grained naming your list uses. Delete them permanently, or
-   keep them (invisible, `is_active = false`) as the source I map your list from?
-2. **The 1,948 AI-assisted untagged questions** (982 math, 962 bangla).
-   Classify them too, or leave `topic_id` null and only classify the 164 past
-   questions?
-3. **My transcription.** `gen/taxonomy-v4/data.py` was written from memory of
-   your message and clearly diverges for math and bangla. If you still have the
-   text, paste it again and I will diff it against this file before generating
-   any SQL.
+1. **The 85 retired topics** → delete permanently. Verified empty on every
+   referencing table first; a guard in the migration re-checks and aborts.
+2. **All 2,112 null-topic questions** → classify, not just the 164 past-paper
+   ones. 1,948 of them are AI-generated math/bangla banks whose wording is
+   regular enough to classify reliably.
+3. **The transcription** → not applied. It diverged from the live tree in
+   exactly the places that hold data, so the master list was used as *naming
+   input* and merged into the live tree rather than replacing it.
 
-No migration will be written until these are answered — the change is
-irreversible in the direction that matters (a dropped subtopic takes its
-questions' classification with it).
+## 7. What was applied
+
+Migration `20261219000000_bcs_taxonomy_unify.sql`, derived from
+`gen/taxonomy-v4/rules.py`. See `gen/taxonomy-v4/README.md` for the generation
+and regeneration steps.
+
+| | before | after |
+|---|---|---|
+| topics | 140 (85 retired) | **55, none inactive** |
+| subtopics | 827 (208 retired) | **620** |
+| questions on a topic | 2,296 | **3,657** |
+| questions with no topic | 2,112 | **751** |
+| duplicate topic titles (active) | 0 | **0** |
+| duplicate subtopic titles (active) | 1 | **0** |
+| first-study assignments | 544 | **546** |
+| coverage gaps | 0 | **0** |
+
+Integrity checks after the run: 0 questions on another subject's topic, 0
+questions whose subtopic belongs to a different topic, 0 links with a null
+topic, 0 orphan topic references.
+
+### Two production bugs found by applying it
+
+**101 questions carried two primary topic links.** The unique index is
+`(question_id, course_id, topic_id)` and Postgres treats NULLs as distinct, so
+duplicate primaries accumulated silently while `topic_id` was null. The moment a
+classification filled both in, the `jh_sync_primary_link` trigger collided on
+that index and the migration aborted. Fixed by keeping the newest link per
+question. Wiping the 1,013 surplus rows from `question_topic_links` was the
+prerequisite for the classification to land at all.
+
+**Nothing else writes `question_topic_links` by hand.** The trigger already
+syncs the primary link from the question row, so a manual insert afterwards
+duplicates it.
+
+### What is still open
+
+**751 questions keep `topic_id = null`** — roughly 600 Bengali literature
+questions (author / work / quotation / award identification) plus one-off
+wordings. Filing those needs either more `rules.py` entries or a human pass in
+the admin question table. This is the honest remaining gap, not an oversight:
+a wrongly filed question lands in the wrong revision list.
+
+## 8. Adding a question now
+
+The tree is one subject → topic → subtopic path with no retired shadow behind
+it, so a new question needs exactly three picks:
+
+```sql
+-- one row, four ids
+insert into public.questions (
+  course_id, subject_id, topic_id, subtopic_id, statement, option_a, option_b,
+  option_c, option_d, correct_option, status, is_verified, fingerprint, source_type)
+select c.id, s.id, t.id, st.id, 'প্রশ্ন…', 'ক', 'খ', 'গ', 'ঘ', 1,
+       'draft', false, 'unique-fingerprint', 'ai_assisted'
+  from public.courses   c  join public.subjects  s  on s.course_id = c.id and s.slug = 'bcs'
+  join public.topics    t  on t.subject_id  = s.id and t.slug = '<topic-slug>'
+  join public.subtopics st on st.topic_id   = t.id and st.slug = '<subtopic-slug>';
+```
+
+`jh_qtl_autolink` creates the primary `question_topic_links` row for you — do
+not insert it by hand. The `(subject, topic, subtopic)` triple is now the only
+choice on the syllabus, so "which topic?" has one answer.
+
+To find the slugs:
+
+```sql
+select s.slug as subject, t.slug as topic, t.title_bn, st.slug as subtopic, st.title_bn
+  from public.topics t join public.subjects s on s.id = t.subject_id
+  left join public.subtopics st on st.topic_id = t.id
+ where s.course_id = '599509ae-c4c3-440a-9463-802a4efc7a0c'
+   and t.is_active and st.is_active
+ order by s.sort_order, t.sort_order, st.sort_order;
+```

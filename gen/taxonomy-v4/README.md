@@ -1,59 +1,96 @@
-# BCS Preliminary — Master taxonomy V4 (single canonical tree)
+# BCS taxonomy V4 — one tree, classified questions
 
-The user's 2026-11-28 spec, transcribed verbatim. **This file is the source of
-truth** for the canonical BCS Preliminary subject → topic → subtopic tree; the
-migration generated from it only transports it into Postgres.
+Applied to production on 2026-11-26 as
+`supabase/migrations/20261219000000_bcs_taxonomy_unify.sql`.
+**The migration file is the deliverable. This directory is how it was derived.**
 
-> **STATUS: NOT APPLIED — blocked on decisions.** See
-> `docs/bcs-taxonomy-audit-2026-11-26.md`. This transcription was written from
-> memory of the master list and diverges from the live tree (math 23 vs 44
-> subtopics, bangla 31 vs 57). It must be re-diffed against the user's actual
-> text before any migration is generated from it.
+## What changed in the database
 
-## Why V4 exists
+| | before | after |
+|---|---|---|
+| topics (all) | 140 | **55** |
+| topics `is_active = false` | 85 | **0** |
+| subtopics (all) | 827 | **620** |
+| questions with no topic | 2,112 | **751** |
+| questions on a topic | 2,296 | **3,657** |
+| duplicate topic titles | 0 | 0 |
+| duplicate subtopic titles | 1 | **0** |
+| `study_plan_assignments` | 544 | 546 |
+| coverage gaps (`jh_coverage_unassigned`) | 0 | **0** |
 
-Before V4 the database carried **two parallel taxonomies** for the same course:
+## The three changes
 
-| | topics | subtopics | questions attached |
-|---|---|---|---|
-| V2 (55 tagged, `metadata.priority` P1–P3) | 55 | 619 | 2,296 |
-| retired placeholders (`is_active = false`) | 85 | 208 | **0** |
+1. **Deleted the retired placeholder branch** — 85 topics and their 208
+   subtopics, all already `is_active = false` with
+   `metadata.retired_by = 'bcs-syllabus-v2'`. Verified empty first (0 questions,
+   0 links, 0 assignments, 0 progress, 0 frequency, 0 micro topics, 0 revision
+   items, 0 ai generations); the migration re-checks and aborts instead of
+   trusting that sentence.
+2. **Collapsed the one duplicate subtopic** — geography had `নদ-নদী` twice, once
+   under বাংলাদেশের ভূগোল and once under বিশ্ব ভূগোল. Both were empty.
+3. **Classified 1,361 questions** by wording (rules below), each keeping
+   `topic_id = null` when no rule matched.
 
-The retired branch is already `is_active = false` at every level, so readers do
-not see it — there is **one** visible tree today, not two. V4's job is therefore
-to merge the master list *into* the live tree, not to replace it.
+## Why the rules live here and not in the SQL
 
-## Rules applied by the migration
+`rules.py` is a list of `(order, subject, topic, subtopic, condition)`.
+`emit_migration.py` turns it into SQL; nothing in the migration is hand-written
+except the guards, comments and the two-subtopic insert. Regenerate with:
 
-1. **One tree.** After V4 the course has exactly the V4 topics; the 85 legacy
-   placeholders are deleted (they hold no questions, no assignments, no
-   progress — verified before the delete).
-2. **Existing rows are reused, never duplicated.** A V4 topic claims the V2 topic
-   that already holds the same concept, matched by a normalized-title map
-   (`map_v2.py`) and, failing that, by subtopic overlap. The claimed row keeps
-   its uuid, so its questions, `question_topic_links` and
-   `study_plan_assignments` survive untouched.
-3. **Subtopics merge by title.** A V4 subtopic whose normalized name already
-   exists under the claimed topic keeps the existing row. New names are
-   inserted. Existing subtopics that are not in the V4 list are retained
-   (deactivated only if empty) so their questions keep a home.
-4. **`subtopics = null` stays null.** Where the spec gives a topic with no
-   sub-list, the topic is created with **no** subtopics. Nothing is invented.
-5. **No duplicates.** A topic title appears once per subject; a subtopic title
-   appears once per topic. The generator asserts this on load
-   (`assert_no_duplicates()`), and the migration is idempotent on re-run.
-6. **Easy question entry.** V4 leaves one obvious path — course → subject →
-   topic → subtopic — so adding a question only ever needs a pick from that
-   tree. The legacy placeholder branch, which made "which topic?" ambiguous,
-   is gone.
+```sh
+cd gen/taxonomy-v4 && python3 emit_migration.py
+```
 
-## Shape
+Then re-run `npx vitest run tests/db/bcs-taxonomy-unify.test.ts`.
 
-`DATA = [(subject_slug, [(topic_bn, None | [(subtopic_bn, priority)])])]`
+Every rule target is resolved by normalised title at run time and the migration
+raises if one is missing — that is how the two wrong names I had guessed
+(`সূত্র`, `কোণ`) were caught: the real rows are `বীজগাণিতিক সূত্র` and
+`রেখা ও কোণ`.
 
-`priority` is the spec's P1–P4 **study-priority** classification, not a verified
-question-frequency ranking — the migration header and the UI both say so.
-Subtopics inherit their priority from the level they were listed under.
+## Two things the first draft got wrong, found by running it
 
-Subjects keep their existing `sort_order` and `weight` (marks 30/30/25/25/10/
-15/15/20/15/15 = 200), so nothing about marks changes here.
+**A question can carry two primary links.** 101 production questions had two
+`question_topic_links` rows with `is_primary = true` and `topic_id = null`. The
+unique index is `(question_id, course_id, topic_id)` and Postgres treats NULLs
+as distinct, so nothing rejected the duplicate — but the moment a backfill gave
+both rows a real topic, the `jh_sync_primary_link` trigger collided and the
+whole statement aborted with `23505`. The migration now keeps the newest link
+per question and drops the rest.
+
+**`jh_sync_primary_link` is the only writer for links.** My first draft also
+inserted into `question_topic_links` manually after updating the questions. That
+is redundant and, once the topics matched, a second duplicate. The trigger is an
+`AFTER UPDATE` on `questions` and already rewrites or creates the primary link.
+
+## What is NOT classified, and why that is deliberate
+
+751 questions keep `topic_id = null`:
+
+- ~600 Bengali literature questions (writer / work / quotation / award
+  identification spread across 16 author subtopics). A keyword cannot tell
+  "রবীন্দ্রনাথের কোন রচনাটি…" from "নজরুলের…" reliably enough to file it.
+- The rest are one-off wordings the rules did not anticipate.
+
+A wrong topic is worse than none: it puts the question into the wrong revision
+list and into a routine day where it does not belong. Coverage of 83% with every
+assignment correct beats 100% with a few hundred silently misfiled.
+
+To finish them, either extend `rules.py` (one row per pattern, regenerate,
+re-test) or classify them in the admin question table.
+
+## Naming decisions
+
+Two subtopics your master list names did not exist in the live tree, so the
+migration creates them under বাংলা ভাষা ও ব্যাকরণ:
+
+- `পদ` (slug `pod`)
+- `প্রয়োগ ও অপ্রয়োগ` (slug `prayog`)
+
+Everything else reuses an existing row. That is why the subtopic count rose by
+only 2 while 1,361 questions got a home.
+
+The 55 topic titles are the existing syllabus titles, which are broader than the
+master list's finer names (the list's `ঐকিক নিয়ম` / `গসাগু` / `শতকরা` are
+subtopics under `পাটিগণিত` here). No topic was renamed: renaming would have
+orphaned the questions, and the finer names already exist one level down.

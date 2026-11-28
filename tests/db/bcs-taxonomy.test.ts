@@ -7,6 +7,10 @@ import { MIGRATIONS_DIR, actAsService, createDatabase, migrate, rows, scalar } f
 /**
  * 20261214000000_bcs_preliminary_taxonomy.sql — the BCS Preliminary syllabus.
  *
+ * NOTE: the counts below are the state right after this migration. Later
+ * migrations add to it (20261219000000 adds 2 বাংলা subtopics), which is why the
+ * snapshots in this file are taken *before* the rest of the chain would apply.
+ *
  * The migration must land the official outline (10 subjects / 55 topics / 504
  * subtopics, 200 marks) on a database that still carries the old placeholder
  * tree, WITHOUT deleting anything and WITHOUT leaving a question behind:
@@ -161,7 +165,13 @@ async function applyMigration() {
 
 beforeAll(async () => {
   db = await createDatabase();
-  const files = readdirSync(MIGRATIONS_DIR).filter((f) => f.endsWith(".sql")).sort().filter((f) => f !== TARGET);
+  // Everything that sorts BEFORE the target runs first, so the legacy tree can
+  // be built on top of it. Migrations that sort AFTER the target depend on the
+  // syllabus this migration lands and must not run ahead of it.
+  const files = readdirSync(MIGRATIONS_DIR)
+    .filter((f) => f.endsWith(".sql"))
+    .sort()
+    .filter((f) => f < TARGET);
   await migrate(db, files);
   await buildLegacyTree();
 }, 300_000);
