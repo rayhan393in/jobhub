@@ -1,21 +1,18 @@
 "use client";
 
 /**
- * ৯০ দিনের BCS Preliminary রুটিন — the dated plan sheet.
+ * ৯০ দিনের BCS Preliminary রুটিন — the dated plan, one card per day.
  *
- * Same four columns as the printed plan, one row per day:
+ * Each day is a card whose rows are the three study slots (P1 / P2 / P3-P4),
+ * each row led by its own colour-coded pill. The slot leads the row — not the
+ * subject — so the three pillars read as separate things at a glance and the
+ * topic column is free to use the full width instead of being boxed at ~30%.
  *
- *   দিন ও তারিখ | 🔴 Main — P1 | 🟠 Second — P2 | 🟢 Third — P3/P4
- *
- * grouped under Phase 1 / 2 / 3 headings, followed by the nightly MCQ split
- * and the 90-day progress tracker.
- *
- * Nothing here re-types the schedule: cells come from the published routine
- * rows, the MCQ split is parsed out of the plan's own MCQ row, and slot
- * minutes are read off the rows rather than hard-coded. The tracker writes
- * through the same `routine_progress` API the weekly planner uses, so a day
- * ticked here is genuinely done — and an untouched day stays empty instead of
- * being optimistically painted green.
+ * Everything shown comes from the published routine rows: cells, subject
+ * prefixes, slot minutes and the MCQ split are all read off the plan, never
+ * re-typed. The tracker writes through the same `routine_progress` API the
+ * weekly planner uses, so a tick is genuinely saved and an untouched day stays
+ * empty rather than being optimistically painted green.
  */
 
 import * as React from "react";
@@ -30,14 +27,13 @@ import {
   type RoutineLineInput,
 } from "@/lib/routine-day-lines";
 
-const NAVY = "#232e7a";
-const GREEN = "#1f9d55";
-const GRID_LINE = "#c7ccdd";
+const NAVY = "#25306b";
+const GREEN = "#157a43";
 
 export type SheetDay = {
   date: string;
   day_number: number;
-  /** The day's routine rows, unchanged — the grid groups them by slot. */
+  /** The day's routine rows, unchanged — rows are grouped by slot. */
   rows: RoutineLineInput[];
 };
 
@@ -50,36 +46,47 @@ export type SheetCourse = {
 
 type GridSlotKey = (typeof GRID_SLOTS)[number]["slot"];
 
-/** One cell of the grid: subject-prefixed topic → subtopic text. */
-type Cell = { subject: string | null; text: string };
+/** Per-slot chrome. The colour carries the identity, the pill carries the name. */
+const SLOT_STYLE: Record<
+  GridSlotKey,
+  { accent: string; soft: string; pill: string; label: string }
+> = {
+  p1: { accent: "#c62f2f", soft: "#fdf4f4", pill: "#fbe6e6", label: "Main · P1" },
+  p2: { accent: "#9c5800", soft: "#fdf8f1", pill: "#fcecd8", label: "Second · P2" },
+  p3: { accent: "#17795c", soft: "#f3faf7", pill: "#dcf2e9", label: "Third · P3/P4" },
+};
+
+type Cell = { subject: string | null; text: string; topics: { topic: string; subtopics: string[] }[] };
 
 function cellFrom(rows: RoutineLineInput[]): Cell | null {
   if (rows.length === 0) return null;
-  const parts: string[] = [];
+  const topics: { topic: string; subtopics: string[] }[] = [];
+  const notes: string[] = [];
   let subject: string | null = null;
+
   for (const row of rows) {
     if (!subject && row.subject_title_bn) subject = row.subject_title_bn;
     if (row.topics.length > 0) {
-      for (const topic of row.topics) {
-        parts.push(
-          topic.subtopics.length > 0
-            ? `${topic.topic} (${topic.subtopics.join(", ")})`
-            : topic.topic,
-        );
+      for (const entry of row.topics) {
+        const existing = topics.find((candidate) => candidate.topic === entry.topic);
+        if (existing) existing.subtopics.push(...entry.subtopics.filter((s) => !existing.subtopics.includes(s)));
+        else topics.push({ topic: entry.topic, subtopics: [...entry.subtopics] });
       }
     } else {
-      parts.push(row.focus_note_bn || row.title_bn);
+      notes.push(row.focus_note_bn || row.title_bn);
     }
   }
-  return parts.length === 0 ? null : { subject, text: parts.join(" · ") };
+
+  if (topics.length === 0 && notes.length === 0) return null;
+  return { subject, text: notes.join(" · "), topics };
 }
 
-/** দিন ও তারিখ cell, e.g. "১ · ২৮ Nov". */
-function dayLabel(day: SheetDay): string {
-  return `${toBengaliDigits(day.day_number)} · ${formatDate(`${day.date}T12:00:00`, "bn", {
-    day: "numeric",
-    month: "short",
-  })}`;
+function bn(value: number | string): string {
+  return String(value).replace(/\d/g, (digit) => "০১২৩৪৫৬৭৮৯"[Number(digit)]);
+}
+
+function dayRange(day: SheetDay): string {
+  return formatDate(`${day.date}T12:00:00`, "bn", { day: "numeric", month: "long" });
 }
 
 export function Routine90DaySheet({
@@ -87,7 +94,6 @@ export function Routine90DaySheet({
   initialCompletedDates,
 }: {
   course: SheetCourse;
-  /** Dates the student already marked done, from routine_progress. */
   initialCompletedDates: string[];
 }) {
   const [showAll, setShowAll] = React.useState(false);
@@ -96,12 +102,12 @@ export function Routine90DaySheet({
   const [pending, setPending] = React.useState<Set<string>>(() => new Set());
   const [saveError, setSaveError] = React.useState<string | null>(null);
 
-  /** Tick/untick a day; writes routine_progress through the shared API. */
   const toggleDay = React.useCallback(
     async (day: SheetDay) => {
       if (pending.has(day.date)) return;
       const next = done.has(day.date) ? "pending" : "done";
-      const anchor = day.rows.find((row) => (row.slot_label ?? "").startsWith("P1 Main")) ?? day.rows[0];
+      const anchor =
+        day.rows.find((row) => (row.slot_label ?? "").startsWith("P1 Main")) ?? day.rows[0];
       if (!anchor) return;
 
       setSaveError(null);
@@ -147,7 +153,6 @@ export function Routine90DaySheet({
     [course.id, done, pending],
   );
 
-  // The MCQ row of the plan: its note carries the official split.
   const mcqRow = React.useMemo(() => {
     for (const day of course.days) {
       const hit = day.rows.find((row) => (row.slot_label ?? "").startsWith("MCQ"));
@@ -162,7 +167,6 @@ export function Routine90DaySheet({
   );
   const mcqTotal = mcqSplit.p1 + mcqSplit.p2 + mcqSplit.p3 + mcqSplit.revisit;
 
-  // Slot minutes come from the rows, not from a constant in this file.
   const slotMinutes = React.useMemo(() => {
     const minutes: Record<GridSlotKey, number | null> = { p1: null, p2: null, p3: null };
     for (const day of course.days) {
@@ -178,243 +182,301 @@ export function Routine90DaySheet({
   const lastDay = course.days[course.days.length - 1];
   const completedCount = course.days.filter((day) => done.has(day.date)).length;
 
-  // 90 rows is a lot of scrolling on a phone: start at the first unfinished
-  // day and show a fortnight, with one tap to reveal the whole plan.
   const firstPending = course.days.findIndex((day) => !done.has(day.date));
   const windowStart = showAll ? 0 : Math.max(0, firstPending === -1 ? 0 : firstPending);
   const windowEnd = showAll ? course.days.length : Math.min(course.days.length, windowStart + 14);
   const visible = course.days.slice(windowStart, windowEnd);
 
   return (
-    <div className="space-y-5">
-      {/* ── header: dates + the four fixed slots ─────────────────────────── */}
-      <header className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-4">
-        <p className="text-center text-[1.0625rem] font-bold tracking-tight text-[var(--text)]">
-          {firstDay && lastDay
-            ? `${toBengaliDigits(firstDay.day_number)} · ${formatDate(`${firstDay.date}T12:00:00`, "bn", { day: "numeric", month: "short" })} – ${toBengaliDigits(lastDay.day_number)} · ${formatDate(`${lastDay.date}T12:00:00`, "bn", { day: "numeric", month: "short" })}`
-            : "৯০ দিনের রুটিন"}
-        </p>
-        <p className="mt-1 text-center text-[0.75rem] text-[var(--text-muted)]">
-          মোট {toBengaliDigits(course.days.length)} দিন · P1 + P2 + P3/P4
-        </p>
+    <div className="space-y-6">
+      {/* ── header ───────────────────────────────────────────────────────── */}
+      <header className="jh-card overflow-hidden">
+        <div className="px-5 pt-5 pb-4" style={{ background: "linear-gradient(180deg, #f7f8fd, #ffffff)" }}>
+          <p className="jh-nums text-center text-[1.25rem] font-bold tracking-tight text-[var(--text)]">
+            {firstDay && lastDay ? (
+              <>
+                দিন {bn(firstDay.day_number)} · {dayRange(firstDay)}
+                <span className="mx-2 text-[var(--text-subtle)]">—</span>
+                দিন {bn(lastDay.day_number)} · {dayRange(lastDay)}
+              </>
+            ) : (
+              "৯০ দিনের রুটিন"
+            )}
+          </p>
+          <p className="mt-1 text-center text-[0.8125rem] text-[var(--text-muted)]">
+            মোট {bn(course.days.length)} দিন · P1 + P2 + P3/P4
+          </p>
+        </div>
 
-        <dl className="mt-3 grid gap-1 text-[0.75rem] text-[var(--text-muted)] sm:grid-cols-2">
-          <div className="flex gap-1.5">
-            <dt className="font-semibold text-[var(--text)]">শুরু:</dt>
-            <dd>
-              {firstDay
-                ? formatDate(`${firstDay.date}T12:00:00`, "bn", {
-                    weekday: "long",
-                    day: "numeric",
-                    month: "long",
-                    year: "numeric",
-                  })
-                : "—"}
-            </dd>
-          </div>
-          <div className="flex gap-1.5">
-            <dt className="font-semibold text-[var(--text)]">শেষ:</dt>
-            <dd>
-              {lastDay
-                ? formatDate(`${lastDay.date}T12:00:00`, "bn", {
-                    weekday: "long",
-                    day: "numeric",
-                    month: "long",
-                    year: "numeric",
-                  })
-                : "—"}
-            </dd>
-          </div>
+        <dl className="mx-5 grid gap-2 border-t border-[var(--border)] py-4 text-[0.8125rem] sm:grid-cols-2">
+          {(
+            [
+              ["শুরু", firstDay],
+              ["শেষ", lastDay],
+            ] as const
+          ).map(([label, day]) => (
+            <div key={label} className="flex gap-2">
+              <dt className="font-semibold text-[var(--text)]">{label}:</dt>
+              <dd className="text-[var(--text-muted)]">
+                {day
+                  ? formatDate(`${day.date}T12:00:00`, "bn", {
+                      weekday: "long",
+                      day: "numeric",
+                      month: "long",
+                      year: "numeric",
+                    })
+                  : "—"}
+              </dd>
+            </div>
+          ))}
         </dl>
 
-        <p className="mt-3 text-[0.75rem] font-semibold text-[var(--text)]">
-          প্রতিদিনের সময় অপরিবর্তিত:
-        </p>
-        <ul className="mt-1 grid gap-1 text-[0.75rem] text-[var(--text-muted)] sm:grid-cols-2">
-          {GRID_SLOTS.map((slot) => (
-            <li key={slot.slot} className="flex items-center gap-1.5">
-              <span className="size-2 shrink-0 rounded-full" style={{ backgroundColor: slot.dot }} />
-              {slot.title} — {toBengaliDigits(slotMinutes[slot.slot] ?? slot.minutes)} মিনিট
+        <div className="mx-5 border-t border-[var(--border)] py-4">
+          <p className="mb-2 text-[0.8125rem] font-semibold text-[var(--text)]">
+            প্রতিদিনের সময় অপরিবর্তিত
+          </p>
+          <ul className="grid gap-2 sm:grid-cols-2">
+            {GRID_SLOTS.map((slot) => {
+              const style = SLOT_STYLE[slot.slot];
+              return (
+                <li key={slot.slot} className="flex items-center gap-2 text-[0.8125rem]">
+                  <span
+                    className="inline-flex shrink-0 items-center rounded px-1.5 py-0.5 text-[0.6875rem] font-bold"
+                    style={{ backgroundColor: style.pill, color: style.accent }}
+                  >
+                    {style.label}
+                  </span>
+                  <span className="jh-nums text-[var(--text-muted)]">
+                    {bn(slotMinutes[slot.slot] ?? slot.minutes)} মিনিট
+                  </span>
+                </li>
+              );
+            })}
+            <li className="flex items-center gap-2 text-[0.8125rem]">
+              <span className="inline-flex shrink-0 items-center rounded bg-[#eceef4] px-1.5 py-0.5 text-[0.6875rem] font-bold text-[#4a5372]">
+                MCQ · মূল্যায়ন
+              </span>
+              <span className="jh-nums text-[var(--text-muted)]">{bn(mcqRow?.minutes ?? 50)} মিনিট</span>
             </li>
-          ))}
-          <li className="flex items-center gap-1.5">
-            <span className="size-2 shrink-0 rounded-full bg-[#7c8698]" />
-            MCQ পরীক্ষা ও ভুল বিশ্লেষণ — {toBengaliDigits(mcqRow?.minutes ?? 50)} মিনিট
-          </li>
-        </ul>
-        <p className="mt-3 border-t border-[var(--border)] pt-2 text-[0.75rem] text-[var(--text-subtle)]">
-          নিচে প্রতিদিনের তারিখসহ পূর্ণ রুটিন। Topic-এর শেষে parentheses-এ Subtopics দেখানো হয়েছে।
+          </ul>
+        </div>
+
+        <p className="mx-5 border-t border-[var(--border)] py-3 text-[0.75rem] text-[var(--text-muted)]">
+          প্রতিটি দিনের কার্ডে তিনটি স্লট আলাদা রঙে সাজানো। টপিকের নিচে ছোট করে subtopics দেখানো হয়েছে।
         </p>
       </header>
 
       {saveError ? (
-        <p role="alert" className="rounded-md border border-[#e5b4b4] bg-[#fdf3f3] px-3 py-2 text-[0.75rem] text-[#a02b2b]">
+        <p
+          role="alert"
+          className="rounded-lg border border-[#e8b6b6] bg-[#fdf3f3] px-3.5 py-2.5 text-[0.8125rem] font-medium text-[#8f2424]"
+        >
           {saveError}
         </p>
       ) : null}
 
-      {/* ── the three phase tables ───────────────────────────────────────── */}
-      {visible.map((day, index) => {
-        const phase = phaseForDay(day.day_number);
-        const previous = index === 0 ? null : visible[index - 1];
-        const startsPhase =
-          phase != null && (previous == null || phaseForDay(previous.day_number) !== phase);
-        const isDone = done.has(day.date);
-        const isBusy = pending.has(day.date);
-        const isOpen = open[day.date] ?? false;
+      {/* ── day cards ────────────────────────────────────────────────────── */}
+      <div className="space-y-4">
+        {visible.map((day, index) => {
+          const phase = phaseForDay(day.day_number);
+          const previous = index === 0 ? null : visible[index - 1];
+          const startsPhase =
+            phase != null && (previous == null || phaseForDay(previous.day_number) !== phase);
+          const isDone = done.has(day.date);
+          const isBusy = pending.has(day.date);
+          const isOpen = open[day.date] ?? false;
 
-        const bySlot = new Map<GridSlotKey, RoutineLineInput[]>();
-        for (const row of day.rows) {
-          const slot = gridSlotFor(row.slot_label ?? null);
-          if (!slot) continue;
-          const list = bySlot.get(slot) ?? [];
-          list.push(row);
-          bySlot.set(slot, list);
-        }
+          const bySlot = new Map<GridSlotKey, RoutineLineInput[]>();
+          for (const row of day.rows) {
+            const slot = gridSlotFor(row.slot_label ?? null);
+            if (!slot) continue;
+            const list = bySlot.get(slot) ?? [];
+            list.push(row);
+            bySlot.set(slot, list);
+          }
+          const extras = day.rows.filter((row) => gridSlotFor(row.slot_label ?? null) === null);
 
-        return (
-          <React.Fragment key={day.date}>
-            {startsPhase && phase ? (
-              <h3 className="pt-2 text-[1rem] font-bold tracking-tight" style={{ color: NAVY }}>
-                Phase {toBengaliDigits(PHASES.indexOf(phase) + 1)} — দিন{" "}
-                {toBengaliDigits(phase.from)}–{toBengaliDigits(phase.to)}
-              </h3>
-            ) : null}
-
-            <div className="overflow-hidden rounded-md border" style={{ borderColor: GRID_LINE }}>
-              <div className="grid" style={{ gridTemplateColumns: "7rem 1fr 1fr 1fr" }}>
-                {(previous == null || startsPhase) && (
-                  <>
-                    <div
-                      className="border-b bg-[#eef0f6] px-2 py-1 text-[0.625rem] font-bold text-[var(--text)]"
-                      style={{ borderColor: GRID_LINE }}
-                    >
-                      দিন ও তারিখ
-                    </div>
-                    {GRID_SLOTS.map((slot) => (
-                      <div
-                        key={slot.slot}
-                        className="flex items-center justify-center gap-1 border-b border-l bg-[#eef0f6] px-2 py-1 text-[0.625rem] font-bold text-[var(--text)]"
-                        style={{ borderColor: GRID_LINE }}
-                      >
-                        <span className="size-1.5 rounded-full" style={{ backgroundColor: slot.dot }} />
-                        {slot.title}
-                      </div>
-                    ))}
-                  </>
-                )}
-
-                <button
-                  type="button"
-                  onClick={() => setOpen((current) => ({ ...current, [day.date]: !isOpen }))}
-                  className="flex items-start gap-1 border-b px-2 py-1 text-left text-[0.6875rem] font-semibold text-[var(--text)] hover:bg-[var(--surface-muted)]"
-                  style={{ borderColor: GRID_LINE }}
-                  aria-expanded={isOpen}
-                >
-                  {isOpen ? (
-                    <ChevronDown className="mt-0.5 size-3 shrink-0" aria-hidden />
-                  ) : (
-                    <ChevronRight className="mt-0.5 size-3 shrink-0" aria-hidden />
-                  )}
-                  <span>
-                    {dayLabel(day)}
-                    {isDone ? (
-                      <Check
-                        className="ml-1 inline size-3 align-text-bottom"
-                        style={{ color: GREEN }}
-                        aria-label="সম্পন্ন"
-                      />
-                    ) : null}
+          return (
+            <React.Fragment key={day.date}>
+              {startsPhase && phase ? (
+                <div className="flex items-center gap-3 pt-3">
+                  <span
+                    className="rounded-md px-2 py-1 text-[0.75rem] font-bold text-white"
+                    style={{ backgroundColor: NAVY }}
+                  >
+                    Phase {bn(PHASES.indexOf(phase) + 1)}
                   </span>
-                </button>
+                  <span className="text-[0.8125rem] font-semibold text-[var(--text)]">
+                    দিন {bn(phase.from)}–{bn(phase.to)}
+                  </span>
+                  <span className="h-px flex-1 bg-[var(--border)]" />
+                </div>
+              ) : null}
 
-                {GRID_SLOTS.map((slot) => {
-                  const cell = cellFrom(bySlot.get(slot.slot) ?? []);
-                  return (
-                    <div
-                      key={slot.slot}
-                      className="border-b border-l px-2 py-1 text-[0.6875rem] leading-snug text-[var(--text)]"
-                      style={{ borderColor: GRID_LINE }}
-                    >
-                      {cell ? (
-                        <>
-                          {cell.subject ? <span className="font-semibold">{cell.subject}: </span> : null}
-                          {cell.text}
-                        </>
-                      ) : (
-                        <span className="text-[var(--text-subtle)]">—</span>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* expanded: this day's non-study rows (MCQ, revision notes) */}
-              {isOpen ? (
+              <section
+                className="overflow-hidden rounded-xl border bg-[var(--surface)] shadow-[0_1px_2px_rgba(22,26,51,0.05)]"
+                style={{ borderColor: isDone ? "#bfe3cf" : "#dfe3f0" }}
+              >
+                {/* day header */}
                 <div
-                  className="border-t bg-[var(--surface-muted)] px-3 py-2"
-                  style={{ borderColor: GRID_LINE }}
+                  className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5"
+                  style={{ backgroundColor: NAVY }}
                 >
-                  <p className="text-[0.625rem] font-bold text-[var(--text)]">
-                    {formatDate(`${day.date}T12:00:00`, "bn", { weekday: "long" })} · দিন{" "}
-                    {toBengaliDigits(day.day_number)}
-                  </p>
-                  <ul className="mt-1 space-y-1">
-                    {day.rows
-                      .filter((row) => gridSlotFor(row.slot_label ?? null) === null)
-                      .map((row) => (
-                        <li key={row.id} className="text-[0.6875rem] text-[var(--text-muted)]">
-                          <span className="font-semibold text-[var(--text)]">{row.title_bn}</span>
-                          {row.focus_note_bn ? <> — {row.focus_note_bn}</> : null}
-                        </li>
-                      ))}
-                  </ul>
+                  <div className="flex items-center gap-2">
+                    {isDone ? (
+                      <span
+                        className="flex size-5 items-center justify-center rounded-full"
+                        style={{ backgroundColor: "#3fbf7f" }}
+                      >
+                        <Check className="size-3 text-white" aria-hidden />
+                      </span>
+                    ) : null}
+                    <h3 className="jh-nums text-[0.9375rem] font-bold text-white">
+                      দিন {bn(day.day_number)}
+                      <span className="mx-1.5 font-normal text-white/50">—</span>
+                      {dayRange(day)}
+                      <span className="mx-1.5 font-normal text-white/50">—</span>
+                      <span className="font-semibold">
+                        {formatDate(`${day.date}T12:00:00`, "bn", { weekday: "long" })}
+                      </span>
+                    </h3>
+                  </div>
+                  <span className="jh-nums rounded-full bg-white/15 px-2.5 py-0.5 text-[0.6875rem] font-semibold text-white">
+                    {bn(day.rows.reduce((sum, row) => sum + row.minutes, 0))} মিনিট
+                  </span>
+                </div>
+
+                {/* three study slots — one row each, colour-led */}
+                <div className="divide-y divide-[var(--border)]">
+                  {GRID_SLOTS.map((slot) => {
+                    const style = SLOT_STYLE[slot.slot];
+                    const cell = cellFrom(bySlot.get(slot.slot) ?? []);
+                    return (
+                      <div key={slot.slot} className="flex flex-col gap-1 px-4 py-3 sm:flex-row sm:gap-4">
+                        <div className="flex shrink-0 items-start gap-2 sm:w-[9.5rem] sm:flex-col sm:gap-1">
+                          <span
+                            className="inline-flex items-center rounded px-1.5 py-0.5 text-[0.6875rem] font-bold whitespace-nowrap"
+                            style={{ backgroundColor: style.pill, color: style.accent }}
+                          >
+                            {style.label}
+                          </span>
+                          <span className="jh-nums text-[0.75rem] text-[var(--text-subtle)]">
+                            {bn(slotMinutes[slot.slot] ?? slot.minutes)} মিনিট
+                          </span>
+                        </div>
+
+                        <div className="min-w-0 flex-1">
+                          {cell ? (
+                            <>
+                              {cell.subject ? (
+                                <p className="text-[0.875rem] font-bold text-[var(--text)]">
+                                  {cell.subject}
+                                </p>
+                              ) : null}
+                              {cell.topics.map((entry) => (
+                                <div key={entry.topic} className="mt-1 first:mt-0">
+                                  <p className="text-[0.875rem] font-semibold leading-snug text-[var(--text)]">
+                                    {entry.topic}
+                                  </p>
+                                  {entry.subtopics.length > 0 ? (
+                                    <p className="mt-0.5 text-[0.75rem] leading-relaxed text-[var(--text-muted)]">
+                                      {entry.subtopics.join(" · ")}
+                                    </p>
+                                  ) : null}
+                                </div>
+                              ))}
+                              {cell.text ? (
+                                <p className="text-[0.8125rem] leading-relaxed text-[var(--text-muted)]">
+                                  {cell.text}
+                                </p>
+                              ) : null}
+                            </>
+                          ) : (
+                            <p className="text-[0.8125rem] text-[var(--text-subtle)]">
+                              এই দিনে এই স্লটে কিছু নেই
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* footnote: MCQ split + day actions */}
+                <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[var(--border)] bg-[var(--surface-muted)] px-4 py-2">
+                  <button
+                    type="button"
+                    onClick={() => setOpen((current) => ({ ...current, [day.date]: !isOpen }))}
+                    aria-expanded={isOpen}
+                    className="inline-flex items-center gap-1 text-[0.75rem] font-semibold text-[var(--text-muted)] hover:text-[var(--text)]"
+                  >
+                    {isOpen ? <ChevronDown className="size-3.5" aria-hidden /> : <ChevronRight className="size-3.5" aria-hidden />}
+                    MCQ {bn(mcqRow?.minutes ?? 50)} মিনিট
+                    {isOpen ? " — লুকান" : " — বিস্তারিত"}
+                  </button>
+
                   <button
                     type="button"
                     disabled={isBusy}
                     onClick={() => void toggleDay(day)}
-                    className="mt-2 inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[0.6875rem] font-semibold text-white disabled:opacity-60"
+                    className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[0.75rem] font-semibold text-white transition-opacity disabled:opacity-60"
                     style={{ backgroundColor: isDone ? "#5b6478" : GREEN }}
                   >
                     <Check className="size-3" aria-hidden />
-                    {isDone ? "সম্পন্ন টিক তুলুন" : "দিনটি সম্পন্ন করুন"}
+                    {isDone ? "সম্পন্ন — টিক তুলুন" : "সম্পন্ন করুন"}
                   </button>
                 </div>
-              ) : null}
-            </div>
-          </React.Fragment>
-        );
-      })}
+
+                {isOpen ? (
+                  <div className="border-t border-[var(--border)] px-4 py-3">
+                    <p className="text-[0.75rem] font-semibold text-[var(--text)]">
+                      দিনের বাকি কাজ
+                    </p>
+                    <ul className="mt-1.5 space-y-1.5">
+                      {extras.length === 0 ? (
+                        <li className="text-[0.75rem] text-[var(--text-subtle)]">অতিরিক্ত কিছু নেই</li>
+                      ) : (
+                        extras.map((row) => (
+                          <li key={row.id} className="text-[0.75rem] leading-relaxed text-[var(--text-muted)]">
+                            <span className="font-semibold text-[var(--text)]">{row.title_bn}</span>
+                            {row.focus_note_bn ? <> — {row.focus_note_bn}</> : null}
+                          </li>
+                        ))
+                      )}
+                    </ul>
+                  </div>
+                ) : null}
+              </section>
+            </React.Fragment>
+          );
+        })}
+      </div>
 
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-[0.6875rem] text-[var(--text-subtle)]">
+        <p className="jh-nums text-[0.75rem] text-[var(--text-muted)]">
           {showAll
-            ? `${toBengaliDigits(course.days.length)} দিনের সব দেখানো হচ্ছে`
-            : `দিন ${toBengaliDigits(visible[0]?.day_number ?? 1)}–${toBengaliDigits(visible[visible.length - 1]?.day_number ?? 1)} দেখানো হচ্ছে`}
+            ? `${bn(course.days.length)} দিনের সব দেখানো হচ্ছে`
+            : `দিন ${bn(visible[0]?.day_number ?? 1)}–${bn(visible[visible.length - 1]?.day_number ?? 1)} দেখানো হচ্ছে`}
         </p>
         <button
           type="button"
           onClick={() => setShowAll((current) => !current)}
-          className="rounded-md border border-[var(--border)] px-3 py-1.5 text-[0.6875rem] font-semibold text-[var(--text)] hover:bg-[var(--surface-muted)]"
+          className="rounded-lg border border-[var(--border-strong)] px-3.5 py-2 text-[0.8125rem] font-semibold text-[var(--text)] hover:bg-[var(--surface-muted)]"
         >
-          {showAll ? "শুধু সামনের ১৪ দিন" : `সব ${toBengaliDigits(course.days.length)} দিন দেখুন`}
+          {showAll ? "শুধু সামনের ১৪ দিন" : `সব ${bn(course.days.length)} দিন দেখুন`}
         </button>
       </div>
 
       {/* ── প্রতিদিনের MCQ ও মূল্যায়ন ─────────────────────────────────────── */}
-      <section className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-4">
-        <h3 className="mb-2 text-[0.9375rem] font-bold" style={{ color: NAVY }}>
+      <section className="jh-card p-5">
+        <h3 className="mb-3 text-[1rem] font-bold" style={{ color: NAVY }}>
           প্রতিদিনের MCQ ও মূল্যায়ন
         </h3>
-        <table className="w-full border-collapse text-[0.75rem]">
+        <table className="w-full border-collapse text-[0.8125rem]">
           <thead>
-            <tr className="bg-[#eef0f6]">
+            <tr className="bg-[#f4f6fb]">
               {["বিভাগ", "প্রশ্ন", "নম্বর"].map((heading) => (
-                <th
-                  key={heading}
-                  className="border px-2 py-1 text-left font-bold"
-                  style={{ borderColor: GRID_LINE }}
-                >
+                <th key={heading} className="border border-[#dbe0ee] px-2.5 py-1.5 text-left font-bold text-[var(--text)]">
                   {heading}
                 </th>
               ))}
@@ -426,24 +488,24 @@ export function Routine90DaySheet({
                 ["P1 Main", mcqSplit.p1],
                 ["P2 Second", mcqSplit.p2],
                 ["P3/P4 Third", mcqSplit.p3],
-                ["Previous studied topics", mcqSplit.revisit],
+                ["আগে পড়া টপিক", mcqSplit.revisit],
               ] as const
             ).map(([label, value]) => (
               <tr key={label}>
-                <td className="border px-2 py-1" style={{ borderColor: GRID_LINE }}>{label}</td>
-                <td className="border px-2 py-1" style={{ borderColor: GRID_LINE }}>{toBengaliDigits(value)}</td>
-                <td className="border px-2 py-1" style={{ borderColor: GRID_LINE }}>{toBengaliDigits(value)}</td>
+                <td className="border border-[#dbe0ee] px-2.5 py-1.5 text-[var(--text)]">{label}</td>
+                <td className="jh-nums border border-[#dbe0ee] px-2.5 py-1.5 text-[var(--text-muted)]">{bn(value)}</td>
+                <td className="jh-nums border border-[#dbe0ee] px-2.5 py-1.5 text-[var(--text-muted)]">{bn(value)}</td>
               </tr>
             ))}
-            <tr className="font-bold">
-              <td className="border px-2 py-1" style={{ borderColor: GRID_LINE }}>মোট</td>
-              <td className="border px-2 py-1" style={{ borderColor: GRID_LINE }}>{toBengaliDigits(mcqTotal)}</td>
-              <td className="border px-2 py-1" style={{ borderColor: GRID_LINE }}>{toBengaliDigits(mcqTotal)}</td>
+            <tr className="bg-[#f7f8fd] font-bold">
+              <td className="border border-[#dbe0ee] px-2.5 py-1.5 text-[var(--text)]">মোট</td>
+              <td className="jh-nums border border-[#dbe0ee] px-2.5 py-1.5 text-[var(--text)]">{bn(mcqTotal)}</td>
+              <td className="jh-nums border border-[#dbe0ee] px-2.5 py-1.5 text-[var(--text)]">{bn(mcqTotal)}</td>
             </tr>
           </tbody>
         </table>
-        <ul className="mt-2 space-y-0.5 text-[0.75rem] text-[var(--text-muted)]">
-          <li>• সময়: {toBengaliDigits(mcqRow?.minutes ?? 50)} মিনিট।</li>
+        <ul className="mt-3 space-y-1 text-[0.8125rem] leading-relaxed text-[var(--text-muted)]">
+          <li>• সময়: {bn(mcqRow?.minutes ?? 50)} মিনিট।</li>
           <li>• সঠিক উত্তর: +১।</li>
           <li>• ভুল উত্তর: −০.২৫।</li>
           <li>• উত্তর না দিলে: ০।</li>
@@ -452,22 +514,22 @@ export function Routine90DaySheet({
       </section>
 
       {/* ── ৯০ দিনের Progress Tracker ─────────────────────────────────────── */}
-      <section className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-4">
-        <h3 className="mb-1 text-[0.9375rem] font-bold" style={{ color: NAVY }}>
+      <section className="jh-card p-5">
+        <h3 className="mb-1 text-[1rem] font-bold" style={{ color: NAVY }}>
           ৯০ দিনের Progress Tracker
         </h3>
-        <p className="text-[0.75rem] font-semibold text-[var(--text)]">
-          Daily completion — {toBengaliDigits(completedCount)}/{toBengaliDigits(course.days.length)} দিন
+        <p className="jh-nums text-[0.8125rem] font-semibold text-[var(--text)]">
+          Daily completion — {bn(completedCount)}/{bn(course.days.length)} দিন
         </p>
         <div
-          className="mt-2 h-2 w-full overflow-hidden rounded-full bg-[var(--surface-muted)]"
+          className="mt-2.5 h-2 w-full overflow-hidden rounded-full bg-[var(--surface-muted)]"
           role="progressbar"
           aria-valuenow={completedCount}
           aria-valuemin={0}
           aria-valuemax={course.days.length}
         >
           <div
-            className="h-full rounded-full"
+            className="h-full rounded-full transition-[width] duration-300"
             style={{
               backgroundColor: GREEN,
               width: `${course.days.length === 0 ? 0 : Math.round((completedCount / course.days.length) * 100)}%`,
@@ -475,7 +537,7 @@ export function Routine90DaySheet({
           />
         </div>
 
-        <div className="mt-3 space-y-2">
+        <div className="mt-4 space-y-3">
           {PHASES.map((phase, phaseIndex) => {
             const inPhase = course.days.filter(
               (day) => day.day_number >= phase.from && day.day_number <= phase.to,
@@ -483,11 +545,11 @@ export function Routine90DaySheet({
             const phaseDone = inPhase.filter((day) => done.has(day.date)).length;
             return (
               <div key={phase.label}>
-                <p className="text-[0.6875rem] font-semibold text-[var(--text)]">
-                  Phase {toBengaliDigits(phaseIndex + 1)} — {phase.label.split(" · ")[1]} —{" "}
-                  {toBengaliDigits(phaseDone)}/{toBengaliDigits(inPhase.length)}
+                <p className="jh-nums text-[0.75rem] font-semibold text-[var(--text)]">
+                  Phase {bn(phaseIndex + 1)} — {phase.label.split(" · ")[1]} — {bn(phaseDone)}/
+                  {bn(inPhase.length)}
                 </p>
-                <div className="mt-1 flex flex-wrap gap-1">
+                <div className="mt-1.5 flex flex-wrap gap-1.5">
                   {inPhase.map((day) => {
                     const isDone = done.has(day.date);
                     return (
@@ -496,16 +558,16 @@ export function Routine90DaySheet({
                         type="button"
                         disabled={pending.has(day.date)}
                         onClick={() => void toggleDay(day)}
-                        title={`দিন ${toBengaliDigits(day.day_number)} · ${dayLabel(day)}`}
+                        title={`দিন ${bn(day.day_number)} · ${dayRange(day)}`}
                         aria-pressed={isDone}
-                        aria-label={`দিন ${toBengaliDigits(day.day_number)} ${isDone ? "সম্পন্ন" : "সম্পন্ন নয়"}`}
-                        className="flex size-6 items-center justify-center rounded text-[0.5625rem] font-semibold transition-colors disabled:opacity-60"
+                        aria-label={`দিন ${bn(day.day_number)} ${isDone ? "সম্পন্ন" : "সম্পন্ন নয়"}`}
+                        className="jh-nums flex size-7 items-center justify-center rounded-md text-[0.6875rem] font-semibold transition-colors disabled:opacity-60"
                         style={{
-                          backgroundColor: isDone ? GREEN : "#eef0f6",
-                          color: isDone ? "#ffffff" : "#5b6478",
+                          backgroundColor: isDone ? GREEN : "#eef0f7",
+                          color: isDone ? "#ffffff" : "#3f4866",
                         }}
                       >
-                        {toBengaliDigits(day.day_number)}
+                        {bn(day.day_number)}
                       </button>
                     );
                   })}
@@ -514,15 +576,10 @@ export function Routine90DaySheet({
             );
           })}
         </div>
-        <p className="mt-3 text-[0.6875rem] text-[var(--text-subtle)]">
+        <p className="mt-3 text-[0.75rem] text-[var(--text-muted)]">
           সবুজ = সম্পন্ন। কোনো সংখ্যায় টিক দিলে সেটি সেভ হয় এবং রুটিন পেজের বাকি অংশেও সম্পন্ন হিসেবে দেখায়।
         </p>
       </section>
     </div>
   );
-}
-
-/** Bengali numerals, matching the printed plan (১ ২ ৩ …). */
-function toBengaliDigits(value: number | string): string {
-  return String(value).replace(/\d/g, (digit) => "০১২৩৪৫৬৭৮৯"[Number(digit)]);
 }

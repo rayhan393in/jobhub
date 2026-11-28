@@ -80,7 +80,7 @@
   --border-strong: #d4d9ec;
   --text: #161a33;
   --text-muted: #5d6489;
-  --text-subtle: #828aae;
+  --text-subtle: #68708f; /* 4.88:1 on white — WCAG AA; was #828aae at 3.39:1 */
   --brand: #6d28d9;
   --brand-soft: #f2ecff;
   --accent: #8226e8;
@@ -98,7 +98,7 @@
   --border-strong: #333a5e;
   --text: #eef1ff;
   --text-muted: #a6adcf;
-  --text-subtle: #7d85ab;
+  --text-subtle: #959dc2; /* 6.22:1 on #191d34 — WCAG AA; was #7d85ab at 4.59:1 */
   --brand: #a78bfa;
   --brand-soft: #2a2150;
   --accent: #c39bff;
@@ -154,6 +154,31 @@ video {
 .font-bangla {
   font-family: var(--font-bangla);
   letter-spacing: 0.002em;
+}
+
+/*
+ * Bangla needs more room than Latin at the same px size: Anek Bangla's x-height
+ * and matra depth make a 0.6875rem string read noticeably smaller and tighter
+ * than Inter at 0.6875rem. Dense data views (routine, syllabus tables) opt into
+ * these instead of shrinking further, which is what made the routine look
+ * "হালকা ও অস্পষ্ট".
+ */
+.jh-bn-body {
+  font-family: var(--font-bangla);
+  font-size: 0.8125rem; /* 13px — one step up from the 11px matrix default */
+  line-height: 1.65;
+}
+
+.jh-bn-caption {
+  font-family: var(--font-bangla);
+  font-size: 0.75rem; /* 12px — never below this for Bangla body text */
+  line-height: 1.6;
+  color: var(--text-muted);
+}
+
+/* Tabular figures: leave columns (minutes, marks, counts) line up. */
+.jh-nums {
+  font-variant-numeric: tabular-nums;
 }
 
 ::selection {
