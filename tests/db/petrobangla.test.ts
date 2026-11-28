@@ -212,7 +212,12 @@ describe("coverage engine reuse (course-generic)", () => {
     const bcsAssignments = Number(
       await scalar(db, `select count(*) from public.study_plan_assignments where course_id = $1`, [bcsCourseId]),
     );
-    expect(bcsAssignments).toBe(504);
+    // 503 rows from 20261214000000 is the real baseline: its unit list is built
+    // from the subtopics its own claim step kept, not from all 504, so one
+    // retired-shape unit never gets a row. 20261219000000 adds the 2 subtopics
+    // বাংলা/পদ and বাংলা/প্রয়োগ ও অপ্রয়োগ with their first-study rows, keeping
+    // coverage at 100% (verified by jh_coverage_unassigned returning nothing).
+    expect(bcsAssignments).toBe(505);
   });
 });
 
