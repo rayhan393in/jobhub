@@ -195,6 +195,19 @@ export function parseMcqSplit(note: string | null | undefined): {
   return { p1, p2, p3, revisit };
 }
 
+/**
+ * MCQ marking scheme, as the platform actually scores it.
+ *
+ * These must NOT be re-typed per view: `exam_schedules` defaults to
+ * `positive_marks 1` / `negative_marks 0.5`, and the routine's own handout said
+ * −০.২৫. Shipping the wrong penalty on a study plan is the kind of error a
+ * student only discovers in a mock, so the defaults live in one place and a
+ * caller with real exam config should pass it in.
+ */
+export const MCQ_MARKING = { correct: 1, wrong: 0.5, unanswered: 0 };
+
+export type McqMarking = { correct: number; wrong: number; unanswered: number };
+
 /** Attach টপিক → সাবটপিক pairs (study_plan_assignments) to each routine row. */
 export function topicsForRoutine(
   assigned: Map<string, string[]> | undefined,

@@ -9,12 +9,17 @@
 /* ==========================================================================
    JobHub design system
    Deep indigo + violet identity, clean white surfaces, soft shadows.
-   Bangla-first typography (Anek Bangla) with Inter for Latin text.
+   Bangla-first typography (Noto Sans Bengali) with Inter for Latin text.
+   Noto is the Bangla face rather than Anek: its conjunct and matra shaping
+   holds up at the 12-14px the routine tables use, where Anek turns spidery.
    ========================================================================== */
 
 @theme inline {
   --font-sans: "Inter Variable", "Anek Bangla Variable", ui-sans-serif, system-ui, sans-serif;
-  --font-bangla: "Anek Bangla Variable", "Inter Variable", ui-sans-serif, sans-serif;
+  /* `Noto Sans Bengali` covers Bengali; Inter stays behind it so Latin
+     words inside a Bengali sentence keep their own metrics. */
+  --font-bangla: "Noto Sans Bengali Variable", "Anek Bangla Variable", "Inter Variable",
+    ui-sans-serif, system-ui, sans-serif;
 
   --color-ink-50: #f6f7fb;
   --color-ink-100: #eceefa;
@@ -87,6 +92,33 @@
   --success: #059669;
   --danger: #dc2626;
   --warning: #d97706;
+
+  /* The routine's three priority plates. Each carries an accent for text on its
+   * own tint plus a left rule, so P1/P2/P3-P4 stay distinguishable in greyscale.
+   * Ratios: P1 11.87, P2 6.25, P3 6.78 on their tints. */
+  --p1-ink: #1e2a63;
+  --p1-tint: #eef1fa;
+  --p1-rule: #2c3d8f;
+  --p2-ink: #8a4a00;
+  --p2-tint: #fdf3e4;
+  --p2-rule: #b8730a;
+  --p3-ink: #0f6046;
+  --p3-tint: #e8f6f0;
+  --p3-rule: #17795c;
+  /* The fourth accent is the revision/previously-studied category: violet, so it
+   * never collides with the three study priorities. 7.80 on its tint. */
+  --p4-ink: #5b21b6;
+  --p4-tint: #f3ecfd;
+  --p4-rule: #6d28d9;
+  --p1-header: #1e2a63;
+  --p1-header-done: #0f5f38;
+  --done-ink: #157a43;
+  /* Badge fills: the plate name sits on these in white, so each is the darker
+   * sibling of its accent. Ratios: 9.67 / 6.86 / 5.35 / 7.10. */
+  --p1-badge: #2c3d8f;
+  --p2-badge: #8a4a00;
+  --p3-badge: #17795c;
+  --p4-badge: #6d28d9;
 }
 
 .dark {
@@ -105,6 +137,29 @@
   --success: #34d399;
   --danger: #f87171;
   --warning: #fbbf24;
+
+  /* Dark twins for the priority plates — the light tints turn into pale slabs on
+   * a navy surface, so each ink gets lightened against a deep tint instead.
+   * Ratios on their tints: P1 8.10, P2 8.61, P3 8.66. */
+  --p1-ink: #b9c4f5;
+  --p1-tint: #232a4f;
+  --p1-rule: #7c8fe0;
+  --p2-ink: #f5c47f;
+  --p2-tint: #3a2a12;
+  --p2-rule: #e8a33d;
+  --p3-ink: #7fdcb6;
+  --p3-tint: #123028;
+  --p3-rule: #3fb98f;
+  --p4-ink: #c4b5fd;
+  --p4-tint: #2a2150;
+  --p4-rule: #c4b5fd;
+  --p1-header: #1e2a63;
+  --p1-header-done: #0f5f38;
+  --done-ink: #34d399;
+  --p1-badge: #2c3d8f;
+  --p2-badge: #8a4a00;
+  --p3-badge: #17795c;
+  --p4-badge: #6d28d9;
 }
 
 * {
