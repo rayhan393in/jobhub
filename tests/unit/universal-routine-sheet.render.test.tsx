@@ -189,8 +189,11 @@ describe("UniversalRoutineSheet", () => {
   });
 
   it("shows real progress and never invents it", () => {
-    expect(text(render())).toContain("০% সম্পন্ন (০/২ দিন)");
-    expect(text(render({ initialCompletedDates: ["2026-11-28"] }))).toContain("৫০% সম্পন্ন (১/২ দিন)");
+    expect(text(render())).toContain("০/২ দিন সম্পন্ন");
+    expect(text(render({ initialCompletedDates: ["2026-11-28"] }))).toContain("১/২ দিন সম্পন্ন");
+    // the percentage reads as its own bold figure, not buried in the sentence
+    expect(text(render())).toContain("০%");
+    expect(text(render({ initialCompletedDates: ["2026-11-28"] }))).toContain("৫০%");
   });
 
   it("exposes progress to assistive tech", () => {
@@ -233,6 +236,52 @@ describe("UniversalRoutineSheet", () => {
     const body = text(render());
     expect(body).not.toContain("প্রতিদিনের MCQ");
     expect(body).not.toContain("১০০ প্রশ্ন");
+  });
+
+  /**
+   * The strip used to render every fact as thin grey text on white with an
+   * identical grey icon, which is why it looked washed out beside the approved
+   * figure. Colour and weight are the fix, so they are pinned.
+   */
+  it("gives each overview fact a tinted icon tile and a bold value", () => {
+    const html = render();
+    // coloured tiles, not one repeated grey glyph
+    expect(html).toContain("var(--p1-tint)");
+    expect(html).toContain("var(--p2-tint)");
+    expect(html).toContain("var(--p3-tint)");
+    // values are extra-bold
+    expect(html).toContain("font-extrabold");
+    // and the four facts share one ruled card instead of five loose boxes
+    expect(html).toContain("border-r border-[var(--border)]");
+  });
+
+  it("colours each marks-bar item with its own accent", () => {
+    const html = render();
+    expect(html).toContain("var(--p1-rule)");
+    expect(html).toContain("var(--p2-rule)");
+    expect(html).toContain("var(--p3-rule)");
+    expect(html).toContain("var(--p4-rule)");
+    // the label and the number are coloured, not grey
+    expect(html).toContain("var(--p2-ink)");
+    expect(html).toContain("var(--p4-ink)");
+  });
+
+  it("labels each plate with the kind of work in that plate alone", () => {
+    // The revision row (P3/P4) must say রিভিশন; the study rows say মূল অধ্যয়ন.
+    // Reading the whole day's rows made every plate say মূল অধ্যয়ন.
+    const body = text(render());
+    const p3 = body.indexOf("শব্দার্থ");
+    expect(p3).toBeGreaterThan(-1);
+    // the work tag renders just before the subject inside the same plate
+    expect(body.slice(Math.max(0, p3 - 120), p3)).toContain("রিভিশন");
+    // and a first-study plate is not mislabelled as revision
+    const p1 = body.indexOf("ধ্বনি ও বর্ণ");
+    expect(body.slice(Math.max(0, p1 - 140), p1)).toContain("মূল অধ্যয়ন");
+  });
+
+  it("shows a coloured status pill for the routine", () => {
+    expect(text(render())).toContain("সক্রিয় রুটিন");
+    expect(text(render({ course: { ...course, status: "draft" } }))).toContain("ড্রাফট");
   });
 
   it("drops the old duplicate-checklist and empty-column patterns", () => {

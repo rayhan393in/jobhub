@@ -41,3 +41,4 @@ yarn-error.log*
 
 # python bytecode from the gen/ taxonomy renderers
 __pycache__/
+.preview-routine.html
