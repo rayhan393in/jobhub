@@ -217,6 +217,54 @@ describe("20261219000000 — BCS taxonomy unify", () => {
 
     await db.query(`delete from public.questions where id = $1`, [id]);
   });
+
+  it("classifies a same-subject match but not a cross-subject keyword", async () => {
+    // The rules are keyed on wording alone, so a Bengali literature question
+    // containing "ধারা" would score as "ধারার যোগফল" and a history question
+    // containing "বৃত্ত" as geometry. The `t.subject_id = m.subject_id`
+    // predicate in the UPDATE is the only thing preventing that; production
+    // has 27 such rows, which is why 669 stay null instead of 642. If someone
+    // removes the predicate to "improve coverage", the second assertion fails.
+    const subjectOf = async (slug: string) =>
+      String(
+        await scalar(
+          db,
+          `select id from public.subjects where course_id = $1 and slug = $2`,
+          [courseId, slug],
+        ),
+      );
+    const mathsSubject = await subjectOf("math");
+    const banglaSubject = await subjectOf("bangla");
+
+    const ins = async (subjectId: string, statement: string, fp: string) => {
+      const q = await rows<{ id: string }>(
+        db,
+        `insert into public.questions
+           (course_id, subject_id, statement, option_a, option_b, option_c,
+            option_d, correct_option, status, fingerprint, source_type)
+         values ($1, $2, $3, 'ক', 'খ', 'গ', 'ঘ', 1, 'draft', $4, 'ai_assisted')
+         returning id`,
+        [courseId, subjectId, statement, fp],
+      );
+      return q[0].id;
+    };
+
+    // Same keyword, deliberately filed under two different subjects.
+    const maths = await ins(mathsSubject, "সমান্তরাল ধারার সাধারণ পদ কত?", "jh-test-maths-dhara");
+    const literature = await ins(banglaSubject, "বাংলা সাহিত্যে ধারার বিবর্তন আলোচনা কর", "jh-test-bangla-dhara");
+
+    await migrate(db, ["20261219000000_bcs_taxonomy_unify.sql"]);
+
+    const got = await rows<{ id: string; topic_id: string | null }>(
+      db,
+      `select id, topic_id from public.questions where id = any($1::uuid[])`,
+      [[maths, literature]],
+    );
+    expect(got.find((r) => r.id === maths)?.topic_id).not.toBeNull();
+    expect(got.find((r) => r.id === literature)?.topic_id).toBeNull();
+
+    await db.query(`delete from public.questions where id = any($1::uuid[])`, [[maths, literature]]);
+  });
 });
 
 async function snapshot() {
