@@ -9,10 +9,10 @@ beforeAll(async () => {
 });
 
 describe("seed catalogue", () => {
-  it("creates 9 published courses (8 original + Petrobangla AE job-prep program)", async () => {
+  it("creates 10 published courses (8 original + Petrobangla AE + BCS Written)", async () => {
     await actAsService(db);
     const n = await scalar<number>(db, `select count(*)::int from public.courses where status='published'`);
-    expect(n).toBe(9);
+    expect(n).toBe(10);
     const jobPrep = await scalar<number>(
       db,
       `select count(*)::int from public.courses where status='published' and program_kind = 'job_prep'`,
