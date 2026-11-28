@@ -39,14 +39,16 @@ beforeAll(async () => {
     await rows<{ id: string }>(db, `select id from public.subjects where course_id = $1 order by sort_order`, [courseId])
   ).map((row) => row.id);
 
-  // Ground truth from the seeded taxonomy itself — never hardcoded.
+  // Ground truth from the seeded taxonomy itself — never hardcoded.  Only the
+  // ACTIVE syllabus rows count as units (retired rows keep their links but are
+  // not part of the plan).
   expectedSubtopics = Number(
     await scalar(
       db,
       `select count(*) from public.subtopics st
         join public.topics t on t.id = st.topic_id
         join public.subjects s on s.id = t.subject_id
-       where s.course_id = $1`,
+       where s.course_id = $1 and s.is_active and t.is_active and st.is_active`,
       [courseId],
     ),
   );
@@ -57,15 +59,17 @@ beforeAll(async () => {
         db,
         `select count(*) from public.topics t
           join public.subjects s on s.id = t.subject_id
-         where s.course_id = $1
-           and not exists (select 1 from public.subtopics st where st.topic_id = t.id)`,
+         where s.course_id = $1 and s.is_active and t.is_active
+           and not exists (select 1 from public.subtopics st where st.topic_id = t.id and st.is_active)`,
         [courseId],
       ),
     );
 });
 
-describe("jh_coverage_summary — before any assignment", () => {
-  it("counts every subtopic and every subtopic-less topic as an unassigned unit", async () => {
+describe("jh_coverage_summary — after the syllabus seed", () => {
+  // 20261214000000 seeds one first-study row per BCS subtopic, so a fresh
+  // database is already covered; the summary must still account for every unit.
+  it("counts every subtopic and every subtopic-less topic as a unit", async () => {
     await actAsService(db);
     const summary = await rows<{ units_total: string; units_assigned: string; units_unassigned: string }>(
       db,
@@ -76,7 +80,7 @@ describe("jh_coverage_summary — before any assignment", () => {
     const assigned = summary.reduce((sum, row) => sum + Number(row.units_assigned), 0);
     expect(units).toBe(expectedUnits);
     expect(units).toBeGreaterThanOrEqual(expectedSubtopics);
-    expect(assigned).toBe(0);
+    expect(assigned).toBe(expectedSubtopics);
   });
 });
 
@@ -126,7 +130,10 @@ describe("jh_generate_study_plan", () => {
       `select public.jh_generate_study_plan($1, $2)`,
       [courseId, ADMIN],
     );
-    expect(Number(result.jh_generate_study_plan.inserted)).toBe(expectedUnits);
+    // 20261214000000 already seeded one first-study row per syllabus subtopic,
+    // so every unit is covered and the generator creates nothing new — it
+    // never overwrites an existing (admin) assignment.
+    expect(Number(result.jh_generate_study_plan.inserted)).toBe(0);
     expect(result.jh_generate_study_plan.subjects_with_gaps).toEqual([]);
 
     await actAsService(db);

@@ -1,9 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getCurrentUser } from "@/lib/auth";
-import { can } from "@/lib/permissions";
 import { getServerClient } from "@/lib/supabase/server";
-import { fromDbError } from "@/lib/api";
+import { fromDbError, assertSameOrigin, requireApiPermission } from "@/lib/api";
 
 export const dynamic = "force-dynamic";
 
@@ -37,19 +35,10 @@ const actionSchema = z.object({
   action: z.enum(["publish", "cancel"]),
 });
 
-function sameOrigin(request: Request) {
-  const origin = request.headers.get("origin");
-  const host = request.headers.get("host");
-  return !origin || !host || new URL(origin).host === host;
-}
-
 /** Pre-flight validation used by the publisher UI before anything is written. */
 export async function GET(request: Request) {
-  const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "লগইন প্রয়োজন।" }, { status: 401 });
-  if (!can(user.role, "exam.publish")) {
-    return NextResponse.json({ error: "পরীক্ষা প্রকাশের অনুমতি নেই।" }, { status: 403 });
-  }
+  const guard = await requireApiPermission("exam.publish");
+  if ("error" in guard) return guard.error;
 
   const url = new URL(request.url);
   const courseId = url.searchParams.get("courseId");
@@ -90,12 +79,10 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "লগইন প্রয়োজন।" }, { status: 401 });
-  if (!can(user.role, "exam.publish")) {
-    return NextResponse.json({ error: "পরীক্ষা প্রকাশের অনুমতি নেই।" }, { status: 403 });
-  }
-  if (!sameOrigin(request)) return NextResponse.json({ error: "অবৈধ অনুরোধ।" }, { status: 403 });
+  const guard = await requireApiPermission("exam.publish");
+  if ("error" in guard) return guard.error;
+  const { user } = guard;
+  if (!assertSameOrigin(request)) return NextResponse.json({ error: "অবৈধ অনুরোধ।" }, { status: 403 });
 
   let raw: unknown;
   try {
@@ -182,12 +169,9 @@ export async function POST(request: Request) {
 }
 
 export async function PATCH(request: Request) {
-  const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "লগইন প্রয়োজন।" }, { status: 401 });
-  if (!can(user.role, "exam.publish")) {
-    return NextResponse.json({ error: "পরীক্ষা প্রকাশের অনুমতি নেই।" }, { status: 403 });
-  }
-  if (!sameOrigin(request)) return NextResponse.json({ error: "অবৈধ অনুরোধ।" }, { status: 403 });
+  const guard = await requireApiPermission("exam.publish");
+  if ("error" in guard) return guard.error;
+  if (!assertSameOrigin(request)) return NextResponse.json({ error: "অবৈধ অনুরোধ।" }, { status: 403 });
 
   const parsed = actionSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "অবৈধ অনুরোধ।" }, { status: 422 });

@@ -1,9 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getCurrentUser } from "@/lib/auth";
-import { can } from "@/lib/permissions";
 import { getServerClient } from "@/lib/supabase/server";
-import { fromDbError } from "@/lib/api";
+import { fromDbError, assertSameOrigin, requireApiPermission } from "@/lib/api";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -38,11 +36,8 @@ const getSchema = z.object({
  * topics and the out-of-sync ones BEFORE deciding to apply the sync.
  */
 export async function GET(request: Request) {
-  const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "লগইন প্রয়োজন।" }, { status: 401 });
-  if (!can(user.role, "routine.manage")) {
-    return NextResponse.json({ error: "রুটিন পরিচালনার অনুমতি নেই।" }, { status: 403 });
-  }
+  const guard = await requireApiPermission("routine.manage");
+  if ("error" in guard) return guard.error;
   const supabase = await getServerClient();
   if (!supabase) return NextResponse.json({ error: "সার্ভার কনফিগারেশন নেই।" }, { status: 500 });
 
@@ -132,16 +127,10 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "লগইন প্রয়োজন।" }, { status: 401 });
-  if (!can(user.role, "routine.manage")) {
-    return NextResponse.json({ error: "রুটিন পরিচালনার অনুমতি নেই।" }, { status: 403 });
-  }
-  const origin = request.headers.get("origin");
-  const host = request.headers.get("host");
-  if (origin && host && new URL(origin).host !== host) {
-    return NextResponse.json({ error: "অবৈধ অনুরোধ।" }, { status: 403 });
-  }
+  const guard = await requireApiPermission("routine.manage");
+  if ("error" in guard) return guard.error;
+  const { user } = guard;
+  if (!assertSameOrigin(request)) return NextResponse.json({ error: "অবৈধ অনুরোধ।" }, { status: 403 });
   const supabase = await getServerClient();
   if (!supabase) return NextResponse.json({ error: "সার্ভার কনফিগারেশন নেই।" }, { status: 500 });
 

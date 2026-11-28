@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
+import { assertSameOrigin, requireApiPermission } from "@/lib/api";
 import { z } from "zod";
-import { getCurrentUser } from "@/lib/auth";
-import { can } from "@/lib/permissions";
 import { getServerClient } from "@/lib/supabase/server";
 import { parseCsvRows, slotLabel, validateRoutineRows, weekMeta } from "@/lib/routines/parse";
 
@@ -71,17 +70,11 @@ const topicCandidates = (value: string): string[] => {
 };
 
 export async function POST(request: Request) {
-  const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "লগইন প্রয়োজন।" }, { status: 401 });
-  if (!can(user.role, "routine.manage")) {
-    return NextResponse.json({ error: "রুটিন ব্যবস্থাপনার অনুমতি নেই।" }, { status: 403 });
-  }
+  const guard = await requireApiPermission("routine.manage");
+  if ("error" in guard) return guard.error;
+  const { user } = guard;
 
-  const origin = request.headers.get("origin");
-  const host = request.headers.get("host");
-  if (origin && host && new URL(origin).host !== host) {
-    return NextResponse.json({ error: "অবৈধ অনুরোধ।" }, { status: 403 });
-  }
+  if (!assertSameOrigin(request)) return NextResponse.json({ error: "অবৈধ অনুরোধ।" }, { status: 403 });
 
   let body: z.infer<typeof bodySchema>;
   try {

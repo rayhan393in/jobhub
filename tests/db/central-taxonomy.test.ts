@@ -124,7 +124,7 @@ describe("BCS preservation", () => {
       `select title_en from public.subjects where course_id = $1 and slug = 'bangla'`,
       [bcsCourseId],
     );
-    expect(bangla).toBe("Bangla Language & Literature"); // mapping adds a link, never a rename
+    expect(bangla).toBe("Bangla Language and Literature"); // syllabus title (20261214000000)
   });
 });
 

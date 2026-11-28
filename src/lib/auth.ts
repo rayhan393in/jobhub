@@ -1,6 +1,5 @@
 import "server-only";
 import { cache } from "react";
-import type { SupabaseClient } from "@supabase/supabase-js";
 import { getServerClient } from "./supabase/server";
 import type { Profile, RoleId } from "./types";
 
@@ -51,44 +50,15 @@ export const getCurrentUser = cache(async (): Promise<SessionUser | null> => {
   };
 });
 
-export async function requireUser() {
-  const user = await getCurrentUser();
-  if (!user) {
-    throw new Error("UNAUTHENTICATED");
-  }
-  return user;
-}
-
-/** Server-side guard for admin routes and API handlers. */
-export async function requireStaff(): Promise<SessionUser> {
-  const user = await requireUser();
-  if (!isStaff(user.role)) {
-    throw new Error("FORBIDDEN");
-  }
-  return user;
-}
-
-export async function requireAdmin(): Promise<SessionUser> {
-  const user = await requireUser();
-  if (!isAdmin(user.role)) {
-    throw new Error("FORBIDDEN");
-  }
-  return user;
-}
-
 /**
- * The visitor's client, or null when unauthenticated. Callers must treat null
- * as "signed out" rather than assuming an identity.
+ * Session resolution only. Authorization lives in exactly two places, so there
+ * is no ambiguity about which guard a new route should use:
+ *   - `requireApiPermission()` in `@/lib/api`  → route handlers (401/403 JSON)
+ *   - `requirePermission()`  in `@/lib/permissions` → pages (redirects)
+ * The previous `requireStaff` / `requireAdmin` / `getUserClient` helpers existed
+ * here but had no call sites, and their names collided with a second
+ * `requireStaff` in `@/lib/permissions` — a genuine footgun when adding routes.
  */
-export async function getUserClient(userId: string): Promise<SupabaseClient | null> {
-  const supabase = await getServerClient();
-  if (!supabase) return null;
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user || user.id !== userId) return null;
-  return supabase;
-}
 
 export function displayName(user: SessionUser | null): { en: string; bn: string } {
   const full = user?.profile?.full_name?.trim();

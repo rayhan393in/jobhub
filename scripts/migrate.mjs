@@ -26,6 +26,8 @@ const connectionString = process.env.SUPABASE_DB_URL;
 const checkOnly = process.argv.includes("--check");
 const skip = process.argv.includes("--skip");
 const verbose = process.argv.includes("--verbose");
+const allowDrift = process.argv.includes("--allow-drift");
+let driftDetected = false;
 
 
 /**
@@ -154,7 +156,26 @@ async function main() {
 
     if (applied.has(file)) {
       if (applied.get(file) !== checksum) {
-        log(`changed since applied (safe to re-run, idempotent): ${file}`);
+        // The file's bytes differ from what was recorded, so re-running it is
+        // NOT guaranteed to be a no-op — that is the whole point of tracking a
+        // checksum. Refuse to guess in production; `--allow-drift` re-applies
+        // for the local case where a migration was edited before being shared.
+        const drift = `edited after it was applied: ${file}`;
+        if (allowDrift) {
+          log(`WARNING ${drift} — re-applying because --allow-drift was passed`);
+        } else if (checkOnly) {
+          log(`DRIFT ${drift}`);
+          driftDetected = true;
+          continue;
+        } else {
+          console.error(`[migrate] ${drift}`);
+          console.error(
+            "[migrate] Refusing to continue. Every migration must be immutable once applied.\n" +
+              "[migrate] Add a new migration that makes the change, or pass --allow-drift to force a re-run.",
+          );
+          await client.end();
+          process.exit(1);
+        }
       } else {
         log(`skip ${file}`);
         continue;
@@ -204,6 +225,11 @@ async function main() {
   log("counts", JSON.stringify(counts.rows[0]));
 
   await client.end();
+
+  if (driftDetected) {
+    console.error("[migrate] one or more migrations were edited after being applied");
+    process.exit(1);
+  }
 }
 
 main().catch((error) => {

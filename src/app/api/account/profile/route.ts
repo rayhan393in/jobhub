@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth";
 import { getServerClient } from "@/lib/supabase/server";
-import { fromDbError } from "@/lib/api";
+import { fromDbError, assertSameOrigin } from "@/lib/api";
 
 export const dynamic = "force-dynamic";
 
@@ -24,11 +24,7 @@ export async function PATCH(request: Request) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "লগইন প্রয়োজন।" }, { status: 401 });
 
-  const origin = request.headers.get("origin");
-  const host = request.headers.get("host");
-  if (origin && host && new URL(origin).host !== host) {
-    return NextResponse.json({ error: "অবৈধ অনুরোধ।" }, { status: 403 });
-  }
+  if (!assertSameOrigin(request)) return NextResponse.json({ error: "অবৈধ অনুরোধ।" }, { status: 403 });
 
   let body: unknown;
   try {

@@ -10,13 +10,13 @@ import { formatClock, formatDate, formatDateTime, formatNumber, formatTime } fro
 import { cn } from "@/lib/cn";
 import type { ExamSchedule } from "@/lib/types";
 
-type Schedule = ExamSchedule & {
+export type Schedule = ExamSchedule & {
   course?: { slug: string; title_bn: string; title_en: string };
   my_attempt_id?: string | null;
   my_status?: string | null;
 };
 
-type Status = "live" | "upcoming" | "closed" | "draft";
+export type Status = "live" | "upcoming" | "closed" | "draft";
 
 function statusOf(schedule: Schedule, now: number): Status {
   const start = new Date(schedule.starts_at).getTime();
@@ -25,6 +25,28 @@ function statusOf(schedule: Schedule, now: number): Status {
   if (now < start) return "upcoming";
   if (now < end) return "live";
   return "closed";
+}
+
+/**
+ * Ordering for the exam centre: a running exam is always first, then the
+ * soonest upcoming one, then finished ones newest-first.
+ *
+ * The list arrives sorted by `starts_at asc`, which buries today's running
+ * exam under every earlier closed one the moment a day has passed — the exam a
+ * student can actually sit must never be below the fold.
+ */
+const STATUS_RANK: Record<Status, number> = { live: 0, upcoming: 1, closed: 2, draft: 3 };
+
+export function sortForStudent(schedules: Schedule[], now: number): Schedule[] {
+  return [...schedules].sort((a, b) => {
+    const ra = STATUS_RANK[statusOf(a, now)];
+    const rb = STATUS_RANK[statusOf(b, now)];
+    if (ra !== rb) return ra - rb;
+    const sa = new Date(a.starts_at).getTime();
+    const sb = new Date(b.starts_at).getTime();
+    // Upcoming: soonest first. Closed: most recently finished first.
+    return ra === 2 ? sb - sa : sa - sb;
+  });
 }
 
 export function ExamCenterClient({
@@ -48,7 +70,10 @@ export function ExamCenterClient({
     return () => window.clearInterval(id);
   }, []);
 
-  const filtered = schedules.filter((s) => {
+  // Running first, then soonest upcoming, then most recently finished.
+  const ordered = React.useMemo(() => sortForStudent(schedules, now), [schedules, now]);
+
+  const filtered = ordered.filter((s) => {
     if (course !== "all" && s.course_id !== course) return false;
     if (kind !== "all" && s.kind !== kind) return false;
     const sStatus = statusOf(s, now);

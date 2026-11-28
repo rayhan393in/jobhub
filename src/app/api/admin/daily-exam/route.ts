@@ -1,10 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { getCurrentUser } from "@/lib/auth";
-import { can } from "@/lib/permissions";
 import { getAdminClient } from "@/lib/supabase/admin";
-import { fromDbError } from "@/lib/api";
+import { fromDbError, assertSameOrigin, requireApiPermission } from "@/lib/api";
 import {
   hasCriticalFailure,
   planSubject,
@@ -35,12 +33,6 @@ export const maxDuration = 60;
  * POST   { courseId, date, … }  → draft or publish that day's schedule.
  * PATCH  { courseId, … }        → update config / set or clear an override.
  */
-
-function sameOrigin(request: Request): boolean {
-  const origin = request.headers.get("origin");
-  const host = request.headers.get("host");
-  return !origin || !host || new URL(origin).host === host;
-}
 
 type Supabase = SupabaseClient;
 
@@ -350,9 +342,8 @@ const getSchema = z.object({
 });
 
 export async function GET(request: Request) {
-  const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "লগইন প্রয়োজন।" }, { status: 401 });
-  if (!can(user.role, "exam.publish")) return NextResponse.json({ error: "অনুমতি নেই।" }, { status: 403 });
+  const guard = await requireApiPermission("exam.publish");
+  if ("error" in guard) return guard.error;
 
   const url = new URL(request.url);
   const parsed = getSchema.safeParse({
@@ -454,12 +445,10 @@ const postSchema = z.object({
 });
 
 export async function POST(request: Request) {
-  const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "লগইন প্রয়োজন।" }, { status: 401 });
-  if (!can(user.role, "exam.publish")) {
-    return NextResponse.json({ error: "পরীক্ষা প্রকাশের অনুমতি নেই।" }, { status: 403 });
-  }
-  if (!sameOrigin(request)) return NextResponse.json({ error: "অবৈধ অনুরোধ।" }, { status: 403 });
+  const guard = await requireApiPermission("exam.publish");
+  if ("error" in guard) return guard.error;
+  const { user } = guard;
+  if (!assertSameOrigin(request)) return NextResponse.json({ error: "অবৈধ অনুরোধ।" }, { status: 403 });
 
   let body: z.infer<typeof postSchema>;
   try {
@@ -699,10 +688,10 @@ const patchSchema = z.discriminatedUnion("action", [
 ]);
 
 export async function PATCH(request: Request) {
-  const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "লগইন প্রয়োজন।" }, { status: 401 });
-  if (!can(user.role, "exam.publish")) return NextResponse.json({ error: "অনুমতি নেই।" }, { status: 403 });
-  if (!sameOrigin(request)) return NextResponse.json({ error: "অবৈধ অনুরোধ।" }, { status: 403 });
+  const guard = await requireApiPermission("exam.publish");
+  if ("error" in guard) return guard.error;
+  const { user } = guard;
+  if (!assertSameOrigin(request)) return NextResponse.json({ error: "অবৈধ অনুরোধ।" }, { status: 403 });
 
   let body: z.infer<typeof patchSchema>;
   try {

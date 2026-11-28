@@ -1,9 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getCurrentUser } from "@/lib/auth";
-import { can } from "@/lib/permissions";
 import { getServerClient } from "@/lib/supabase/server";
-import { fromDbError } from "@/lib/api";
+import { fromDbError, assertSameOrigin, requireApiPermission } from "@/lib/api";
 
 export const dynamic = "force-dynamic";
 
@@ -30,11 +28,8 @@ const schema = z
 
 /** Preview how many rows a filter-scoped bulk action would touch. */
 export async function GET(request: Request) {
-  const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "লগইন প্রয়োজন।" }, { status: 401 });
-  if (!can(user.role, "question.review")) {
-    return NextResponse.json({ error: "রিভিউয়ের অনুমতি নেই।" }, { status: 403 });
-  }
+  const guard = await requireApiPermission("question.review");
+  if ("error" in guard) return guard.error;
 
   const url = new URL(request.url);
   const supabase = await getServerClient();
@@ -60,17 +55,10 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "লগইন প্রয়োজন।" }, { status: 401 });
-  if (!can(user.role, "question.review")) {
-    return NextResponse.json({ error: "রিভিউয়ের অনুমতি নেই।" }, { status: 403 });
-  }
+  const guard = await requireApiPermission("question.review");
+  if ("error" in guard) return guard.error;
 
-  const origin = request.headers.get("origin");
-  const host = request.headers.get("host");
-  if (origin && host && new URL(origin).host !== host) {
-    return NextResponse.json({ error: "অবৈধ অনুরোধ।" }, { status: 403 });
-  }
+  if (!assertSameOrigin(request)) return NextResponse.json({ error: "অবৈধ অনুরোধ।" }, { status: 403 });
 
   let body: unknown;
   try {

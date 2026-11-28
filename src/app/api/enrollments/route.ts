@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { assertSameOrigin } from "@/lib/api";
 import { getCurrentUser } from "@/lib/auth";
 import { getServerClient } from "@/lib/supabase/server";
 
@@ -21,11 +22,7 @@ export async function POST(request: Request) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "লগইন প্রয়োজন।" }, { status: 401 });
 
-  const origin = request.headers.get("origin");
-  const host = request.headers.get("host");
-  if (origin && host && new URL(origin).host !== host) {
-    return NextResponse.json({ error: "অবৈধ অনুরোধ।" }, { status: 403 });
-  }
+  if (!assertSameOrigin(request)) return NextResponse.json({ error: "অবৈধ অনুরোধ।" }, { status: 403 });
 
   const form = await request.formData();
   const action = String(form.get("action") ?? "");

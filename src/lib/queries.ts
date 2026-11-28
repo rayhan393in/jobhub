@@ -3,6 +3,7 @@ import { getServerClient } from "./supabase/server";
 import { getAdminClient } from "./supabase/admin";
 import { hasServiceRole } from "./supabase/env";
 import { flattenEmbeddedTitle } from "./postgrest";
+import { formatDate } from "./format";
 import type {
   Course,
   ExamSchedule,
@@ -34,7 +35,7 @@ export async function listCourses(): Promise<Course[]> {
   const { data, error } = await supabase
     .from("courses")
     .select(
-      "id, slug, title_en, title_bn, short_en, short_bn, summary_en, summary_bn, description_en, description_bn, level, icon, accent, duration_weeks, price_bdt, status, sort_order, exam_config",
+      "id, slug, title_en, title_bn, short_en, short_bn, summary_en, summary_bn, description_en, description_bn, level, icon, accent, duration_weeks, price_bdt, status, sort_order, exam_config, metadata",
     )
     .eq("status", "published")
     .order("sort_order");
@@ -496,6 +497,29 @@ export async function listMyRoutineProgress(
   );
 }
 
+/**
+ * Every date in a course the student has fully ticked off.
+ *
+ * The 90-day tracker paints a day green only when the student actually said so
+ * — a date with no row is genuine "not done", never an assumed one.
+ */
+export async function listMyDoneDates(userId: string, courseId: string): Promise<string[]> {
+  const supabase = await getServerClient();
+  if (!supabase) return [];
+  const { data, error } = await supabase
+    .from("routine_progress")
+    .select("progress_date")
+    .eq("user_id", userId)
+    .eq("course_id", courseId)
+    .eq("status", "done");
+  logDbError("routine-progress-done-dates", error);
+  const dates = new Set<string>();
+  for (const row of (data as { progress_date: string }[]) ?? []) {
+    if (row.progress_date) dates.add(row.progress_date);
+  }
+  return [...dates];
+}
+
 export async function listMyAttempts(userId: string, limit = 20) {
   const supabase = await getServerClient();
   if (!supabase) return [];
@@ -597,4 +621,86 @@ export async function getCourseCounts(): Promise<
     console.error("[courses] count query failed:", (error as Error).message);
   }
   return counts;
+}
+
+/**
+ * The marks split the course's *live* exam will actually use.
+ *
+ * `exam_schedules.settings.marks_split` is the authoritative per-course
+ * configuration once an exam has been published against it, so the routine
+ * page's instruction bar reads it first and only falls back to course-level
+ * configuration when no exam exists yet. Returns null when nothing is set,
+ * which the caller renders as "hide the bar" rather than inventing numbers.
+ */
+export async function getActiveExamMarksSettings(
+  courseId: string,
+): Promise<Record<string, unknown> | null> {
+  const supabase = await getServerClient();
+  if (!supabase) return null;
+  const { data, error } = await supabase
+    .from("exam_schedules")
+    .select("settings, starts_at, status")
+    .eq("course_id", courseId)
+    .in("status", ["published", "completed"])
+    .order("starts_at", { ascending: false })
+    .limit(1);
+  logDbError("exam-marks-settings", error);
+  const row = (data as { settings: Record<string, unknown> | null }[] | null)?.[0];
+  return row?.settings ?? null;
+}
+
+/**
+ * Earlier published routines of one course, grouped into date ranges.
+ *
+ * History is derived from the routine rows themselves rather than a separate
+ * table: a "previous routine" is simply an earlier contiguous block of published
+ * dates. Legacy rows archived before a new plan started therefore surface
+ * automatically and nothing has to be written twice.
+ */
+export async function listCourseRoutineHistory(
+  courseId: string | null,
+  currentStart: string | null,
+): Promise<{ id: string; course_id: string; title_bn: string; start: string; end: string; total: number }[]> {
+  if (!courseId) return [];
+  const supabase = await getServerClient();
+  if (!supabase) return [];
+  const { data, error } = await supabase
+    .from("routines")
+    .select("id, routine_date, title_bn, status")
+    .eq("course_id", courseId)
+    .in("status", ["published", "archived", "cancelled"])
+    .order("routine_date", { ascending: true });
+  logDbError("course-routine-history", error);
+
+  const rows = (data as { id: string; routine_date: string }[] | null) ?? [];
+  if (rows.length === 0) return [];
+
+  // Split into runs of consecutive dates; the current plan is the run that
+  // starts on `currentStart`, and everything before it is history.
+  const runs: { start: string; end: string; id: string; total: number }[] = [];
+  for (const row of rows) {
+    const last = runs[runs.length - 1];
+    const isNextDay =
+      last &&
+      Date.parse(`${row.routine_date}T00:00:00Z`) - Date.parse(`${last.end}T00:00:00Z`) ===
+        86_400_000;
+    if (last && isNextDay) {
+      last.end = row.routine_date;
+      last.total += 1;
+    } else {
+      runs.push({ start: row.routine_date, end: row.routine_date, id: row.id, total: 1 });
+    }
+  }
+
+  return runs
+    .filter((run) => !currentStart || run.start < currentStart)
+    .map((run) => ({
+      id: run.id,
+      course_id: courseId,
+      title_bn: `${formatDate(run.start, "bn", { day: "numeric", month: "long" })} – ${formatDate(run.end, "bn", { day: "numeric", month: "long" })}`,
+      start: run.start,
+      end: run.end,
+      total: run.total,
+    }))
+    .reverse();
 }

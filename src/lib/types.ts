@@ -21,6 +21,17 @@ export type Course = {
   status: "draft" | "published" | "archived";
   sort_order: number;
   exam_config: CourseExamConfig;
+  /**
+   * Free-form course configuration. `metadata.priorities` is the admin-editable
+   * priority structure the routine page renders, so a non-BCS course does not
+   * get forced into P1/P2/P3. Optional: most rows carry `{}`.
+   */
+  metadata?: CourseMetadata | null;
+};
+
+export type CourseMetadata = {
+  priorities?: { badge: string; label: string; match?: string }[];
+  [key: string]: unknown;
 };
 
 export type CourseExamConfig = {

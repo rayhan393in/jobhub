@@ -26,7 +26,7 @@ begin
     from public.questions qq
     join public.subjects su on su.id = qq.subject_id
     join public.topics t on t.id = qq.topic_id
-    where qq.course_id = v_course and su.slug = 'bangla' and t.sort_order = 1
+    where qq.course_id = v_course and su.slug = 'bangla'
       and qq.fingerprint = encode(digest('বাংলা বর্ণমালায় মোট স্বরবর্ণ কতটি?', 'sha256'), 'hex')
     limit 1;
 
@@ -51,7 +51,7 @@ begin
     from public.questions qq
     join public.subjects su on su.id = qq.subject_id
     join public.topics t on t.id = qq.topic_id
-    where qq.course_id = v_course and su.slug = 'bangla' and t.sort_order = 1
+    where qq.course_id = v_course and su.slug = 'bangla'
       and qq.fingerprint = encode(digest('বাংলা বর্ণমালায় ব্যঞ্জনবর্ণের সংখ্যা কত?', 'sha256'), 'hex')
     limit 1;
 
@@ -76,7 +76,7 @@ begin
     from public.questions qq
     join public.subjects su on su.id = qq.subject_id
     join public.topics t on t.id = qq.topic_id
-    where qq.course_id = v_course and su.slug = 'bangla' and t.sort_order = 1
+    where qq.course_id = v_course and su.slug = 'bangla'
       and qq.fingerprint = encode(digest('‘হ্রস্ব’ শব্দের বিপরীতার্থক শব্দ কোনটি?', 'sha256'), 'hex')
     limit 1;
 
@@ -101,7 +101,7 @@ begin
     from public.questions qq
     join public.subjects su on su.id = qq.subject_id
     join public.topics t on t.id = qq.topic_id
-    where qq.course_id = v_course and su.slug = 'bangla' and t.sort_order = 1
+    where qq.course_id = v_course and su.slug = 'bangla'
       and qq.fingerprint = encode(digest('নিচের কোনটি ঘোষ ধ্বনি?', 'sha256'), 'hex')
     limit 1;
 
@@ -126,7 +126,7 @@ begin
     from public.questions qq
     join public.subjects su on su.id = qq.subject_id
     join public.topics t on t.id = qq.topic_id
-    where qq.course_id = v_course and su.slug = 'bangla' and t.sort_order = 1
+    where qq.course_id = v_course and su.slug = 'bangla'
       and qq.fingerprint = encode(digest('‘অ’ ধ্বনিটি কোন ধরনের?', 'sha256'), 'hex')
     limit 1;
 
@@ -151,7 +151,7 @@ begin
     from public.questions qq
     join public.subjects su on su.id = qq.subject_id
     join public.topics t on t.id = qq.topic_id
-    where qq.course_id = v_course and su.slug = 'bangla' and t.sort_order = 2
+    where qq.course_id = v_course and su.slug = 'bangla'
       and qq.fingerprint = encode(digest('‘নবী + ইমন’ = নবীন — এখানে কোন সন্ধি হয়েছে?', 'sha256'), 'hex')
     limit 1;
 
@@ -176,7 +176,7 @@ begin
     from public.questions qq
     join public.subjects su on su.id = qq.subject_id
     join public.topics t on t.id = qq.topic_id
-    where qq.course_id = v_course and su.slug = 'bangla' and t.sort_order = 2
+    where qq.course_id = v_course and su.slug = 'bangla'
       and qq.fingerprint = encode(digest('‘বিদ্যা + আলয়’ = বিদ্যালয় — কোন সন্ধি?', 'sha256'), 'hex')
     limit 1;
 
@@ -201,7 +201,7 @@ begin
     from public.questions qq
     join public.subjects su on su.id = qq.subject_id
     join public.topics t on t.id = qq.topic_id
-    where qq.course_id = v_course and su.slug = 'bangla' and t.sort_order = 2
+    where qq.course_id = v_course and su.slug = 'bangla'
       and qq.fingerprint = encode(digest('‘মনঃ + কষ্ট’ = মনঃকষ্ট — সন্ধিটির নাম কী?', 'sha256'), 'hex')
     limit 1;
 
@@ -226,7 +226,7 @@ begin
     from public.questions qq
     join public.subjects su on su.id = qq.subject_id
     join public.topics t on t.id = qq.topic_id
-    where qq.course_id = v_course and su.slug = 'english' and t.sort_order = 1
+    where qq.course_id = v_course and su.slug = 'english'
       and qq.fingerprint = encode(digest('She is ___ honest woman.', 'sha256'), 'hex')
     limit 1;
 
@@ -251,7 +251,7 @@ begin
     from public.questions qq
     join public.subjects su on su.id = qq.subject_id
     join public.topics t on t.id = qq.topic_id
-    where qq.course_id = v_course and su.slug = 'english' and t.sort_order = 1
+    where qq.course_id = v_course and su.slug = 'english'
       and qq.fingerprint = encode(digest('He is ___ university student.', 'sha256'), 'hex')
     limit 1;
 
@@ -276,7 +276,7 @@ begin
     from public.questions qq
     join public.subjects su on su.id = qq.subject_id
     join public.topics t on t.id = qq.topic_id
-    where qq.course_id = v_course and su.slug = 'english' and t.sort_order = 1
+    where qq.course_id = v_course and su.slug = 'english'
       and qq.fingerprint = encode(digest('___ Padma is the longest river in Bangladesh.', 'sha256'), 'hex')
     limit 1;
 
@@ -301,7 +301,7 @@ begin
     from public.questions qq
     join public.subjects su on su.id = qq.subject_id
     join public.topics t on t.id = qq.topic_id
-    where qq.course_id = v_course and su.slug = 'english' and t.sort_order = 1
+    where qq.course_id = v_course and su.slug = 'english'
       and qq.fingerprint = encode(digest('I bought ___ umbrella yesterday.', 'sha256'), 'hex')
     limit 1;
 
@@ -326,7 +326,7 @@ begin
     from public.questions qq
     join public.subjects su on su.id = qq.subject_id
     join public.topics t on t.id = qq.topic_id
-    where qq.course_id = v_course and su.slug = 'english' and t.sort_order = 2
+    where qq.course_id = v_course and su.slug = 'english'
       and qq.fingerprint = encode(digest('Neither the teacher nor the students ___ present.', 'sha256'), 'hex')
     limit 1;
 
@@ -351,7 +351,7 @@ begin
     from public.questions qq
     join public.subjects su on su.id = qq.subject_id
     join public.topics t on t.id = qq.topic_id
-    where qq.course_id = v_course and su.slug = 'english' and t.sort_order = 2
+    where qq.course_id = v_course and su.slug = 'english'
       and qq.fingerprint = encode(digest('Each of the boys ___ a pen.', 'sha256'), 'hex')
     limit 1;
 
@@ -376,7 +376,7 @@ begin
     from public.questions qq
     join public.subjects su on su.id = qq.subject_id
     join public.topics t on t.id = qq.topic_id
-    where qq.course_id = v_course and su.slug = 'english' and t.sort_order = 2
+    where qq.course_id = v_course and su.slug = 'english'
       and qq.fingerprint = encode(digest('The number of students ___ increasing.', 'sha256'), 'hex')
     limit 1;
 
@@ -401,7 +401,7 @@ begin
     from public.questions qq
     join public.subjects su on su.id = qq.subject_id
     join public.topics t on t.id = qq.topic_id
-    where qq.course_id = v_course and su.slug = 'bd' and t.sort_order = 3
+    where qq.course_id = v_course and su.slug = 'bd'
       and qq.fingerprint = encode(digest('মুক্তিযুদ্ধ শুরু হয় কত সালে?', 'sha256'), 'hex')
     limit 1;
 
@@ -426,7 +426,7 @@ begin
     from public.questions qq
     join public.subjects su on su.id = qq.subject_id
     join public.topics t on t.id = qq.topic_id
-    where qq.course_id = v_course and su.slug = 'bd' and t.sort_order = 3
+    where qq.course_id = v_course and su.slug = 'bd'
       and qq.fingerprint = encode(digest('মুক্তিযুদ্ধকালীন বাংলাদেশকে কয়টি সেক্টরে ভাগ করা হয়েছিল?', 'sha256'), 'hex')
     limit 1;
 
@@ -451,7 +451,7 @@ begin
     from public.questions qq
     join public.subjects su on su.id = qq.subject_id
     join public.topics t on t.id = qq.topic_id
-    where qq.course_id = v_course and su.slug = 'bd' and t.sort_order = 3
+    where qq.course_id = v_course and su.slug = 'bd'
       and qq.fingerprint = encode(digest('বাংলাদেশের স্বাধীনতা ঘোষণা করা হয় কোন তারিখে?', 'sha256'), 'hex')
     limit 1;
 
@@ -476,7 +476,7 @@ begin
     from public.questions qq
     join public.subjects su on su.id = qq.subject_id
     join public.topics t on t.id = qq.topic_id
-    where qq.course_id = v_course and su.slug = 'bd' and t.sort_order = 3
+    where qq.course_id = v_course and su.slug = 'bd'
       and qq.fingerprint = encode(digest('মুজিবনগর সরকার গঠিত হয় কত তারিখে?', 'sha256'), 'hex')
     limit 1;
 
@@ -501,7 +501,7 @@ begin
     from public.questions qq
     join public.subjects su on su.id = qq.subject_id
     join public.topics t on t.id = qq.topic_id
-    where qq.course_id = v_course and su.slug = 'bd' and t.sort_order = 4
+    where qq.course_id = v_course and su.slug = 'bd'
       and qq.fingerprint = encode(digest('বাংলাদেশের সংবিধান কার্যকর হয় কত তারিখে?', 'sha256'), 'hex')
     limit 1;
 
@@ -526,7 +526,7 @@ begin
     from public.questions qq
     join public.subjects su on su.id = qq.subject_id
     join public.topics t on t.id = qq.topic_id
-    where qq.course_id = v_course and su.slug = 'bd' and t.sort_order = 4
+    where qq.course_id = v_course and su.slug = 'bd'
       and qq.fingerprint = encode(digest('বাংলাদেশের সংবিধানে মৌলিক অধিকার কোন ভাগে আছে?', 'sha256'), 'hex')
     limit 1;
 
@@ -551,7 +551,7 @@ begin
     from public.questions qq
     join public.subjects su on su.id = qq.subject_id
     join public.topics t on t.id = qq.topic_id
-    where qq.course_id = v_course and su.slug = 'international' and t.sort_order = 1
+    where qq.course_id = v_course and su.slug = 'international'
       and qq.fingerprint = encode(digest('জাতিসংঘের সদর দপ্তর কোথায়?', 'sha256'), 'hex')
     limit 1;
 
@@ -576,7 +576,7 @@ begin
     from public.questions qq
     join public.subjects su on su.id = qq.subject_id
     join public.topics t on t.id = qq.topic_id
-    where qq.course_id = v_course and su.slug = 'international' and t.sort_order = 1
+    where qq.course_id = v_course and su.slug = 'international'
       and qq.fingerprint = encode(digest('জাতিসংঘের নিরাপত্তা পরিষদের স্থায়ী সদস্য কতটি?', 'sha256'), 'hex')
     limit 1;
 
@@ -601,7 +601,7 @@ begin
     from public.questions qq
     join public.subjects su on su.id = qq.subject_id
     join public.topics t on t.id = qq.topic_id
-    where qq.course_id = v_course and su.slug = 'international' and t.sort_order = 1
+    where qq.course_id = v_course and su.slug = 'international'
       and qq.fingerprint = encode(digest('বাংলাদেশ জাতিসংঘের সদস্যপদ লাভ করে কত সালে?', 'sha256'), 'hex')
     limit 1;
 
@@ -626,7 +626,7 @@ begin
     from public.questions qq
     join public.subjects su on su.id = qq.subject_id
     join public.topics t on t.id = qq.topic_id
-    where qq.course_id = v_course and su.slug = 'geography' and t.sort_order = 2
+    where qq.course_id = v_course and su.slug = 'geography'
       and qq.fingerprint = encode(digest('বাংলাদেশের জলবায়ু মূলত কোন ধরনের?', 'sha256'), 'hex')
     limit 1;
 
@@ -651,7 +651,7 @@ begin
     from public.questions qq
     join public.subjects su on su.id = qq.subject_id
     join public.topics t on t.id = qq.topic_id
-    where qq.course_id = v_course and su.slug = 'geography' and t.sort_order = 2
+    where qq.course_id = v_course and su.slug = 'geography'
       and qq.fingerprint = encode(digest('বাংলাদেশে সবচেয়ে বেশি বৃষ্টিপাত হয় কোন মাসে?', 'sha256'), 'hex')
     limit 1;
 
@@ -676,7 +676,7 @@ begin
     from public.questions qq
     join public.subjects su on su.id = qq.subject_id
     join public.topics t on t.id = qq.topic_id
-    where qq.course_id = v_course and su.slug = 'science' and t.sort_order = 1
+    where qq.course_id = v_course and su.slug = 'science'
       and qq.fingerprint = encode(digest('বলের একক কী?', 'sha256'), 'hex')
     limit 1;
 
@@ -701,7 +701,7 @@ begin
     from public.questions qq
     join public.subjects su on su.id = qq.subject_id
     join public.topics t on t.id = qq.topic_id
-    where qq.course_id = v_course and su.slug = 'science' and t.sort_order = 1
+    where qq.course_id = v_course and su.slug = 'science'
       and qq.fingerprint = encode(digest('কাজের একক কোনটি?', 'sha256'), 'hex')
     limit 1;
 
@@ -726,7 +726,7 @@ begin
     from public.questions qq
     join public.subjects su on su.id = qq.subject_id
     join public.topics t on t.id = qq.topic_id
-    where qq.course_id = v_course and su.slug = 'science' and t.sort_order = 1
+    where qq.course_id = v_course and su.slug = 'science'
       and qq.fingerprint = encode(digest('আলোর গতিবেগ শূন্যস্থানে প্রায় কত?', 'sha256'), 'hex')
     limit 1;
 
@@ -751,7 +751,7 @@ begin
     from public.questions qq
     join public.subjects su on su.id = qq.subject_id
     join public.topics t on t.id = qq.topic_id
-    where qq.course_id = v_course and su.slug = 'ict' and t.sort_order = 1
+    where qq.course_id = v_course and su.slug = 'ict'
       and qq.fingerprint = encode(digest('কম্পিউটারের মস্তিষ্ক বলা হয় কোনটিকে?', 'sha256'), 'hex')
     limit 1;
 
@@ -776,7 +776,7 @@ begin
     from public.questions qq
     join public.subjects su on su.id = qq.subject_id
     join public.topics t on t.id = qq.topic_id
-    where qq.course_id = v_course and su.slug = 'ict' and t.sort_order = 1
+    where qq.course_id = v_course and su.slug = 'ict'
       and qq.fingerprint = encode(digest('নিচের কোনটি ইনপুট ডিভাইস?', 'sha256'), 'hex')
     limit 1;
 
@@ -801,7 +801,7 @@ begin
     from public.questions qq
     join public.subjects su on su.id = qq.subject_id
     join public.topics t on t.id = qq.topic_id
-    where qq.course_id = v_course and su.slug = 'ict' and t.sort_order = 3
+    where qq.course_id = v_course and su.slug = 'ict'
       and qq.fingerprint = encode(digest('বাইনারি ১০১০ এর দশমিক মান কত?', 'sha256'), 'hex')
     limit 1;
 
@@ -826,7 +826,7 @@ begin
     from public.questions qq
     join public.subjects su on su.id = qq.subject_id
     join public.topics t on t.id = qq.topic_id
-    where qq.course_id = v_course and su.slug = 'ict' and t.sort_order = 3
+    where qq.course_id = v_course and su.slug = 'ict'
       and qq.fingerprint = encode(digest('হেক্সাডেসিমাল পদ্ধতিতে সর্বোচ্চ অঙ্ক কোনটি?', 'sha256'), 'hex')
     limit 1;
 
@@ -851,7 +851,7 @@ begin
     from public.questions qq
     join public.subjects su on su.id = qq.subject_id
     join public.topics t on t.id = qq.topic_id
-    where qq.course_id = v_course and su.slug = 'math' and t.sort_order = 1
+    where qq.course_id = v_course and su.slug = 'math'
       and qq.fingerprint = encode(digest('কোনো সংখ্যার ২৫% = ৫০ হলে সংখ্যাটি কত?', 'sha256'), 'hex')
     limit 1;
 
@@ -876,7 +876,7 @@ begin
     from public.questions qq
     join public.subjects su on su.id = qq.subject_id
     join public.topics t on t.id = qq.topic_id
-    where qq.course_id = v_course and su.slug = 'math' and t.sort_order = 1
+    where qq.course_id = v_course and su.slug = 'math'
       and qq.fingerprint = encode(digest('৮০ এর ১৫% কত?', 'sha256'), 'hex')
     limit 1;
 
@@ -901,7 +901,7 @@ begin
     from public.questions qq
     join public.subjects su on su.id = qq.subject_id
     join public.topics t on t.id = qq.topic_id
-    where qq.course_id = v_course and su.slug = 'math' and t.sort_order = 2
+    where qq.course_id = v_course and su.slug = 'math'
       and qq.fingerprint = encode(digest('৫ : ৮ অনুপাতে ৩৯০ কে ভাগ করলে প্রথম অংশ কত?', 'sha256'), 'hex')
     limit 1;
 
@@ -926,7 +926,7 @@ begin
     from public.questions qq
     join public.subjects su on su.id = qq.subject_id
     join public.topics t on t.id = qq.topic_id
-    where qq.course_id = v_course and su.slug = 'math' and t.sort_order = 3
+    where qq.course_id = v_course and su.slug = 'math'
       and qq.fingerprint = encode(digest('১০০ টাকায় কিনে ১২০ টাকায় বিক্রি করলে শতকরা লাভ কত?', 'sha256'), 'hex')
     limit 1;
 
@@ -951,7 +951,7 @@ begin
     from public.questions qq
     join public.subjects su on su.id = qq.subject_id
     join public.topics t on t.id = qq.topic_id
-    where qq.course_id = v_course and su.slug = 'mental' and t.sort_order = 1
+    where qq.course_id = v_course and su.slug = 'mental'
       and qq.fingerprint = encode(digest('২, ৬, ১২, ২০, ৩০, ? — পরবর্তী সংখ্যা কত?', 'sha256'), 'hex')
     limit 1;
 
@@ -976,7 +976,7 @@ begin
     from public.questions qq
     join public.subjects su on su.id = qq.subject_id
     join public.topics t on t.id = qq.topic_id
-    where qq.course_id = v_course and su.slug = 'mental' and t.sort_order = 1
+    where qq.course_id = v_course and su.slug = 'mental'
       and qq.fingerprint = encode(digest('৩, ৬, ১২, ২৪, ? — পরবর্তী সংখ্যা কত?', 'sha256'), 'hex')
     limit 1;
 
@@ -1001,7 +1001,7 @@ begin
     from public.questions qq
     join public.subjects su on su.id = qq.subject_id
     join public.topics t on t.id = qq.topic_id
-    where qq.course_id = v_course and su.slug = 'ethics' and t.sort_order = 1
+    where qq.course_id = v_course and su.slug = 'ethics'
       and qq.fingerprint = encode(digest('সুশাসনের মূল উপাদান কোনটি?', 'sha256'), 'hex')
     limit 1;
 
@@ -1026,7 +1026,7 @@ begin
     from public.questions qq
     join public.subjects su on su.id = qq.subject_id
     join public.topics t on t.id = qq.topic_id
-    where qq.course_id = v_course and su.slug = 'ethics' and t.sort_order = 1
+    where qq.course_id = v_course and su.slug = 'ethics'
       and qq.fingerprint = encode(digest('‘স্বচ্ছতা’ বলতে বোঝায়—', 'sha256'), 'hex')
     limit 1;
 
@@ -1051,7 +1051,7 @@ begin
     from public.questions qq
     join public.subjects su on su.id = qq.subject_id
     join public.topics t on t.id = qq.topic_id
-    where qq.course_id = v_course and su.slug = 'circuit' and t.sort_order = 1
+    where qq.course_id = v_course and su.slug = 'circuit'
       and qq.fingerprint = encode(digest('A 10 Ω resistor carries 2 A. The power dissipated is—', 'sha256'), 'hex')
     limit 1;
 
@@ -1076,7 +1076,7 @@ begin
     from public.questions qq
     join public.subjects su on su.id = qq.subject_id
     join public.topics t on t.id = qq.topic_id
-    where qq.course_id = v_course and su.slug = 'circuit' and t.sort_order = 1
+    where qq.course_id = v_course and su.slug = 'circuit'
       and qq.fingerprint = encode(digest('The SI unit of resistance is—', 'sha256'), 'hex')
     limit 1;
 
@@ -1101,7 +1101,7 @@ begin
     from public.questions qq
     join public.subjects su on su.id = qq.subject_id
     join public.topics t on t.id = qq.topic_id
-    where qq.course_id = v_course and su.slug = 'circuit' and t.sort_order = 1
+    where qq.course_id = v_course and su.slug = 'circuit'
       and qq.fingerprint = encode(digest('Two 6 Ω resistors in parallel give—', 'sha256'), 'hex')
     limit 1;
 
@@ -1126,7 +1126,7 @@ begin
     from public.questions qq
     join public.subjects su on su.id = qq.subject_id
     join public.topics t on t.id = qq.topic_id
-    where qq.course_id = v_course and su.slug = 'circuit' and t.sort_order = 1
+    where qq.course_id = v_course and su.slug = 'circuit'
       and qq.fingerprint = encode(digest('Kirchhoff''s current law follows conservation of—', 'sha256'), 'hex')
     limit 1;
 
@@ -1151,7 +1151,7 @@ begin
     from public.questions qq
     join public.subjects su on su.id = qq.subject_id
     join public.topics t on t.id = qq.topic_id
-    where qq.course_id = v_course and su.slug = 'circuit' and t.sort_order = 1
+    where qq.course_id = v_course and su.slug = 'circuit'
       and qq.fingerprint = encode(digest('At series RLC resonance the impedance is—', 'sha256'), 'hex')
     limit 1;
 
@@ -1176,7 +1176,7 @@ begin
     from public.questions qq
     join public.subjects su on su.id = qq.subject_id
     join public.topics t on t.id = qq.topic_id
-    where qq.course_id = v_course and su.slug = 'machines' and t.sort_order = 1
+    where qq.course_id = v_course and su.slug = 'machines'
       and qq.fingerprint = encode(digest('A transformer works on the principle of—', 'sha256'), 'hex')
     limit 1;
 
@@ -1201,7 +1201,7 @@ begin
     from public.questions qq
     join public.subjects su on su.id = qq.subject_id
     join public.topics t on t.id = qq.topic_id
-    where qq.course_id = v_course and su.slug = 'power' and t.sort_order = 1
+    where qq.course_id = v_course and su.slug = 'power'
       and qq.fingerprint = encode(digest('The unit of apparent power is—', 'sha256'), 'hex')
     limit 1;
 

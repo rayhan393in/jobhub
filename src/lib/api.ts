@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { ZodError } from "zod";
+import { getCurrentUser, type SessionUser } from "./auth";
+import { can, type PermissionKey } from "./permission-matrix";
 
 export type ApiError = {
   error: string;
@@ -66,8 +68,48 @@ export function assertSameOrigin(request: Request) {
     const host = request.headers.get("host");
     return new URL(origin).host === host;
   } catch {
+    // A malformed Origin header must fail closed as a 403, never throw a 500.
     return false;
   }
+}
+
+export type PermissionDenied = { error: NextResponse };
+
+/**
+ * The single authorization entry point for API route handlers.
+ *
+ * Returns `{ user }` when the caller holds `permission`, or `{ error }` with a
+ * ready-to-return 401/403 response. Every admin handler used to inline its own
+ * `if (!user) … if (!can(...) …` pair (39 copies, several missing the
+ * `role === 'student'` pre-check), so adding a route meant re-deriving the
+ * rules from a neighbour. `student` is checked explicitly rather than left to
+ * the matrix so a future permission added to `ROLE_PERMISSIONS.student` can
+ * never quietly grant admin API access.
+ */
+export async function requireApiPermission(
+  permission: PermissionKey,
+  options?: { message?: string },
+): Promise<{ user: SessionUser } | PermissionDenied> {
+  const user = await getCurrentUser();
+  if (!user) return { error: fail("লগইন প্রয়োজন।", 401) };
+  if (user.role === "student" || !can(user.role, permission)) {
+    return { error: fail(options?.message ?? "এই কাজটি করার অনুমতি নেই।", 403) };
+  }
+  return { user };
+}
+
+/**
+ * Same as {@link requireApiPermission} but also rejects cross-origin form
+ * posts — the combination almost every mutating admin route needs.
+ */
+export async function requireApiPermissionSameOrigin(
+  request: Request,
+  permission: PermissionKey,
+): Promise<{ user: SessionUser } | PermissionDenied> {
+  const guard = await requireApiPermission(permission);
+  if ("error" in guard) return guard;
+  if (!assertSameOrigin(request)) return { error: fail("অবৈধ অনুরোধ।", 403) };
+  return guard;
 }
 
 export async function readJson<T>(request: Request): Promise<T> {

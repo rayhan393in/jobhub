@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth";
 import { getServerClient } from "@/lib/supabase/server";
-import { fromDbError } from "@/lib/api";
+import { fromDbError, assertSameOrigin } from "@/lib/api";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -16,12 +16,6 @@ export const runtime = "nodejs";
  * PATCH  → autosave typed answers { attemptId, answers[] } or submit
  *          { attemptId, action: 'submit' }.
  */
-
-function sameOrigin(request: Request): boolean {
-  const origin = request.headers.get("origin");
-  const host = request.headers.get("host");
-  return !origin || !host || new URL(origin).host === host;
-}
 
 async function guard() {
   const user = await getCurrentUser();
@@ -71,7 +65,7 @@ export async function POST(request: Request) {
   const g = await guard();
   if ("error" in g) return g.error;
   const { user, supabase } = g;
-  if (!sameOrigin(request)) return NextResponse.json({ error: "অবৈধ অনুরোধ।" }, { status: 403 });
+  if (!assertSameOrigin(request)) return NextResponse.json({ error: "অবৈধ অনুরোধ।" }, { status: 403 });
 
   let body: z.infer<typeof startSchema>;
   try {
@@ -116,7 +110,7 @@ export async function PATCH(request: Request) {
   const g = await guard();
   if ("error" in g) return g.error;
   const { user, supabase } = g;
-  if (!sameOrigin(request)) return NextResponse.json({ error: "অবৈধ অনুরোধ।" }, { status: 403 });
+  if (!assertSameOrigin(request)) return NextResponse.json({ error: "অবৈধ অনুরোধ।" }, { status: 403 });
 
   let body: z.infer<typeof saveSchema>;
   try {

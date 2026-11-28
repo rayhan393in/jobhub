@@ -207,11 +207,12 @@ describe("coverage engine reuse (course-generic)", () => {
     );
     expect(misplaced).toBe(0);
 
-    // BCS coverage data is untouched by generating another course's plan.
+    // BCS owns its own first-study plan (20261214000000 seeds one row per
+    // syllabus subtopic); generating another course's plan adds nothing to it.
     const bcsAssignments = Number(
       await scalar(db, `select count(*) from public.study_plan_assignments where course_id = $1`, [bcsCourseId]),
     );
-    expect(bcsAssignments).toBe(0);
+    expect(bcsAssignments).toBe(504);
   });
 });
 

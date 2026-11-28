@@ -1,9 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getCurrentUser } from "@/lib/auth";
-import { can } from "@/lib/permissions";
 import { getServerClient } from "@/lib/supabase/server";
-import { fromDbError } from "@/lib/api";
+import { fromDbError, assertSameOrigin, requireApiPermission } from "@/lib/api";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -24,21 +22,14 @@ export const maxDuration = 60;
  * enforcement server-side.
  */
 
-function sameOrigin(request: Request): boolean {
-  const origin = request.headers.get("origin");
-  const host = request.headers.get("host");
-  return !origin || !host || new URL(origin).host === host;
-}
-
 async function guard() {
-  const user = await getCurrentUser();
-  if (!user) return { error: NextResponse.json({ error: "লগইন প্রয়োজন।" }, { status: 401 }) };
-  if (!can(user.role, "routine.manage")) {
-    return { error: NextResponse.json({ error: "রুটিন পরিচালনার অনুমতি নেই।" }, { status: 403 }) };
-  }
+  const gate = await requireApiPermission("routine.manage", {
+    message: "রুটিন পরিচালনার অনুমতি নেই।",
+  });
+  if ("error" in gate) return gate;
   const supabase = await getServerClient();
   if (!supabase) return { error: NextResponse.json({ error: "সার্ভার কনফিগারেশন নেই।" }, { status: 500 }) };
-  return { user, supabase };
+  return { user: gate.user, supabase };
 }
 
 const getSchema = z.object({
@@ -177,7 +168,7 @@ const postSchema = z.object({
 export async function POST(request: Request) {
   const ctx = await guard();
   if ("error" in ctx) return ctx.error;
-  if (!sameOrigin(request)) return NextResponse.json({ error: "অবৈধ অনুরোধ।" }, { status: 403 });
+  if (!assertSameOrigin(request)) return NextResponse.json({ error: "অবৈধ অনুরোধ।" }, { status: 403 });
   const { user, supabase } = ctx;
 
   let body: z.infer<typeof postSchema>;
@@ -216,7 +207,7 @@ const patchSchema = z.object({
 export async function PATCH(request: Request) {
   const ctx = await guard();
   if ("error" in ctx) return ctx.error;
-  if (!sameOrigin(request)) return NextResponse.json({ error: "অবৈধ অনুরোধ।" }, { status: 403 });
+  if (!assertSameOrigin(request)) return NextResponse.json({ error: "অবৈধ অনুরোধ।" }, { status: 403 });
   const { user, supabase } = ctx;
 
   let body: z.infer<typeof patchSchema>;
@@ -316,7 +307,7 @@ const deleteSchema = z.object({ assignmentId: z.string().uuid() });
 export async function DELETE(request: Request) {
   const ctx = await guard();
   if ("error" in ctx) return ctx.error;
-  if (!sameOrigin(request)) return NextResponse.json({ error: "অবৈধ অনুরোধ।" }, { status: 403 });
+  if (!assertSameOrigin(request)) return NextResponse.json({ error: "অবৈধ অনুরোধ।" }, { status: 403 });
   const { user, supabase } = ctx;
 
   let body: z.infer<typeof deleteSchema>;

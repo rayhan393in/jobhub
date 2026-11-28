@@ -1,9 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getCurrentUser } from "@/lib/auth";
-import { can } from "@/lib/permissions";
 import { getServerClient } from "@/lib/supabase/server";
-import { fromDbError } from "@/lib/api";
+import { fromDbError, assertSameOrigin, requireApiPermission } from "@/lib/api";
 import { parseCsvRows } from "@/lib/routines/parse";
 
 export const dynamic = "force-dynamic";
@@ -61,16 +59,10 @@ const bodySchema = z.discriminatedUnion("action", [
 ]);
 
 export async function POST(request: Request) {
-  const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "লগইন প্রয়োজন।" }, { status: 401 });
-  if (!can(user.role, "question.import")) {
-    return NextResponse.json({ error: "প্রশ্ন-বিশ্লেষণ যোগ করার অনুমতি নেই।" }, { status: 403 });
-  }
-  const origin = request.headers.get("origin");
-  const host = request.headers.get("host");
-  if (origin && host && new URL(origin).host !== host) {
-    return NextResponse.json({ error: "অবৈধ অনুরোধ।" }, { status: 403 });
-  }
+  const guard = await requireApiPermission("question.import");
+  if ("error" in guard) return guard.error;
+  const { user } = guard;
+  if (!assertSameOrigin(request)) return NextResponse.json({ error: "অবৈধ অনুরোধ।" }, { status: 403 });
 
   let body: z.infer<typeof bodySchema>;
   try {
@@ -200,11 +192,9 @@ const csvSchema = z.object({
 });
 
 export async function PUT(request: Request) {
-  const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "লগইন প্রয়োজন।" }, { status: 401 });
-  if (!can(user.role, "question.import")) {
-    return NextResponse.json({ error: "অনুমতি নেই।" }, { status: 403 });
-  }
+  const guard = await requireApiPermission("question.import");
+  if ("error" in guard) return guard.error;
+  const { user } = guard;
 
   let body: z.infer<typeof csvSchema>;
   try {

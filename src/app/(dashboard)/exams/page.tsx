@@ -14,9 +14,10 @@ export default async function ExamsPage() {
   if (!user) redirect("/login");
 
   const [schedules, courses] = await Promise.all([
-    // The full 60-day BCS + 30-day Petrobangla plans publish every daily live
-    // exam up front — the list must hold the whole season, not just 80 rows.
-    listPublishedSchedules({ userId: user.id, limit: 250 }),
+    // The 90-day BCS plan publishes a daily live exam per day, and each course
+    // keeps its own season, so the cap has to hold the whole set — otherwise a
+    // running exam from a later part of the plan silently falls off the list.
+    listPublishedSchedules({ userId: user.id, limit: 1000 }),
     listCourses(),
   ]);
 

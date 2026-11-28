@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "@fontsource-variable/inter";
 import "@fontsource-variable/anek-bangla";
+import "@fontsource-variable/noto-sans-bengali";
 import "./globals.css";
 import { ToastProvider } from "@/components/ui/toast";
 import { themeScript } from "@/components/ui/theme-toggle";

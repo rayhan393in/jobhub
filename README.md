@@ -12,14 +12,18 @@ is deliberate, see [Content is under editorial review](#content-is-under-editori
 
 ## Stack
 
-| Layer    | Choice                                                    |
-| -------- | --------------------------------------------------------- |
-| App      | Next.js 16 (App Router, Turbopack), React 19, TypeScript   |
-| Styling  | Tailwind CSS 4, custom design tokens                       |
-| Data     | Supabase Postgres 17 — RLS, 23 `security definer` functions |
-| Auth     | Supabase Auth (email + password, confirmation required)    |
-| Tests    | Vitest 5 + PGlite (real Postgres in-process), 72 tests     |
-| Hosting  | Vercel (region `sin1`)                                     |
+| Layer    | Choice                                                      |
+| -------- | ----------------------------------------------------------- |
+| App      | Next.js 16 (App Router, Turbopack), React 19, TypeScript     |
+| Styling  | Tailwind CSS 4, custom design tokens                         |
+| Data     | Supabase Postgres 17 — RLS on 39 tables, 51 `jh_*` functions |
+| Auth     | Supabase Auth (email + password, confirmation required)      |
+| Tests    | Vitest 5 + PGlite (real Postgres in-process), 347 tests      |
+| Hosting  | Vercel (region `sin1`)                                       |
+
+> These counts are checked by the test suite (`tests/db/schema.test.ts`) and by
+> `grep -c "create policy" supabase/migrations/*.sql`; update them when the
+> schema grows rather than trusting this table.
 
 ## Local development
 
@@ -35,7 +39,7 @@ Verification commands:
 ```bash
 npm run typecheck   # tsc --noEmit
 npm run lint        # eslint
-npm test            # 72 tests: schema, RLS, exam engine, unit
+npm test            # 347 tests: schema, RLS, exam engine, unit
 npm run check       # all three
 npm run build       # production build (auto-applies migrations if configured)
 ```
@@ -47,14 +51,44 @@ policies and the exam engine are verified without touching Supabase.
 
 Migrations live in `supabase/migrations/` and are applied in filename order:
 
-| File                    | Contents                                            |
-| ----------------------- | --------------------------------------------------- |
-| `..._schema.sql`        | 22 tables, enums, checks, indexes                   |
-| `..._rls.sql`           | RLS enablement and 51 policies                      |
-| `..._functions.sql`     | 23 `security definer` RPCs (exam engine, admin ops) |
-| `..._seed_catalogue.sql`| 8 courses, 25 subjects, 227 topics, 146 subtopics   |
-| `..._seed_content.sql`  | 48 editorial sample questions (all `pending_review`) |
-| `..._demo_bootstrap.sql`| `jh_bootstrap_super_admin(email)` — operator only    |
+28 files, applied in filename order (the first six are the original core; the
+rest add taxonomy, exam structure, study plans, written exams and analytics):
+
+| File                    | Contents                                             |
+| ----------------------- | ---------------------------------------------------- |
+| `..._schema.sql`        | core tables, enums, checks, indexes, guard triggers  |
+| `..._rls.sql`           | RLS enablement and the base policy set               |
+| `..._functions.sql`     | `security definer` RPCs (exam engine, admin ops)     |
+| `..._seed_catalogue.sql`| 8 courses, 25 subjects, 227 topics, 146 subtopics    |
+| `..._seed_content.sql`  | 48 editorial sample questions (all `pending_review`)  |
+| `..._demo_bootstrap.sql`| `jh_bootstrap_super_admin(email)` — operator only     |
+
+Totals across all 29 migrations: **39 tables, 92 RLS policies, 51 `jh_*`
+functions**. `..._function_privilege_lockdown.sql` is the one to read before
+adding an RPC — it fixes the set of functions `anon` may execute, and
+`tests/db/schema.test.ts` fails if a later migration widens it.
+
+### Adding an RPC: the anon rule
+
+Postgres grants `EXECUTE` to `PUBLIC` on every new function, and `ALTER DEFAULT
+PRIVILEGES ... REVOKE ... FROM PUBLIC` cannot remove that built-in default.
+`postgres` is not a superuser on Supabase, so a migration cannot install an
+event trigger to close it either. **A new function is therefore anon-callable
+until its own migration revokes it** — this is exactly how `jh_my_rank` and
+`jh_course_taxonomy` leaked anon access in `20261212000000`, fixed by
+`20261213000000_anon_execute_lockdown_followup.sql`.
+
+So every new `jh_*` function must end its migration with:
+
+```sql
+revoke execute on function public.<fn>(<args>) from public, anon;
+grant  execute on function public.<fn>(<args>) to authenticated;  -- + service_role only if needed
+```
+
+Only `jh_public_question_count` and `jh_admin_seat_available` may stay anon
+callable (marketing stats and the first-admin seat check). If you add a
+deliberately public one, add it to the allowlist in `tests/db/schema.test.ts`
+and to the README, or CI fails.
 
 Apply them with the versioned runner:
 
@@ -70,6 +104,42 @@ with `--skip`, so a build without database credentials still succeeds.
 
 In CI/hosting, set the same value as `SUPABASE_DB_URL`. The credentials to use are
 under **Supabase → Project Settings → Database → Connection pooling**.
+
+### Large migrations and the SQL editor
+
+`20261214000000_bcs_preliminary_taxonomy.sql` (113 KB) **must run as one
+transaction** — it stages the syllabus in `on commit drop` temp tables, so
+splitting it into pasted fragments loses the seed between statements, and the
+Supabase SQL editor caps a single statement at a few tens of KB anyway. Use the
+runner:
+
+```bash
+SUPABASE_DB_URL=... npm run db:migrate      # idempotent, records checksums
+```
+
+If `schema_migrations` holds pre-edit bytes for an older file, the runner stops
+with `edited after it was applied:` — that is intentional.
+`20261217000000_checksum_drift_repair.sql` re-applies the exact repo behaviour
+of the two files that were edited after being applied live and re-syncs their
+recorded checksums, so a normal `npm run db:migrate` then works unchanged.
+
+### BCS syllabus and marks
+
+- `20261214000000_bcs_preliminary_taxonomy.sql` — the official BCS Preliminary
+  outline: 10 subjects (marks = `subjects.weight`, 200 total), **55 topics**,
+  **504 subtopics** (one row each, `metadata.priority` = P1/P2/P3), 138 legacy
+  topics remapped by hand (`gen/map.json`), the rest archived with
+  `is_active = false` — nothing deleted, every question keeps an ACTIVE topic.
+  One first-study assignment per subtopic. Idempotent.
+- `gen/` holds the syllabus data (`data_a/b/c.py`) and the renderer
+  (`python3 gen/render.py`) that regenerate the migration — edit the data, never
+  the generated SQL.
+- `20261215000000_exam_marks_distribution.sql` — the marks section: one row per
+  course stage/paper (`exam_marks`), seeded with **verified** figures only
+  (BCS prelim 200 / written 900 → 1200 / viva 200; প্রাথমিক 80 + 20 viva; NTRCA
+  100 + 100). Courses without a verified circular keep no rows on purpose.
+- Public page: `/syllabus` and `/syllabus/<course-slug>`. Admin editor:
+  `/admin/marks` (`taxonomy.manage`), API `PUT /api/admin/marks`.
 
 ## First administrator
 
@@ -108,6 +178,11 @@ Operators with database access can still promote out of band:
 select public.jh_bootstrap_super_admin('you@example.com');
 ```
 
+`jh_bootstrap_super_admin` is **operator-only**: no application role may execute
+it (`20261216000000_bootstrap_admin_lockdown.sql` closes the hole where the
+`jh_*` lockdown loop had re-granted it to `authenticated`, letting any signed-in
+student promote themselves through `/rest/v1/rpc`).
+
 Never auto-promote the first sign-up: that is a privilege-escalation hole.
 
 ## Roles
@@ -121,6 +196,30 @@ Never auto-promote the first sign-up: that is a privilege-escalation hole.
 
 Permissions are defined once in `src/lib/permission-matrix.ts` (pure, unit-tested
 for monotonicity) and re-exported by the server-only `src/lib/permissions.ts`.
+
+**There are exactly two authorization entry points.** Use the one that matches
+the caller's failure mode; do not hand-roll a third.
+
+| Context        | Guard                                  | On failure                   |
+| -------------- | -------------------------------------- | ---------------------------- |
+| API route      | `requireApiPermission(perm)` — `@/lib/api` | returns a 401/403 `NextResponse` |
+| Page / layout  | `requirePermission(perm)` — `@/lib/permissions` | `redirect()` to `/admin?denied=…` |
+
+```ts
+// route handler
+const gate = await requireApiPermission("settings.manage");
+if ("error" in gate) return gate.error;
+// gate.user is typed and authorized from here on
+
+// mutating handler: also reject cross-site form posts
+if (!assertSameOrigin(request)) return fail("অবৈধ অনুরোধ।", 403);
+```
+
+`requireApiPermission` and `assertSameOrigin` are covered by
+`tests/unit/api-guards.test.ts` — including that a malformed `Origin` header
+fails closed with a 403 rather than throwing. `assertSameOrigin` is the only
+implementation; it fixes a `TypeError: Invalid URL` that 23 inlined copies of the
+same check used to throw (turning a 403 into a 500).
 
 ## Exam engine
 
@@ -167,11 +266,17 @@ project builds every branch as a **preview**; production is `main`.
 
 Environment variables (Vercel → Project → Settings → Environment Variables):
 
-| Variable                        | Notes                                    |
-| ------------------------------- | ---------------------------------------- |
-| `NEXT_PUBLIC_SUPABASE_URL`      | `https://<ref>.supabase.co`              |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | safe for the browser                     |
-| `SUPABASE_DB_URL`               | **secret**, used by the build-time migrator |
+| Variable                        | Required | Notes                                                      |
+| ------------------------------- | -------- | ---------------------------------------------------------- |
+| `NEXT_PUBLIC_SUPABASE_URL`      | yes      | `https://<ref>.supabase.co`                                |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | yes      | safe for the browser                                       |
+| `SUPABASE_SERVICE_ROLE_KEY`     | for uploads / maintenance | **secret**, bypasses RLS. Needed by written-exam uploads (`assertServerEnv`) and service-role admin reads |
+| `SUPABASE_DB_URL`               | no       | **secret**, used by the build-time migrator                |
+| `GEMINI_API_KEY`                | no       | enables `/admin/ai`; `/api/admin/ai-generate` returns 503 with a setup hint when missing |
+| `NEXT_PUBLIC_SITE_URL`          | no       | canonical URL for metadata and auth redirects              |
+
+The AI drafting tool is optional: without `GEMINI_API_KEY` the route fails
+cleanly with a Bangla setup message rather than a 500.
 
 Post-deploy check:
 
@@ -181,7 +286,7 @@ npm run smoke -- https://your-preview.vercel.app
 
 The sandbox in which this was built has no outbound access to Vercel or
 Supabase, so the preview was verified through the hosting APIs instead:
-migrations applied (counts above), 22 RLS tables / 51 policies / 23 functions
+migrations applied (counts above), 39 RLS tables / 92 policies / 51 functions
 present, `anon` denied on `jh_bootstrap_super_admin`, and every branch build
 producing a **preview** (`target: null`) — `main` is untouched.
 
