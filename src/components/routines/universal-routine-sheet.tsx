@@ -17,7 +17,20 @@
  */
 
 import * as React from "react";
-import { BookOpen, Check, ChevronLeft, ChevronRight, RotateCcw, Target } from "lucide-react";
+import {
+  BookOpen,
+  CalendarCheck,
+  CalendarDays,
+  CalendarRange,
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  GitBranch,
+  Layers,
+  RotateCcw,
+  Target,
+  TrendingUp,
+} from "lucide-react";
 import { formatDate } from "@/lib/format";
 import { PHASES, phaseForDay, type RoutineLineInput } from "@/lib/routine-day-lines";
 import { priorityOf, type PriorityDef, type PriorityKey } from "@/lib/routine-priorities";
@@ -32,14 +45,6 @@ const PLATE: Record<PriorityKey, { accent: string; tint: string; rule: string; b
   p3: { accent: "var(--p3-ink)", tint: "var(--p3-tint)", rule: "var(--p3-rule)", badge: "var(--p3-badge)" },
   p4: { accent: "var(--p4-ink)", tint: "var(--p4-tint)", rule: "var(--p4-rule)", badge: "var(--p4-badge)" },
 };
-
-/** Accent per marks item, in the order the bar shows them. */
-const MARKS_ACCENTS = [
-  { ink: "var(--p1-ink)", rule: "var(--p1-rule)" },
-  { ink: "var(--p2-ink)", rule: "var(--p2-rule)" },
-  { ink: "var(--p3-ink)", rule: "var(--p3-rule)" },
-  { ink: "var(--p4-ink)", rule: "var(--p4-rule)" },
-];
 
 export type SheetDay = {
   date: string;
@@ -108,12 +113,20 @@ function plateFor(rows: RoutineLineInput[], key: PriorityKey, priorities: Priori
   return { subject, topics, note: notes.length > 0 ? notes.join(" · ") : null };
 }
 
-/** The area an exam paper type implies — the small tag on each plate. */
-function workTone(rows: RoutineLineInput[], key: PriorityKey): { label: string; icon: React.ReactNode } {
-  const kinds = new Set(rows.filter((row) => row.slot_label).map((row) => row.task_kind));
-  if (key === "p1" || kinds.has("study")) return { label: "মূল অধ্যয়ন", icon: <BookOpen className="size-3" aria-hidden /> };
+/**
+ * The small tag on each plate, describing the kind of work in *that plate*.
+ *
+ * It must be scoped to the plate's own rows: reading the whole day's rows made
+ * every plate say "মূল অধ্যয়ন" whenever any row that day was study, so a
+ * revision plate was labelled as first study — visibly wrong next to its green
+ * "রিভিশন" accent.
+ */
+function workTone(rows: RoutineLineInput[]): { label: string; icon: React.ReactNode } {
+  const kinds = new Set(rows.map((row) => row.task_kind));
   if (kinds.has("revision")) return { label: "রিভিশন", icon: <RotateCcw className="size-3" aria-hidden /> };
-  return { label: "অনুশীলন", icon: <Target className="size-3" aria-hidden /> };
+  if (kinds.has("practice")) return { label: "অনুশীলন", icon: <Target className="size-3" aria-hidden /> };
+  if (kinds.has("exam")) return { label: "পরীক্ষা", icon: <Target className="size-3" aria-hidden /> };
+  return { label: "মূল অধ্যয়ন", icon: <BookOpen className="size-3" aria-hidden /> };
 }
 
 export function UniversalRoutineSheet({
@@ -225,42 +238,76 @@ export function UniversalRoutineSheet({
       {/* ── overview strip ───────────────────────────────────────────────── */}
       <section aria-label="রুটিন সারসংক্ষেপ" className="space-y-3">
         <div className="flex flex-col gap-3 lg:flex-row">
-          <div className="flex items-center gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3 lg:w-[15rem] lg:shrink-0">
+          {/* current day — the one card that answers "where am I?" */}
+          <div className="flex items-center gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3 lg:w-[16.5rem] lg:shrink-0">
             <span
-              className="flex size-10 shrink-0 items-center justify-center rounded-full"
+              className="flex size-11 shrink-0 items-center justify-center rounded-full"
               style={{ backgroundColor: "var(--p1-tint)" }}
             >
-              <Target className="size-5" style={{ color: "var(--p1-rule)" }} aria-hidden />
+              <Target className="size-[1.375rem]" style={{ color: "var(--p1-rule)" }} aria-hidden />
             </span>
             <div className="min-w-0">
-              <p className="text-[0.75rem] font-medium text-[var(--text-muted)]">বর্তমান দিন</p>
-              <p className="jh-nums text-[1.0rem] font-bold leading-tight text-[var(--text)]">
+              <div className="flex flex-wrap items-center gap-1.5">
+                <p className="text-[0.75rem] font-semibold text-[var(--text-muted)]">বর্তমান দিন</p>
+                <StatusPill status={course.status} percent={percent} />
+              </div>
+              <p className="jh-nums text-[1.1875rem] font-extrabold leading-tight text-[var(--text)]">
                 Day {bn(activeDay?.day_number ?? 1)} / {bn(totalDays)}
               </p>
-              <p className="jh-nums text-[0.6875rem] text-[var(--text-muted)]">
+              <p className="jh-nums text-[0.75rem] font-medium text-[var(--text-muted)]">
                 {activeDay ? `${longDate(activeDay.date)}, ${weekday(activeDay.date)}` : "—"}
               </p>
             </div>
           </div>
 
-          <div className="grid flex-1 grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
-            <Stat label="মোট সময়কাল" value={`${bn(totalDays)} দিন`} icon={<Target className="size-4" aria-hidden />} />
-            <Stat label="শুরুর তারিখ" value={startDate ? longDate(startDate) : "—"} icon={<Target className="size-4" aria-hidden />} />
-            <Stat label="শেষ তারিখ" value={endDate ? longDate(endDate) : "—"} icon={<Target className="size-4" aria-hidden />} />
+          {/* the four facts + progress, as one card with rules between columns,
+              matching the approved figure rather than five loose boxes */}
+          <div className="grid flex-1 grid-cols-2 overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--surface)] sm:grid-cols-3 xl:grid-cols-5">
+            <Stat
+              label="মোট সময়কাল"
+              value={`${bn(totalDays)} দিন`}
+              icon={<CalendarRange className="size-[1.125rem]" aria-hidden />}
+              tone="p1"
+            />
+            <Stat
+              label="শুরুর তারিখ"
+              value={startDate ? longDate(startDate) : "—"}
+              icon={<CalendarDays className="size-[1.125rem]" aria-hidden />}
+              tone="p1"
+            />
+            <Stat
+              label="শেষ তারিখ"
+              value={endDate ? longDate(endDate) : "—"}
+              icon={<CalendarCheck className="size-[1.125rem]" aria-hidden />}
+              tone="p1"
+            />
             <Stat
               label="মোট Subject"
               value={`${bn(uniqueSubjects(course))} টি`}
-              icon={<Target className="size-4" aria-hidden />}
+              icon={<Layers className="size-[1.125rem]" aria-hidden />}
+              tone="p2"
             />
             <Stat
               label="পর্যায়"
               value={phase ? `Phase ${bn(PHASES.indexOf(phase) + 1)}` : "—"}
-              icon={<Target className="size-4" aria-hidden />}
+              icon={<GitBranch className="size-[1.125rem]" aria-hidden />}
+              tone="p3"
             />
-            <div className="col-span-2 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3 sm:col-span-1 xl:col-span-1">
-              <p className="text-[0.75rem] font-medium text-[var(--text-muted)]">সামগ্রিক অগ্রগতি</p>
+
+            {/* progress spans the full width on small screens so the bar stays
+                readable instead of being squeezed into a half column */}
+            <div className="col-span-2 border-t border-[var(--border)] px-4 py-3 sm:col-span-3 xl:col-span-5">
+              <div className="flex items-baseline justify-between gap-3">
+                <p className="flex items-center gap-2 text-[0.75rem] font-semibold text-[var(--text-muted)]">
+                  <TrendingUp className="size-[1.125rem] shrink-0" style={{ color: "var(--p4-rule)" }} aria-hidden />
+                  সামগ্রিক অগ্রগতি
+                </p>
+                <p className="jh-nums text-[0.8125rem] font-extrabold" style={{ color: "var(--done-ink)" }}>
+                  {bn(percent)}%
+                </p>
+              </div>
               <div
-                className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-[var(--surface-sunken)]"
+                className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-[var(--surface-sunken)]"
                 role="progressbar"
                 aria-valuenow={percent}
                 aria-valuemin={0}
@@ -272,8 +319,8 @@ export function UniversalRoutineSheet({
                   style={{ backgroundColor: "var(--done-ink)", width: `${percent}%` }}
                 />
               </div>
-              <p className="jh-nums mt-1 text-[0.6875rem] font-semibold text-[var(--text-muted)]">
-                {bn(percent)}% সম্পন্ন ({bn(completed)}/{bn(totalDays)} দিন)
+              <p className="jh-nums mt-1 text-[0.75rem] font-semibold text-[var(--text)]">
+                {bn(completed)}/{bn(totalDays)} দিন সম্পন্ন
               </p>
             </div>
           </div>
@@ -363,7 +410,11 @@ export function UniversalRoutineSheet({
               const plate = plateFor(activeDay.rows, priority.key, priorities);
               if (!plate) return null;
               const tone = PLATE[priority.key];
-              const work = workTone(activeDay.rows, priority.key);
+              const work = workTone(
+                activeDay.rows.filter(
+                  (row) => priorityOf(row.slot_label ?? null, priorities) === priority.key,
+                ),
+              );
               return (
                 <div
                   key={priority.key}
@@ -539,48 +590,102 @@ function ExamInstructionBar({ marks }: { marks: SheetMarks }) {
   return (
     <section
       aria-label="আজকের পরীক্ষার নির্দেশনা — নম্বর বিভাজন"
-      className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2"
+      className="flex flex-col gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-2 sm:flex-row sm:items-stretch"
     >
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-        <h2
-          className="flex shrink-0 items-center gap-1.5 rounded-md px-2.5 py-1.5 text-[0.8125rem] font-bold text-white"
-          style={{ backgroundColor: NAVY }}
-        >
-          <Target className="size-3.5" aria-hidden />
-          আজকের পরীক্ষার নির্দেশনা
-        </h2>
+      <h2
+        className="flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-[0.8125rem] font-bold leading-tight text-white sm:max-w-[10rem]"
+        style={{ backgroundColor: NAVY }}
+      >
+        <Target className="size-4 shrink-0" aria-hidden />
+        আজকের পরীক্ষার নির্দেশনা
+      </h2>
 
-        <dl className="grid flex-1 grid-cols-2 gap-x-3 gap-y-1.5 sm:grid-cols-4">
-          {marks.items.map((item, index) => {
-            const accent = MARKS_ACCENTS[index % MARKS_ACCENTS.length];
-            return (
-              <div key={item.label} className="flex items-baseline gap-1.5">
-                <span
-                  className="h-4 w-1 shrink-0 rounded"
-                  style={{ backgroundColor: accent.rule }}
-                  aria-hidden
-                />
-                <dt className="text-[0.8125rem] font-semibold text-[var(--text)]">
-                  {item.label}: <span className="jh-nums">{bnMarks(item.marks)}</span> নম্বর
-                </dt>
-                <dd className="sr-only">{bnMarks(item.marks)}</dd>
-              </div>
-            );
-          })}
-        </dl>
-      </div>
+      {/* Four items, each in its own accent colour. The value is bold and the
+          label bold-ish, so the bar reads at a glance instead of as grey text —
+          the approved figure's whole point. Explicit borders rather than
+          divide-x, because the column count changes between 2 and 4. */}
+      <dl className="grid flex-1 grid-cols-2 sm:grid-cols-4">
+        {marks.items.map((item, index) => {
+          const tone = PLATE[(Object.keys(PLATE) as PriorityKey[])[index % 4]];
+          return (
+            <div
+              key={item.label}
+              className="flex items-center gap-2 border-[var(--border)] px-3 py-1.5 [&:nth-child(n+3)]:border-t sm:[&:nth-child(n+3)]:border-t-0 sm:[&:not(:first-child)]:border-l"
+            >
+              <span
+                className="h-5 w-1 shrink-0 rounded-full"
+                style={{ backgroundColor: tone.rule }}
+                aria-hidden
+              />
+              <dt className="min-w-0 text-[0.8125rem] font-semibold leading-tight" style={{ color: "var(--text)" }}>
+                <span style={{ color: tone.accent }}>{item.label}</span>
+                {": "}
+                <span className="jh-nums font-extrabold" style={{ color: tone.accent }}>
+                  {bnMarks(item.marks)}
+                </span>{" "}
+                নম্বর
+              </dt>
+              <dd className="sr-only">{bnMarks(item.marks)}</dd>
+            </div>
+          );
+        })}
+      </dl>
     </section>
   );
 }
 
-function Stat({ label, value, icon }: { label: string; value: string; icon: React.ReactNode }) {
+/**
+ * Routine status badge. Colour is the signal — green for active, grey-green once
+ * finished, amber for a plan that has not started — so a student can tell the
+ * routine's state at a glance without reading the dates.
+ */
+function StatusPill({ status, percent }: { status?: string | null; percent: number }) {
+  const finished = percent >= 100;
+  const active = (status ?? "active") === "active";
+  const label = finished ? "সম্পন্ন" : active ? "সক্রিয় রুটিন" : "ড্রাফট";
+  const palette = finished
+    ? { fg: "var(--p3-ink)", bg: "var(--p3-tint)", dot: "var(--p3-rule)" }
+    : active
+      ? { fg: "var(--done-ink)", bg: "#e7f6ee", dot: "var(--done-ink)" }
+      : { fg: "var(--p2-ink)", bg: "var(--p2-tint)", dot: "var(--p2-rule)" };
+
   return (
-    <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-3">
-      <div className="flex items-center gap-1.5 text-[var(--p1-rule)]" aria-hidden>
+    <span
+      className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[0.625rem] font-bold"
+      style={{ backgroundColor: palette.bg, color: palette.fg }}
+    >
+      <span className="size-1.5 rounded-full" style={{ backgroundColor: palette.dot }} aria-hidden />
+      {label}
+    </span>
+  );
+}
+
+function Stat({
+  label,
+  value,
+  icon,
+  tone,
+}: {
+  label: string;
+  value: string;
+  icon: React.ReactNode;
+  tone: PriorityKey;
+}) {
+  const palette = PLATE[tone];
+  return (
+    <div className="flex items-start gap-2.5 border-b border-r border-[var(--border)] px-3.5 py-3">
+      <span
+        className="flex size-8 shrink-0 items-center justify-center rounded-lg"
+        style={{ backgroundColor: palette.tint, color: palette.rule }}
+      >
         {icon}
+      </span>
+      <div className="min-w-0">
+        <p className="text-[0.6875rem] font-semibold leading-tight text-[var(--text-muted)]">{label}</p>
+        <p className="jh-nums mt-0.5 text-[0.9375rem] font-extrabold leading-tight text-[var(--text)]">
+          {value}
+        </p>
       </div>
-      <p className="mt-0.5 text-[0.6875rem] font-medium leading-tight text-[var(--text-muted)]">{label}</p>
-      <p className="jh-nums text-[0.875rem] font-bold leading-tight text-[var(--text)]">{value}</p>
     </div>
   );
 }
