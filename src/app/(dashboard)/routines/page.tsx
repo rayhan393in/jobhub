@@ -9,7 +9,8 @@ import { StudyPlanner } from "@/components/routines/study-planner";
 import { WeeklyPlanner } from "@/components/routines/weekly-planner";
 import { RecommendationsPanel } from "@/components/routines/recommendations-panel";
 import { UniversalRoutineSheet, type SheetCourse } from "@/components/routines/universal-routine-sheet";
-import { CourseSelector, type CourseOption } from "@/components/routines/course-selector";
+import { type CourseOption } from "@/components/routines/course-selector";
+import { CourseSwitcher } from "@/components/routines/course-switcher";
 import { resolvePriorities } from "@/lib/routine-priorities";
 import { resolvePriorityMarks } from "@/lib/routine-marks";
 import { getCurrentUser } from "@/lib/auth";
@@ -295,24 +296,16 @@ export default async function RoutinesPage({
           </div>
         </div>
 
-        {/* searchable, database-driven course selector */}
-        <div className="max-w-md">
-          <CourseSelector
-            courses={courseOptions.map((option) => ({
-              ...option,
-              enrolled: enrolledIds.has(option.id),
-            }))}
-            value={selectedSheet?.id ?? ""}
-            onChange={(courseId) => {
-              // Re-run the page with the chosen course; all per-course data
-              // (routine, marks, priorities, progress, history) reloads server
-              // side so two courses can never share state on screen.
-              const url = new URL(window.location.href);
-              url.searchParams.set("course", courseId);
-              window.location.assign(url.toString());
-            }}
-          />
-        </div>
+        {/* Searchable, database-driven course selector. The switching logic
+            lives in a client component: this file is a Server Component, so an
+            inline onChange here would throw at request time. */}
+        <CourseSwitcher
+          courses={courseOptions.map((option) => ({
+            ...option,
+            enrolled: enrolledIds.has(option.id),
+          }))}
+          value={selectedSheet?.id ?? ""}
+        />
 
         {selectedSheet ? (
           <UniversalRoutineSheet
