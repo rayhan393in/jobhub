@@ -166,6 +166,22 @@ migration's `t.subject_id = m.subject_id` predicate drops exactly those, which
 is why the count is 669 and not 642. Re-running the rules over the remaining
 nulls therefore changes nothing; closing this gap needs new rules, not a rerun.
 
+### A note on this file
+
+`20261219000000_bcs_taxonomy_unify.sql` was applied to production, so it is now
+immutable — `scripts/migrate.mjs` fingerprints every applied migration and
+refuses to start when the file changes, even in a comment. Correcting the
+header's expected counts here therefore broke a production build:
+
+```
+[migrate] edited after it was applied: 20261219000000_bcs_taxonomy_unify.sql
+[migrate] Refusing to continue. Every migration must be immutable once applied.
+```
+
+The file was restored byte-for-byte; the corrected counts live in this document
+and in `gen/taxonomy-v4/README.md`. If the migration ever needs a real change,
+it is a new file, not an edit to this one.
+
 ## 8. Adding a question now
 
 The tree is one subject → topic → subtopic path with no retired shadow behind
